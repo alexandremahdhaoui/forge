@@ -120,21 +120,35 @@ test:
 				t.Errorf("parseEngine(%q) command = %q, want %q", tc.engineURI, gotCmd, tc.wantCmd)
 			}
 
-			// Verify args contain "run"
-			if len(gotArgs) < 1 || gotArgs[0] != "run" {
-				t.Errorf("parseEngine(%q) args = %v, want first arg to be 'run'", tc.engineURI, gotArgs)
+			// Verify args contain "run" (may be at index 0 or after -C flag)
+			runIndex := -1
+			for i, arg := range gotArgs {
+				if arg == "run" {
+					runIndex = i
+					break
+				}
+			}
+			if runIndex == -1 {
+				t.Errorf("parseEngine(%q) args = %v, want 'run' argument", tc.engineURI, gotArgs)
 			}
 
-			// Verify args contain forge package path
-			if len(gotArgs) < 2 {
-				t.Errorf("parseEngine(%q) args = %v, want at least 2 args", tc.engineURI, gotArgs)
-			} else {
+			// If using -C flag, verify it comes before "run"
+			if len(gotArgs) >= 2 && gotArgs[0] == "-C" {
+				if runIndex < 2 {
+					t.Errorf("parseEngine(%q) args = %v, want 'run' after -C flag", tc.engineURI, gotArgs)
+				}
+			}
+
+			// Verify args contain forge package path after "run"
+			if runIndex >= 0 && runIndex+1 < len(gotArgs) {
 				// Args should be like ["run", "github.com/alexandremahdhaoui/forge/cmd/go-build"]
-				// or ["run", "/path/to/forge/cmd/go-build"]
-				packagePath := gotArgs[1]
+				// or ["-C", "/path/to/forge", "run", "./cmd/go-build"]
+				packagePath := gotArgs[runIndex+1]
 				if packagePath == "" {
 					t.Errorf("parseEngine(%q) package path is empty", tc.engineURI)
 				}
+			} else if runIndex >= 0 {
+				t.Errorf("parseEngine(%q) args = %v, want package path after 'run'", tc.engineURI, gotArgs)
 			}
 
 			t.Logf("parseEngine(%q) -> command=%s, args=%v", tc.engineURI, gotCmd, gotArgs)

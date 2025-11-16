@@ -44,13 +44,19 @@ func RunCmdWithStdPipes(cmd *exec.Cmd) error {
 		}
 	}()
 
-	if err := cmd.Run(); err != nil {
+	// Start the command (don't use Run() as it closes pipes before goroutines finish)
+	if err := cmd.Start(); err != nil {
 		return err
 	}
 
-	// Wait for goroutines to finish
+	// Wait for goroutines to finish reading from pipes
 	wg.Wait()
 	close(errChan)
+
+	// Now wait for command to complete
+	if err := cmd.Wait(); err != nil {
+		return err
+	}
 
 	// Check for errors from goroutines
 	for err := range errChan {

@@ -199,7 +199,8 @@ func buildWithSingleEngine(
 		clonedSpec["buildDir"] = dirs.BuildDir
 		clonedSpec["rootDir"] = dirs.RootDir
 
-		// Inject engine-specific config if provided
+		// Inject engine-specific config if provided (from alias)
+		// For generic engines, promote spec fields to top level for backward compatibility
 		if engineConfig != nil && engineConfig.Type == forge.BuilderEngineConfigType && len(engineConfig.Builder) > 0 {
 			builderSpec := engineConfig.Builder[0].Spec
 			if builderSpec.Command != "" {
@@ -216,6 +217,23 @@ func buildWithSingleEngine(
 			}
 			if builderSpec.WorkDir != "" {
 				clonedSpec["workDir"] = builderSpec.WorkDir
+			}
+		} else if nestedSpec, ok := spec["spec"].(map[string]interface{}); ok {
+			// For direct engine invocations (not aliases), promote spec fields to top level
+			// if the engine is generic-builder or generic-test-runner
+			// This allows using spec: {command: "..."} in forge.yaml
+			if engineURI, ok := spec["engine"].(string); ok {
+				if engineURI == "go://generic-builder" || engineURI == "go://generic-test-runner" {
+					// Promote spec fields to top level for generic engines
+					for k, v := range nestedSpec {
+						// Don't overwrite existing top-level fields
+						if _, exists := clonedSpec[k]; !exists {
+							clonedSpec[k] = v
+						}
+					}
+					// Remove the nested spec field after promoting
+					delete(clonedSpec, "spec")
+				}
 			}
 		}
 

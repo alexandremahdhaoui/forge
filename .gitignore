@@ -31,3 +31,4 @@ tmp/
 /forge-e2e
 /build-container
 /container-build
+/go-gen-openapi

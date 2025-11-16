@@ -723,7 +723,7 @@ build:
 - Creates both client and server stubs
 - Version-aware generation
 
-**Usage:** See `generateOpenAPI` section in forge.yaml schema
+**Usage:** See [go-gen-openapi MCP documentation](../cmd/go-gen-openapi/MCP.md) and [migration guide](migration-go-gen-openapi.md)
 
 **When to use:** For projects using OpenAPI/Swagger specifications.
 

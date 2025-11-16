@@ -147,8 +147,8 @@ func handleBuild(
 
 	executable := fmt.Sprintf("go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@%s", oapiCodegenVersion)
 
-	// Call existing generation logic
-	if err := doGenerate(executable, *config); err != nil {
+	// Call existing generation logic, passing RootDir for relative path resolution
+	if err := doGenerate(executable, *config, input.RootDir); err != nil {
 		return mcputil.ErrorResult(fmt.Sprintf("Build failed: %v", err)), nil, nil
 	}
 
@@ -168,7 +168,7 @@ func handleBuild(
 	return result, returnedArtifact, nil
 }
 
-func doGenerate(executable string, config forge.GenerateOpenAPIConfig) error {
+func doGenerate(executable string, config forge.GenerateOpenAPIConfig, rootDir string) error {
 	cmdName, args := parseExecutable(executable)
 	errChan := make(chan error, 100) // Buffered to avoid goroutine leaks
 	wg := &sync.WaitGroup{}
@@ -188,7 +188,7 @@ func doGenerate(executable string, config forge.GenerateOpenAPIConfig) error {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if err := generatePackage(cmdName, args, config, i, "", config.Specs[i].Client, clientTemplate, sourcePath); err != nil {
+					if err := generatePackage(cmdName, args, config, i, "", config.Specs[i].Client, clientTemplate, sourcePath, rootDir); err != nil {
 						errChan <- err
 					}
 				}()
@@ -199,7 +199,7 @@ func doGenerate(executable string, config forge.GenerateOpenAPIConfig) error {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if err := generatePackage(cmdName, args, config, i, "", config.Specs[i].Server, serverTemplate, sourcePath); err != nil {
+					if err := generatePackage(cmdName, args, config, i, "", config.Specs[i].Server, serverTemplate, sourcePath, rootDir); err != nil {
 						errChan <- err
 					}
 				}()
@@ -216,7 +216,7 @@ func doGenerate(executable string, config forge.GenerateOpenAPIConfig) error {
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						if err := generatePackage(cmdName, args, config, i, version, config.Specs[i].Client, clientTemplate, sourcePath); err != nil {
+						if err := generatePackage(cmdName, args, config, i, version, config.Specs[i].Client, clientTemplate, sourcePath, rootDir); err != nil {
 							errChan <- err
 						}
 					}()
@@ -227,7 +227,7 @@ func doGenerate(executable string, config forge.GenerateOpenAPIConfig) error {
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						if err := generatePackage(cmdName, args, config, i, version, config.Specs[i].Server, serverTemplate, sourcePath); err != nil {
+						if err := generatePackage(cmdName, args, config, i, version, config.Specs[i].Server, serverTemplate, sourcePath, rootDir); err != nil {
 							errChan <- err
 						}
 					}()
@@ -257,7 +257,7 @@ func doGenerate(executable string, config forge.GenerateOpenAPIConfig) error {
 	return nil
 }
 
-func generatePackage(cmdName string, baseArgs []string, config forge.GenerateOpenAPIConfig, specIndex int, version string, opts forge.GenOpts, template string, sourcePath string) error {
+func generatePackage(cmdName string, baseArgs []string, config forge.GenerateOpenAPIConfig, specIndex int, version string, opts forge.GenOpts, template string, sourcePath string, rootDir string) error {
 	outputPath := templateOutputPath(config, specIndex, opts.PackageName)
 	templatedConfig := fmt.Sprintf(template, opts.PackageName, outputPath)
 
@@ -267,12 +267,25 @@ func generatePackage(cmdName string, baseArgs []string, config forge.GenerateOpe
 	}
 	defer cleanup()
 
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+	// Create output directory, handling both relative and absolute paths
+	// If outputPath is relative and we have a rootDir, resolve it from rootDir
+	actualOutputPath := outputPath
+	if rootDir != "" && !filepath.IsAbs(outputPath) {
+		actualOutputPath = filepath.Join(rootDir, outputPath)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(actualOutputPath), 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
 	args := append(baseArgs, "--config", path, sourcePath)
 	cmd := exec.Command(cmdName, args...)
+
+	// Set working directory to rootDir so relative paths work correctly
+	// rootDir is where forge.yaml is located, making relative paths in spec work
+	if rootDir != "" {
+		cmd.Dir = rootDir
+	}
 
 	if err := util.RunCmdWithStdPipes(cmd); err != nil {
 		return fmt.Errorf("oapi-codegen failed for %s: %w", opts.PackageName, err)
