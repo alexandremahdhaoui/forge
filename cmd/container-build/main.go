@@ -326,15 +326,8 @@ func buildContainerKaniko(
 		return flaterrors.Join(err, errBuildingContainer)
 	}
 
-	// Load the tar into the container engine
+	// Load the tar and get the image ID
 	tarPath := fmt.Sprintf(".ignore.%s.tar", spec.Name)
-	loadCmd := exec.Command(containerRuntime, "load", "-i", tarPath)
-	if err := runCmd(loadCmd, isMCPMode); err != nil {
-		return flaterrors.Join(err, errBuildingContainer)
-	}
-
-	// Tag with version and latest
-	// First, get the image ID from the tar
 	imageID, err := getImageIDFromTar(containerRuntime, tarPath)
 	if err != nil {
 		return flaterrors.Join(err, errBuildingContainer)
