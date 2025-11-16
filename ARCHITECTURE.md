@@ -433,6 +433,120 @@ forge test run unit         # Run tests with go-test
 forge test delete <testID>  # Clean up test environment
 ```
 
+### forge-e2e Test Framework
+
+**Location:** `cmd/forge-e2e/`
+
+**Purpose:** Comprehensive end-to-end test suite for validating the entire forge system including builds, test environments, test runners, and MCP integration.
+
+**Design Pattern:** Test suite with category-based organization, parallel execution support, and shared test environment management.
+
+**Key Features:**
+
+- **Test Categories:** 10 categories (build, testenv, test-runner, prompt, artifact-store, system, error-handling, cleanup, mcp, performance)
+- **Parallel Execution:** Tests can run sequentially or in parallel based on resource requirements
+- **Shared Test Environment:** Reuses a single Kind cluster across tests to reduce setup overhead
+- **Test Filtering:** Filter by category or name pattern via environment variables
+- **Detailed Reporting:** Per-test and per-category statistics with duration tracking
+
+**Test Categories:**
+
+| Category | Description | Example Tests |
+|----------|-------------|---------------|
+| `build` | Build system tests | forge build, container builds |
+| `testenv` | Test environment lifecycle | create, list, get, delete operations |
+| `test-runner` | Test runner integration | unit, integration, lint runners |
+| `prompt` | Prompt system | list, get prompts |
+| `artifact-store` | Artifact store validation | artifact tracking, pruning |
+| `system` | System commands | version, help, error handling |
+| `error-handling` | Error scenarios | invalid IDs, missing resources |
+| `cleanup` | Resource cleanup | teardown verification |
+| `mcp` | MCP protocol | server mode, tool calls |
+| `performance` | Performance validation | parallel builds, large environments |
+
+**Environment Variables:**
+
+```bash
+TEST_CATEGORY=build           # Run only build tests
+TEST_NAME_PATTERN=environment # Run tests matching "environment"
+KIND_BINARY=kind              # Path to kind binary (required for testenv tests)
+CONTAINER_ENGINE=docker       # Container engine (required for container tests)
+SKIP_CLEANUP=1                # Keep resources for debugging
+FORGE_E2E_VERBOSE=1          # Enable verbose output
+```
+
+**Test Execution:**
+
+```bash
+# Run all tests
+forge test e2e run
+
+# Run specific category
+TEST_CATEGORY=build forge test e2e run
+
+# Run with name filter
+TEST_NAME_PATTERN=cluster forge test e2e run
+
+# Debug mode (keeps resources)
+SKIP_CLEANUP=1 KIND_BINARY=kind CONTAINER_ENGINE=docker forge test e2e run
+```
+
+**Architecture:**
+
+```
+forge-e2e
+├── Test Suite Manager
+│   ├── Test Registration (registerAllTests)
+│   ├── Test Filtering (TestFilters)
+│   └── Test Execution (RunAll)
+├── Test Executor
+│   ├── Sequential Execution
+│   └── Parallel Execution (goroutines + sync.WaitGroup)
+├── Environment Manager
+│   ├── Setup (creates shared Kind cluster)
+│   ├── Shared TestEnv (reused across tests)
+│   └── Teardown (cleanup)
+└── Test Reporter
+    ├── Per-test results
+    ├── Category statistics
+    └── Summary report
+```
+
+**Test Report Structure:**
+
+```go
+type DetailedTestReport struct {
+    Status       string                          // "passed" or "failed"
+    Duration     float64                         // Total duration in seconds
+    Total        int                             // Total tests
+    Passed       int                             // Passed tests
+    Failed       int                             // Failed tests
+    Skipped      int                             // Skipped tests
+    Results      []TestResult                    // Per-test results
+    Categories   map[TestCategory]CategoryStats  // Per-category stats
+}
+```
+
+**Shared Environment Strategy:**
+
+1. Check if any tests require testenv (integration, testenv, test-runner categories)
+2. If needed, create single shared Kind cluster during suite setup
+3. All testenv-dependent tests reuse the shared cluster (not parallel)
+4. Teardown shared cluster during suite cleanup (unless SKIP_CLEANUP set)
+
+**Parallel vs Sequential Tests:**
+
+- **Parallel:** Tests that don't share resources (build tests, read-only operations)
+- **Sequential:** Tests using shared testenv, artifact store mutations, resource creation/deletion
+
+**When to Use:**
+
+- **Forge Development:** Run after any code changes to validate the entire system
+- **CI/CD:** Run as final validation before merge/release
+- **Debugging:** Use SKIP_CLEANUP=1 to inspect test resources after failures
+
+**Not for User Projects:** forge-e2e is an internal testing tool for forge development, not a general-purpose test runner for user projects. Users should use `go-test` or other built-in test runners for their own tests.
+
 ## Test Environment Components (testenv-*)
 
 ### testenv-lcr Architecture

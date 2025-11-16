@@ -13,15 +13,15 @@ This document provides a comprehensive reference for all built-in forge tools/en
 
 ## Overview
 
-Forge includes 17 built-in tools/engines organized into categories:
+Forge includes 16 built-in tools/engines organized into categories:
 - **4 Build Engines** - For building binaries and containers
-- **5 Test Runners** - For executing tests
+- **4 Test Runners** - For executing tests
 - **4 Test Environment Tools** - For managing test infrastructure
 - **4 Utility Tools** - For code quality, generation, and management
 
 All tools are MCP servers and can be used directly via their `go://` URI or wrapped in engine aliases for customization.
 
-**Note:** This document covers the 17 built-in engines that forge orchestrates. The forge CLI itself (the 18th tool) is the orchestrator and is documented separately in [forge-usage.md](./forge-usage.md) and [cmd/forge/MCP.md](../cmd/forge/MCP.md).
+**Note:** This document covers the 16 built-in engines that forge orchestrates. The forge CLI itself (the 17th tool) is the orchestrator and is documented separately in [forge-usage.md](./forge-usage.md) and [cmd/forge/MCP.md](../cmd/forge/MCP.md).
 
 ## Build Engines
 
@@ -34,10 +34,14 @@ All tools are MCP servers and can be used directly via their `go://` URI or wrap
 **Features:**
 - Automatic version metadata injection via ldflags
 - Git-based versioning (commit SHA, tags, dirty flag)
+- Custom build arguments support
+- Custom environment variables support
+- Cross-compilation support (GOOS/GOARCH)
+- Static binary builds (CGO_ENABLED=0 by default)
 - Parallel build support
 - Artifact tracking in artifact store
 
-**Usage:**
+**Basic Usage:**
 ```yaml
 build:
   - name: myapp
@@ -45,6 +49,41 @@ build:
     dest: ./build/bin
     engine: go://go-build
 ```
+
+**Advanced Usage with Custom Args and Environment Variables:**
+```yaml
+# Static binary with build tags
+build:
+  - name: static-binary
+    src: ./cmd/myapp
+    dest: ./build/bin
+    engine: go://go-build
+    spec:
+      args:
+        - "-tags=netgo"
+        - "-ldflags=-w -s"
+      env:
+        CGO_ENABLED: "0"
+
+# Cross-compilation for Linux AMD64
+  - name: myapp-linux-amd64
+    src: ./cmd/myapp
+    dest: ./build/bin
+    engine: go://go-build
+    spec:
+      env:
+        GOOS: "linux"
+        GOARCH: "amd64"
+        CGO_ENABLED: "0"
+```
+
+**Configuration Options:**
+- `spec.args` - Array of additional arguments passed to `go build` (e.g., `["-tags=netgo", "-ldflags=-w -s"]`)
+- `spec.env` - Map of environment variables for the build (e.g., `{"GOOS": "linux", "GOARCH": "amd64"}`)
+
+**Environment Variables:**
+- `GO_BUILD_LDFLAGS` - Linker flags to pass to `go build` command (optional)
+- `CGO_ENABLED` - Set to "0" by default for static binaries (can be overridden via `spec.env`)
 
 **Version Injection:**
 Automatically injects:
@@ -66,10 +105,12 @@ Automatically injects:
 - Multi-mode support: docker (native), kaniko (rootless), or podman (rootless)
 - Supports both Dockerfile and Containerfile
 - Automatic image tagging with git versions
-- Build caching
+- Build arguments support (--build-arg)
+- Build caching (native for docker/podman, directory-based for kaniko)
 - Multi-stage build support
+- Automatic version and latest tags
 
-**Usage:**
+**Basic Usage:**
 ```yaml
 build:
   - name: myapp-image
@@ -77,15 +118,34 @@ build:
     engine: go://container-build
 ```
 
+**Advanced Usage with Build Args:**
+```yaml
+build:
+  - name: myapp-image
+    src: ./Containerfile
+    engine: go://container-build
+```
+
+Then set environment variable:
+```bash
+export BUILD_ARGS="GO_BUILD_LDFLAGS=-X main.Version=1.0.0 BASE_IMAGE=alpine:3.18"
+forge build
+```
+
 **Environment Variables:**
 - `CONTAINER_BUILD_ENGINE` - Build mode: docker, kaniko, or podman (required)
-- `BUILD_ARGS` - Build arguments to pass to the build engine (optional)
-- `KANIKO_CACHE_DIR` - Cache directory for kaniko mode (optional, default: ~/.kaniko-cache)
+- `BUILD_ARGS` - Space-separated build arguments to pass to the build engine (optional, e.g., "KEY1=value1 KEY2=value2")
+- `KANIKO_CACHE_DIR` - Cache directory for kaniko mode (optional, default: ~/.kaniko-cache, supports ~ expansion)
 
 **Build Modes:**
-- **docker**: Native Docker builds (fast, requires Docker daemon)
-- **kaniko**: Rootless builds using Kaniko executor (runs in container via docker, secure)
+- **docker**: Native Docker builds (fast, requires Docker daemon, not rootless)
+- **kaniko**: Rootless builds using Kaniko executor (runs in container via docker, secure, layer caching to disk)
 - **podman**: Native Podman builds (rootless, requires Podman)
+
+**Image Tagging:**
+Automatically creates two tags for each build:
+- `<name>:<git-commit-sha>` - Version tag with full commit hash
+- `<name>:latest` - Latest tag
 
 **When to use:** For building container images from Dockerfiles/Containerfiles with flexible backend selection.
 
@@ -99,11 +159,13 @@ build:
 
 **Features:**
 - Run any CLI tool as a build engine
+- Template support for arguments ({{ .Name }}, {{ .Src }}, {{ .Dest }}, {{ .Version }})
 - Environment variable support
 - Working directory control
 - envFile support for secrets
+- Structured artifact output
 
-**Usage:**
+**Basic Usage:**
 ```yaml
 engines:
   - alias: protoc
@@ -121,7 +183,48 @@ build:
     engine: alias://protoc
 ```
 
-**When to use:** When no built-in builder exists for your tool (protoc, npm, custom scripts, etc.)
+**Advanced Usage with Templates:**
+```yaml
+engines:
+  - alias: protoc-advanced
+    type: builder
+    builder:
+      - engine: go://generic-builder
+        spec:
+          command: "protoc"
+          args:
+            - "--go_out={{ .Dest }}"
+            - "--go_opt=paths=source_relative"
+            - "{{ .Src }}/api.proto"
+          env:
+            PROTO_VERSION: "3"
+
+build:
+  - name: generate-proto
+    src: ./proto
+    dest: ./pkg/api
+    engine: alias://protoc-advanced
+```
+
+**Configuration Options:**
+- `spec.command` - Command to execute (required)
+- `spec.args` - Array of arguments (supports Go templates)
+- `spec.env` - Map of environment variables
+- `spec.envFile` - Path to environment file for secrets
+- `spec.workDir` - Working directory (defaults to current directory)
+
+**Template Variables:**
+Arguments support Go template syntax with these fields:
+- `{{ .Name }}` - Build name from spec
+- `{{ .Src }}` - Source directory from spec
+- `{{ .Dest }}` - Destination directory from spec
+- `{{ .Version }}` - Version string (typically git commit)
+
+**Error Handling:**
+- Exit code 0: Success, artifact is tracked
+- Exit code ≠ 0: Failure, error returned with stdout/stderr
+
+**When to use:** When no built-in builder exists for your tool (protoc, npm, custom scripts, code formatters, code generators, etc.)
 
 **See Also:** [docs/prompts/use-generic-builder.md](./prompts/use-generic-builder.md)
 
@@ -129,14 +232,16 @@ build:
 
 ### go-format
 
-**Purpose:** Format Go code using gofmt and goimports
+**Purpose:** Format Go code using gofumpt
 
 **URI:** `go://go-format`
 
 **Features:**
-- Runs gofmt -s -w
-- Runs goimports -w
+- Runs gofumpt (stricter superset of gofmt)
 - Formats all .go files recursively
+- Simplifies code where possible
+- Writes changes directly to files
+- Configurable gofumpt version
 - Can be used as a build step
 
 **Usage:**
@@ -147,7 +252,18 @@ build:
     engine: go://go-format
 ```
 
-**When to use:** To ensure consistent Go code formatting before builds.
+**Environment Variables:**
+- `GOFUMPT_VERSION` - Version of gofumpt to use (optional, default: v0.6.0)
+
+**Formatting Tool:**
+Uses `gofumpt` which is a stricter formatter than `gofmt`. It:
+- Applies all standard gofmt rules
+- Adds extra formatting rules for consistency
+- Removes unnecessary whitespace
+- Enforces stricter import grouping
+- Can be run via `go run mvdan.cc/gofumpt@{version} -w {path}`
+
+**When to use:** To ensure consistent Go code formatting before builds. Prefer this over running gofmt manually as it provides stricter, more opinionated formatting.
 
 ---
 
@@ -160,12 +276,16 @@ build:
 **URI:** `go://go-test`
 
 **Features:**
-- Uses gotestsum for better test output
+- Uses gotestsum (v1.13.0) for better test output and formatting
 - Generates JUnit XML reports
-- Generates coverage profiles
-- Supports build tags (unit, integration, functional, e2e)
-- Race detector enabled
-- Stores reports in artifact store
+- Generates coverage profiles (atomic mode)
+- Supports build tags for test isolation
+- Race detector enabled (-race)
+- Test caching disabled (-count=1)
+- UUID-based test report tracking
+- Automatic artifact storage
+- Parses test statistics from JUnit XML
+- Calculates coverage metrics
 
 **Usage:**
 ```yaml
@@ -178,12 +298,52 @@ test:
     runner: go://go-test
 ```
 
-**Build Tags:** Automatically uses `-tags=<stage-name>` (e.g., `-tags=unit`, `-tags=integration`)
+**Test Command:**
+Runs the following command:
+```bash
+go run gotest.tools/gotestsum@v1.13.0 \
+  --format pkgname-and-test-fails \
+  --format-hide-empty-pkg \
+  --junitfile {tmpDir}/test-{stage}-{name}.xml \
+  -- \
+  -tags {stage} \
+  -race \
+  -count=1 \
+  -cover \
+  -coverprofile {tmpDir}/test-{stage}-{name}-coverage.out \
+  ./...
+```
+
+**Build Tags:**
+Automatically uses `-tags=<stage-name>` (e.g., `-tags=unit`, `-tags=integration`, `-tags=e2e`). Tests must have corresponding build tags:
+```go
+//go:build unit
+
+package myapp_test
+```
+
+**Output Files:**
+- `test-{stage}-{name}.xml` - JUnit XML report
+- `test-{stage}-{name}-coverage.out` - Coverage profile
 
 **Environment Variables Passed to Tests:**
+All environment variables from testenv are passed to the test process, including:
 - `FORGE_TESTENV_TMPDIR` - Test environment temporary directory
 - `FORGE_ARTIFACT_*` - Artifact file paths from testenv
 - `FORGE_METADATA_*` - Metadata from testenv
+
+**Environment Variables (Configuration):**
+- `FORGE_ARTIFACT_STORE_PATH` - Path to artifact store (optional, defaults to .forge/artifacts.yaml)
+
+**Test Report:**
+Returns structured TestReport with:
+- ID (UUID)
+- Stage and name
+- Status (passed/failed)
+- Test statistics (total, passed, failed, skipped)
+- Coverage metrics (percentage, covered lines, total lines)
+- Duration
+- Artifact file paths
 
 **When to use:** For all Go test execution. This is the standard test runner.
 
@@ -196,10 +356,12 @@ test:
 **URI:** `go://go-lint-tags`
 
 **Features:**
-- Scans all *_test.go files
+- Scans all *_test.go files recursively
 - Ensures each has a `//go:build` tag
+- Validates tags are one of: unit, integration, or e2e
+- Skips vendor, .git, .tmp, and node_modules directories
+- Returns detailed table of violations with file paths
 - Prevents tests from running in wrong stages
-- Returns detailed error messages for violations
 
 **Usage:**
 ```yaml
@@ -207,6 +369,26 @@ test:
   - name: verify-tags
     runner: go://go-lint-tags
 ```
+
+**Valid Build Tags:**
+The tool accepts these build tags:
+```go
+//go:build unit
+//go:build integration
+//go:build e2e
+```
+
+**Output:**
+If violations are found, displays a formatted table:
+```
+FILE PATH                                                                MISSING TAG
+--------------------------------------------------------------------------------  ------------
+path/to/test_file.go                                                             ❌
+```
+
+**Exit Codes:**
+- Exit 0: All test files have valid build tags
+- Exit 1: One or more test files missing build tags
 
 **When to use:** As a pre-test validation step to ensure test isolation.
 
@@ -220,9 +402,13 @@ test:
 
 **Features:**
 - Run any command as a test
-- Pass/fail based on exit code (0 = pass)
+- Pass/fail based on exit code (0 = pass, non-zero = fail)
 - Generates structured TestReport
 - Environment variable support
+- envFile support for secrets
+- Working directory control
+- Captures stdout and stderr
+- No coverage parsing (returns 0%)
 
 **Usage:**
 ```yaml
@@ -234,13 +420,58 @@ engines:
         spec:
           command: "shellcheck"
           args: ["scripts/*.sh"]
+          workDir: "."
 
 test:
   - name: shell-lint
     runner: alias://shellcheck
 ```
 
-**When to use:** When no built-in runner exists for your test tool.
+**Advanced Usage with Environment Variables:**
+```yaml
+engines:
+  - alias: custom-validator
+    type: test-runner
+    testRunner:
+      - engine: go://generic-test-runner
+        spec:
+          command: "my-validator"
+          args: ["--strict", "./config"]
+          env:
+            VALIDATOR_MODE: "strict"
+            LOG_LEVEL: "debug"
+          envFile: ".secrets.env"
+          workDir: "."
+
+test:
+  - name: validate-config
+    runner: alias://custom-validator
+```
+
+**Configuration Options:**
+- `spec.command` - Command to execute (required)
+- `spec.args` - Array of arguments
+- `spec.env` - Map of environment variables
+- `spec.envFile` - Path to environment file (supports shell exports and KEY=value format)
+- `spec.workDir` - Working directory (defaults to current directory)
+
+**Environment File Format:**
+The envFile supports:
+```bash
+# Comments are ignored
+export KEY1="value1"
+KEY2=value2
+KEY3='value3'
+```
+
+**Test Report:**
+Returns structured TestReport with:
+- Status (passed/failed based on exit code)
+- Timestamp
+- Test statistics (total: 1, passed: 0 or 1, failed: 0 or 1)
+- Coverage (always 0% - generic runner doesn't parse coverage)
+
+**When to use:** When no built-in runner exists for your test tool (shellcheck, custom validators, Python test runners, etc.)
 
 **See Also:** [docs/prompts/use-generic-test-runner.md](./prompts/use-generic-test-runner.md)
 
@@ -253,10 +484,12 @@ test:
 **URI:** `go://go-lint`
 
 **Features:**
-- Runs golangci-lint run --fix ./...
+- Runs golangci-lint with --fix flag
 - Automatically fixes issues where possible
 - Returns pass/fail as test report
 - Works with your .golangci.yml config
+- Configurable golangci-lint version
+- Structured TestReport output
 
 **Usage:**
 ```yaml
@@ -265,30 +498,31 @@ test:
     runner: go://go-lint
 ```
 
-**When to use:** For Go code linting. Prefer this over wrapping golangci-lint manually.
-
----
-
-### forge-e2e
-
-**Purpose:** Forge's end-to-end test framework
-
-**URI:** `go://forge-e2e`
-
-**Features:**
-- Tests entire forge workflows
-- Validates MCP protocol compliance
-- Tests build and test orchestration
-- Comprehensive forge integration tests
-
-**Usage:**
-```yaml
-test:
-  - name: e2e
-    runner: go://forge-e2e
+**Command Executed:**
+```bash
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{version} run --fix
 ```
 
-**When to use:** For comprehensive forge system tests (primarily for forge development).
+**Environment Variables:**
+- `GOLANGCI_LINT_VERSION` - Version of golangci-lint to use (optional, default: v2.6.0)
+
+**Example with Custom Version:**
+```bash
+GOLANGCI_LINT_VERSION=v2.7.0 forge test lint run
+```
+
+**Test Report:**
+Returns structured TestReport with:
+- Status (passed/failed based on exit code)
+- Duration (in seconds)
+- Error message if lint failed
+- Test statistics (passed: 1 if success, failed: 1 if errors found)
+
+**Exit Codes:**
+- Exit 0: No linting issues (or all auto-fixed)
+- Exit non-zero: Linting issues found that couldn't be auto-fixed
+
+**When to use:** For Go code linting. Prefer this over wrapping golangci-lint manually.
 
 ---
 
@@ -524,7 +758,6 @@ build:
 | go-lint-tags | Test Runner | `go://go-lint-tags` | Verify build tags |
 | generic-test-runner | Test Runner | `go://generic-test-runner` | Wrap custom test tools |
 | go-lint | Test Runner | `go://go-lint` | Run golangci-lint |
-| forge-e2e | Test Runner | `go://forge-e2e` | Forge system tests |
 | testenv | Testenv | `go://testenv` | Full test environment |
 | testenv-kind | Testenv | `go://testenv-kind` | Kind clusters |
 | testenv-lcr | Testenv | `go://testenv-lcr` | Local container registry |
