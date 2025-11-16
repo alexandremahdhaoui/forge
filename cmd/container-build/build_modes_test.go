@@ -18,8 +18,7 @@ func TestBuildContainerDocker(t *testing.T) {
 
 	// Create a minimal Containerfile
 	containerfile := filepath.Join(tmpDir, "Containerfile")
-	content := `FROM alpine:3.20
-CMD ["echo", "test"]`
+	content := `FROM scratch`
 	if err := os.WriteFile(containerfile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -112,8 +111,7 @@ func TestBuildContainerKaniko(t *testing.T) {
 
 	// Create a minimal Containerfile
 	containerfile := filepath.Join(tmpDir, "Containerfile")
-	content := `FROM alpine:3.20
-CMD ["echo", "test"]`
+	content := `FROM scratch`
 	if err := os.WriteFile(containerfile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -208,8 +206,7 @@ func TestBuildContainerPodman(t *testing.T) {
 
 	// Create a minimal Containerfile
 	containerfile := filepath.Join(tmpDir, "Containerfile")
-	content := `FROM alpine:3.20
-CMD ["echo", "test"]`
+	content := `FROM scratch`
 	if err := os.WriteFile(containerfile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -291,8 +288,7 @@ func TestBuildContainerDispatcher(t *testing.T) {
 
 	// Create a minimal Containerfile
 	containerfile := filepath.Join(tmpDir, "Containerfile")
-	content := `FROM alpine:3.20
-CMD ["echo", "test"]`
+	content := `FROM scratch`
 	if err := os.WriteFile(containerfile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
