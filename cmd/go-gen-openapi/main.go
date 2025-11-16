@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -17,6 +16,7 @@ import (
 	"github.com/alexandremahdhaoui/forge/internal/version"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
+	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -83,26 +83,27 @@ func main() {
 		}
 	}
 
-	// Direct invocation
-	if err := generateCode("./forge.yaml"); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
+	// Direct invocation is no longer supported
+	fmt.Fprintf(os.Stderr, "Error: Direct invocation is no longer supported.\n")
+	fmt.Fprintf(os.Stderr, "go-gen-openapi must be invoked through the forge build system.\n")
+	fmt.Fprintf(os.Stderr, "See docs/migration-go-gen-openapi.md for migration instructions.\n")
+	os.Exit(1)
 }
 
 func printUsage() {
 	fmt.Println(`go-gen-openapi - Generate OpenAPI client and server code
 
 Usage:
-  go-gen-openapi              Generate code from forge.yaml
   go-gen-openapi --mcp        Run as MCP server
   go-gen-openapi version      Show version information
+  go-gen-openapi help         Show this help message
 
 Environment Variables:
   OAPI_CODEGEN_VERSION            Version of oapi-codegen to use (default: v2.3.0)
 
 Configuration:
-  Reads from forge.yaml's generateOpenAPI section`)
+  Must be invoked through forge build system.
+  See docs/migration-go-gen-openapi.md for configuration details.`)
 }
 
 func runMCPServer() error {
@@ -122,48 +123,20 @@ func handleBuild(
 	req *mcp.CallToolRequest,
 	input mcptypes.BuildInput,
 ) (*mcp.CallToolResult, any, error) {
-	// Get configPath from environment variable or use default
-	configPath := os.Getenv("OPENAPI_CONFIG_PATH")
-	if configPath == "" {
-		configPath = "./forge.yaml"
+	log.Printf("🚀 REFACTORED go-gen-openapi: Generating OpenAPI code for: %s", input.Name)
+
+	// Validate required fields
+	if result := mcputil.ValidateRequiredWithPrefix("Build failed", map[string]string{
+		"name":   input.Name,
+		"engine": input.Engine,
+	}); result != nil {
+		return result, nil, nil
 	}
 
-	log.Printf("Generating OpenAPI code from config: %s", configPath)
-
-	if err := generateCode(configPath); err != nil {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("OpenAPI code generation failed: %v", err)},
-			},
-			IsError: true,
-		}, nil, nil
-	}
-
-	// Return artifact information
-	artifact := forge.Artifact{
-		Name:      "openapi-generated-code",
-		Type:      "generated",
-		Location:  "pkg/generated",
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
-
-	artifactJSON, _ := json.Marshal(artifact)
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: string(artifactJSON)},
-		},
-	}, artifact, nil
-}
-
-func generateCode(configPath string) error {
-	// Read forge.yaml
-	config, err := forge.ReadSpecFromPath(configPath)
+	// Extract OpenAPI config from BuildInput.Spec
+	config, err := extractOpenAPIConfigFromInput(input)
 	if err != nil {
-		return fmt.Errorf("failed to read config: %w", err)
-	}
-
-	if config.GenerateOpenAPI == nil {
-		return fmt.Errorf("no generateOpenAPI configuration found in %s", configPath)
+		return mcputil.ErrorResult(fmt.Sprintf("Build failed: %v", err)), nil, nil
 	}
 
 	// Get oapi-codegen version and build executable command
@@ -174,7 +147,25 @@ func generateCode(configPath string) error {
 
 	executable := fmt.Sprintf("go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@%s", oapiCodegenVersion)
 
-	return doGenerate(executable, *config.GenerateOpenAPI)
+	// Call existing generation logic
+	if err := doGenerate(executable, *config); err != nil {
+		return mcputil.ErrorResult(fmt.Sprintf("Build failed: %v", err)), nil, nil
+	}
+
+	// Create artifact with CORRECT values
+	artifact := forge.Artifact{
+		Name:      input.Name,                            // Use input.Name, NOT hardcoded
+		Type:      "generated",                           // Fixed type
+		Location:  config.Specs[0].DestinationDir,        // ACTUAL resolved destination directory
+		Timestamp: time.Now().UTC().Format(time.RFC3339), // UTC timestamp
+		// NO Version field - generated code is versioned by source spec
+	}
+
+	result, returnedArtifact := mcputil.SuccessResultWithArtifact(
+		fmt.Sprintf("Generated OpenAPI code for: %s", input.Name),
+		artifact,
+	)
+	return result, returnedArtifact, nil
 }
 
 func doGenerate(executable string, config forge.GenerateOpenAPIConfig) error {
@@ -184,17 +175,20 @@ func doGenerate(executable string, config forge.GenerateOpenAPIConfig) error {
 
 	for i := range config.Specs {
 		i := i
-		for _, version := range config.Specs[i].Versions {
-			version := version
 
-			sourcePath := templateSourcePath(config, i, version)
+		// Handle new design: empty Versions array means single BuildSpec per version
+		// Source path is already fully resolved in the Spec.Source field
+		versions := config.Specs[i].Versions
+		if len(versions) == 0 {
+			// New design: Source is already resolved, no need to loop over versions
+			sourcePath := config.Specs[i].Source
 
 			// Generate client if enabled
 			if config.Specs[i].Client.Enabled {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if err := generatePackage(cmdName, args, config, i, version, config.Specs[i].Client, clientTemplate, sourcePath); err != nil {
+					if err := generatePackage(cmdName, args, config, i, "", config.Specs[i].Client, clientTemplate, sourcePath); err != nil {
 						errChan <- err
 					}
 				}()
@@ -205,10 +199,39 @@ func doGenerate(executable string, config forge.GenerateOpenAPIConfig) error {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if err := generatePackage(cmdName, args, config, i, version, config.Specs[i].Server, serverTemplate, sourcePath); err != nil {
+					if err := generatePackage(cmdName, args, config, i, "", config.Specs[i].Server, serverTemplate, sourcePath); err != nil {
 						errChan <- err
 					}
 				}()
+			}
+		} else {
+			// Old design (backward compatibility): loop over versions
+			for _, version := range versions {
+				version := version
+
+				sourcePath := templateSourcePath(config, i, version)
+
+				// Generate client if enabled
+				if config.Specs[i].Client.Enabled {
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						if err := generatePackage(cmdName, args, config, i, version, config.Specs[i].Client, clientTemplate, sourcePath); err != nil {
+							errChan <- err
+						}
+					}()
+				}
+
+				// Generate server if enabled
+				if config.Specs[i].Server.Enabled {
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						if err := generatePackage(cmdName, args, config, i, version, config.Specs[i].Server, serverTemplate, sourcePath); err != nil {
+							errChan <- err
+						}
+					}()
+				}
 			}
 		}
 	}

@@ -16,6 +16,11 @@ type TestSpec struct {
 	// Runner implements the run method to execute tests
 	// Examples: "go://go-test", "shell://bash ./scripts/run-test.sh"
 	Runner string `json:"runner"`
+
+	// Spec contains runner-specific configuration (free-form)
+	// Supports fields like: command, args, env, envFile, workDir
+	// The exact fields supported depend on the runner being used
+	Spec map[string]interface{} `json:"spec,omitempty"`
 }
 
 // Validate validates the TestSpec

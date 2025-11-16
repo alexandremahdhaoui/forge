@@ -57,6 +57,7 @@ type TestAllResult struct {
 	BuildArtifacts []forge.Artifact   `json:"buildArtifacts"`
 	TestReports    []forge.TestReport `json:"testReports"`
 	Summary        string             `json:"summary"`
+	StoppedEarly   bool               `json:"stoppedEarly"` // True if execution stopped due to failure
 }
 
 // BuildResult represents the result of a build operation.
@@ -141,7 +142,7 @@ func runMCPServer() error {
 	// Register test-all tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "test-all",
-		Description: "Build all artifacts and run all test stages sequentially",
+		Description: "Build all artifacts and run all test stages sequentially (stops on first failure)",
 	}, handleTestAllTool)
 
 	// Register prompt-list tool
@@ -228,6 +229,12 @@ func handleBuildTool(
 			"dest":   spec.Dest,
 			"engine": spec.Engine,
 		}
+
+		// Pass engine-specific configuration if provided
+		if len(spec.Spec) > 0 {
+			params["spec"] = spec.Spec
+		}
+
 		engineSpecs[spec.Engine] = append(engineSpecs[spec.Engine], params)
 	}
 
@@ -830,18 +837,33 @@ func handleTestAllTool(
 	// Collect all build artifacts (most recent ones)
 	buildArtifacts := store.Artifacts
 
-	// Collect test reports for all test stages
+	// Collect test reports ONLY for completed stages (fail-fast behavior)
+	// With fail-fast, not all config.Test stages will have run
 	var testReports []forge.TestReport
 	for _, testSpec := range config.Test {
 		reports := forge.ListTestReports(&store, testSpec.Name)
-		// Get the most recent report for each stage
+		// Get the most recent report for each stage, if it exists
 		if len(reports) > 0 {
+			// Check if this report was created during THIS test-all run
+			// by verifying it's the most recent
 			testReports = append(testReports, *reports[0])
 		}
+		// If no report exists for this stage, it means execution stopped before this stage
+		// due to fail-fast, so we don't include it in results
 	}
 
+	// Determine if execution stopped early (fewer reports than total test stages)
+	stoppedEarly := len(testReports) < len(config.Test)
+
 	// Create summary
-	summary := fmt.Sprintf("%d artifact(s) built, %d test stage(s) run", len(buildArtifacts), len(testReports))
+	var summary string
+	if stoppedEarly {
+		summary = fmt.Sprintf("%d artifact(s) built, %d of %d test stage(s) run (stopped early due to failure)",
+			len(buildArtifacts), len(testReports), len(config.Test))
+	} else {
+		summary = fmt.Sprintf("%d artifact(s) built, %d test stage(s) run",
+			len(buildArtifacts), len(testReports))
+	}
 
 	// Count passed/failed test stages
 	passedStages := 0
@@ -860,6 +882,7 @@ func handleTestAllTool(
 		BuildArtifacts: buildArtifacts,
 		TestReports:    testReports,
 		Summary:        summary,
+		StoppedEarly:   stoppedEarly,
 	}
 
 	// Determine if we should return error or success

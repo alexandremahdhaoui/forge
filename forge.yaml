@@ -169,20 +169,34 @@ build:
     src: ./containers/for-testing-purposes/Containerfile
     engine: go://container-build
 
-# -- generateOpenAPI defines the configuration for generating OpenAPI client and server code
-# generateOpenAPI:
-#   defaults:
-#     sourceDir: ./api
-#     destinationDir: ./pkg/generated
-#     engine: go://go-gen-openapi
-#   specs:
-#     - name: example-api
-#       versions:
-#         - v1
-#       client:
-#         enabled: true
-#         packageName: exampleclient
-#       server:
-#         enabled: true
-#         packageName: exampleserver
+  # Example: OpenAPI code generation
+  # Generates client and/or server code from OpenAPI specifications
+  # NOTE: Uncomment and customize for your API specs
+  #
+  # - name: example-api-v1
+  #   src: ./api/example-api.v1.yaml      # Required by BuildSpec (source file)
+  #   dest: ./pkg/generated                # Required by BuildSpec (destination directory)
+  #   engine: go://go-gen-openapi
+  #   spec:
+  #     # Option 1: Explicit source file (RECOMMENDED)
+  #     sourceFile: ./api/example-api.v1.yaml
+  #
+  #     # Option 2: Templated source file (uncomment if not using sourceFile)
+  #     # sourceDir: ./api
+  #     # name: example-api
+  #     # version: v1
+  #     # Results in: ./api/example-api.v1.yaml
+  #
+  #     # Output directory (defaults to ./pkg/generated if not specified)
+  #     destinationDir: ./pkg/generated
+  #
+  #     # Client generation
+  #     client:
+  #       enabled: true
+  #       packageName: exampleclient
+  #
+  #     # Server generation (optional, can generate both client and server in one BuildSpec)
+  #     server:
+  #       enabled: false
+  #       packageName: exampleserver
 

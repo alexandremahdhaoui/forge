@@ -178,3 +178,65 @@ localContainerRegistry:
 		t.Errorf("ImagePullSecretNamespaces length = %d, want 2", len(lcr.ImagePullSecretNamespaces))
 	}
 }
+
+// TestReadSpec_GenerateOpenAPIDeprecatedError tests that using the deprecated
+// generateOpenAPI field returns a clear error message
+func TestReadSpec_GenerateOpenAPIDeprecatedError(t *testing.T) {
+	yamlContent := `
+name: test-project
+artifactStorePath: .forge/artifact-store.yaml
+generateOpenAPI:
+  defaults:
+    sourceDir: ./api
+    destinationDir: ./pkg/generated
+  specs:
+    - name: example-api
+      versions:
+        - v1
+`
+
+	// Create temporary directory and YAML file
+	tmpDir := t.TempDir()
+	yamlPath := filepath.Join(tmpDir, "forge.yaml")
+	if err := os.WriteFile(yamlPath, []byte(yamlContent), 0o644); err != nil {
+		t.Fatalf("Failed to write test YAML: %v", err)
+	}
+
+	// Read spec from path - should return error
+	spec, err := ReadSpecFromPath(yamlPath)
+
+	// Verify error is returned
+	if err == nil {
+		t.Fatalf("ReadSpecFromPath() error = nil, want error about deprecated generateOpenAPI")
+	}
+
+	// Verify error message guides user to migration doc
+	expectedErrorSubstring := "generateOpenAPI configuration is no longer supported"
+	if !containsSubstring(err.Error(), expectedErrorSubstring) {
+		t.Errorf("Error message = %q, want to contain %q", err.Error(), expectedErrorSubstring)
+	}
+
+	expectedMigrationDoc := "docs/migration-go-gen-openapi.md"
+	if !containsSubstring(err.Error(), expectedMigrationDoc) {
+		t.Errorf("Error message = %q, want to contain %q", err.Error(), expectedMigrationDoc)
+	}
+
+	// Verify spec is empty (zero value)
+	if spec.Name != "" {
+		t.Errorf("Expected zero-value spec when error occurs, got spec with name %q", spec.Name)
+	}
+}
+
+// containsSubstring checks if a string contains a substring
+func containsSubstring(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && stringContains(s, substr))
+}
+
+func stringContains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

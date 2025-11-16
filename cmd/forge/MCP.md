@@ -333,7 +333,12 @@ Successfully deleted test environment: test-uuid-123
 
 ### `test-all`
 
-Build all artifacts and run all test stages sequentially.
+Build all artifacts and run all test stages sequentially with fail-fast behavior.
+
+**Fail-Fast Behavior:**
+- Execution stops immediately on the first test stage failure
+- Partial results are returned with `stoppedEarly: true`
+- Only completed test stages appear in `testReports`
 
 **Input Schema:**
 ```json
@@ -344,6 +349,7 @@ Build all artifacts and run all test stages sequentially.
 
 Returns an aggregated `TestAllResult` object containing all build artifacts and test reports:
 
+**Success Case (all tests pass):**
 ```json
 {
   "content": [{
@@ -374,17 +380,56 @@ Returns an aggregated `TestAllResult` object containing all build artifacts and 
         ...
       }
     ],
+    "stoppedEarly": false,
     "summary": "3 artifact(s) built, 4 test stage(s) run, 4 passed, 0 failed"
+  }
+}
+```
+
+**Failure Case (stopped early):**
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "Test-all failed: 3 artifact(s) built, 2 test stage(s) run, 1 passed, 1 failed (stopped early)"
+  }],
+  "artifact": {
+    "buildArtifacts": [
+      {
+        "name": "myapp",
+        "type": "binary",
+        "location": "./build/bin/myapp",
+        "timestamp": "2025-01-15T10:30:00Z",
+        "version": "abc123def"
+      }
+    ],
+    "testReports": [
+      {
+        "id": "report-uuid-1",
+        "stage": "verify-tags",
+        "status": "passed",
+        ...
+      },
+      {
+        "id": "report-uuid-2",
+        "stage": "unit",
+        "status": "failed",
+        ...
+      }
+    ],
+    "stoppedEarly": true,
+    "summary": "3 artifact(s) built, 2 test stage(s) run, 1 passed, 1 failed (stopped early)"
   }
 }
 ```
 
 **TestAllResult Schema:**
 - `buildArtifacts` (array): Array of `Artifact` objects (see `build` tool schema)
-- `testReports` (array): Array of `TestReport` objects (see `test-run` tool schema)
+- `testReports` (array): Array of `TestReport` objects (see `test-run` tool schema) - contains only completed stages
+- `stoppedEarly` (boolean): `true` if execution stopped due to a failure, `false` if all stages completed
 - `summary` (string): Human-readable summary of results
 
-**Note:** If any tests fail, `isError` is set to `true` but the artifact still contains all results.
+**Note:** With fail-fast behavior, execution stops on the first test stage failure. Check `stoppedEarly` to determine if partial results were returned. If `isError` is `true` and `stoppedEarly` is `true`, remaining test stages were not executed.
 
 ---
 

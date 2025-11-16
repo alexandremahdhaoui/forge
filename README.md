@@ -103,7 +103,10 @@ EOF
 # Build all artifacts
 forge build
 
-# Run tests
+# Run all tests (build + all test stages, fail-fast)
+forge test-all
+
+# Or run individual test stage
 forge test unit run
 
 # Get help

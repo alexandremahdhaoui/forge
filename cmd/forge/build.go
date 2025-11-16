@@ -69,11 +69,10 @@ func runBuild(args []string) error {
 			"engine": engine,
 		}
 
-		// Merge spec fields from BuildSpec into params
+		// Pass engine-specific configuration if provided
+		// Nest under "spec" key so engines can access it via BuildInput.Spec
 		if len(spec.Spec) > 0 {
-			for k, v := range spec.Spec {
-				params[k] = v
-			}
+			params["spec"] = spec.Spec
 		}
 
 		engineSpecs[engine] = append(engineSpecs[engine], params)

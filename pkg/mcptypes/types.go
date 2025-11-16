@@ -53,6 +53,21 @@ type BuildInput struct {
 	// Spec contains engine-specific configuration (free-form, alternative to individual fields)
 	// When present, engines should prefer spec fields over individual Args/Env fields
 	// This allows passing configuration from BuildSpec.Spec directly through MCP
+	//
+	// Example for go-gen-openapi engine:
+	//   spec: {
+	//     "sourceFile": "./api/example-api.v1.yaml",
+	//     "destinationDir": "./pkg/generated",
+	//     "client": {
+	//       "enabled": true,
+	//       "packageName": "exampleclient"
+	//     },
+	//     "server": {
+	//       "enabled": false
+	//     }
+	//   }
+	//
+	// Engines define their own Spec structure. See individual engine MCP documentation for details.
 	Spec map[string]interface{} `json:"spec,omitempty"`
 
 	// Directory parameters (injected by forge)

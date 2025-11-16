@@ -28,8 +28,6 @@ type Spec struct {
 	Kindenv Kindenv `json:"kindenv"`
 	// LocalContainerRegistry holds the configuration for the local-container-registry tool.
 	LocalContainerRegistry LocalContainerRegistry `json:"localContainerRegistry"`
-	// GenerateOpenAPI holds the configuration for generating OpenAPI client/server code.
-	GenerateOpenAPI *GenerateOpenAPIConfig `json:"generateOpenAPI,omitempty"`
 
 	// Build holds the build configuration
 	Build Build `json:"build"`
@@ -94,6 +92,16 @@ func ReadSpecFromPath(path string) (Spec, error) {
 	b, err := os.ReadFile(path) //nolint:varnamelen
 	if err != nil {
 		return Spec{}, flaterrors.Join(err, errReadingProjectConfig)
+	}
+
+	// Check for deprecated generateOpenAPI configuration before unmarshaling
+	// We need to check the raw YAML since the field is removed from the struct
+	var rawSpec map[string]interface{}
+	if err := yaml.Unmarshal(b, &rawSpec); err != nil {
+		return Spec{}, flaterrors.Join(err, errReadingProjectConfig)
+	}
+	if _, hasGenerateOpenAPI := rawSpec["generateOpenAPI"]; hasGenerateOpenAPI {
+		return Spec{}, errors.New("generateOpenAPI configuration is no longer supported. Please migrate to build section. See docs/migration-go-gen-openapi.md for migration instructions")
 	}
 
 	out := Spec{} //nolint:exhaustruct // unmarshal

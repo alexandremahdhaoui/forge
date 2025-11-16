@@ -153,36 +153,17 @@ func BuildGoRunCommand(packageName string) ([]string, error) {
 		return []string{"run", fmt.Sprintf("%s/cmd/%s@latest", forgeModule, packageName)}, nil
 	}
 
-	// Found local forge repo - check if we're running from within it
-	cwd, err := os.Getwd()
-	if err != nil {
-		// Can't get CWD, fall back to versioned module
-		return []string{"run", fmt.Sprintf("%s/cmd/%s@latest", forgeModule, packageName)}, nil
-	}
-
-	// Check if CWD is inside forge repo (for development)
+	// Found local forge repo - use -C flag to run from forge repo directory
+	// This is important for:
+	// 1. Development workflows (CWD inside forge repo)
+	// 2. Integration tests (FORGE_REPO_PATH set, CWD outside forge repo)
 	absForgeRepo, err := filepath.Abs(forgeRepo)
 	if err != nil {
 		return []string{"run", fmt.Sprintf("%s/cmd/%s@latest", forgeModule, packageName)}, nil
 	}
 
-	absCwd, err := filepath.Abs(cwd)
-	if err != nil {
-		return []string{"run", fmt.Sprintf("%s/cmd/%s@latest", forgeModule, packageName)}, nil
-	}
-
-	// If CWD is inside forge repo, use relative path for development
-	if strings.HasPrefix(absCwd, absForgeRepo+string(filepath.Separator)) || absCwd == absForgeRepo {
-		// Running from within forge repo - use relative path
-		relPath, err := filepath.Rel(absCwd, filepath.Join(absForgeRepo, "cmd", packageName))
-		if err != nil {
-			// Shouldn't happen, but fall back to versioned module
-			return []string{"run", fmt.Sprintf("%s/cmd/%s@latest", forgeModule, packageName)}, nil
-		}
-		return []string{"run", relPath}, nil
-	}
-
-	// We're outside the forge repo - use versioned module syntax
-	// This allows customers to run forge tools without having the repo locally
-	return []string{"run", fmt.Sprintf("%s/cmd/%s@latest", forgeModule, packageName)}, nil
+	// Use -C flag (Go 1.20+) to change to forge repo directory before running
+	// This ensures go run can find the local module and source code
+	pkgPath := fmt.Sprintf("./cmd/%s", packageName)
+	return []string{"-C", absForgeRepo, "run", pkgPath}, nil
 }

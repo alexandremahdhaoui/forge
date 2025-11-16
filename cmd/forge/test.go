@@ -573,13 +573,13 @@ func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) error 
 		// Skip auto-creation for test-report stages (they don't need environments)
 		if testSpec.Testenv != "" && testSpec.Testenv != "noop" && !IsTestReportStage(testSpec) {
 			// Resolve engine URI (handles aliases)
-			command, args, err := resolveEngine(testSpec.Testenv, config)
+			command, engineArgs, err := resolveEngine(testSpec.Testenv, config)
 			if err != nil {
 				return fmt.Errorf("failed to resolve testenv engine %s: %w", testSpec.Testenv, err)
 			}
 
 			// Create test environment
-			result, err := callMCPEngine(command, args, "create", map[string]any{
+			result, err := callMCPEngine(command, engineArgs, "create", map[string]any{
 				"stage": testSpec.Name,
 			})
 			if err != nil {
@@ -717,14 +717,14 @@ func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) error 
 			result = resultMap
 		} else {
 			// Single-engine alias - use single-engine logic below
-			result, err = runWithSingleTestRunner(runnerCommand, runnerArgs, params, runnerConfig, testID)
+			result, err = runWithSingleTestRunner(runnerCommand, runnerArgs, params, runnerConfig, testSpec, testID)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
-		// Direct go:// URI - single engine
-		result, err = runWithSingleTestRunner(runnerCommand, runnerArgs, params, nil, testID)
+		// Direct go:// URI - single engine, pass testSpec so it can inject testSpec.Spec
+		result, err = runWithSingleTestRunner(runnerCommand, runnerArgs, params, nil, testSpec, testID)
 		if err != nil {
 			return err
 		}
@@ -780,6 +780,7 @@ func runWithSingleTestRunner(
 	args []string,
 	params map[string]any,
 	runnerConfig *forge.EngineConfig,
+	testSpec *forge.TestSpec,
 	testID string,
 ) (interface{}, error) {
 	// Clone params to avoid mutating the original
@@ -790,24 +791,34 @@ func runWithSingleTestRunner(
 
 	// Inject runner config if present (for alias:// runners)
 	if runnerConfig != nil && runnerConfig.Type == forge.TestRunnerEngineConfigType {
-		// For test-runner aliases, use the first test runner's spec
+		// For test-runner aliases, inject spec from engine definition
 		if len(runnerConfig.TestRunner) > 0 {
-			runnerSpec := runnerConfig.TestRunner[0].Spec
-			if runnerSpec.Command != "" {
-				runnerParams["command"] = runnerSpec.Command
+			// The spec field in the engine definition contains config for the underlying engine
+			engineSpec := runnerConfig.TestRunner[0].Spec
+			// Inject all fields from the engine spec
+			if engineSpec.Command != "" {
+				runnerParams["command"] = engineSpec.Command
 			}
-			if len(runnerSpec.Args) > 0 {
-				runnerParams["args"] = runnerSpec.Args
+			if len(engineSpec.Args) > 0 {
+				runnerParams["args"] = engineSpec.Args
 			}
-			if len(runnerSpec.Env) > 0 {
-				runnerParams["env"] = runnerSpec.Env
+			if len(engineSpec.Env) > 0 {
+				runnerParams["env"] = engineSpec.Env
 			}
-			if runnerSpec.EnvFile != "" {
-				runnerParams["envFile"] = runnerSpec.EnvFile
+			if engineSpec.EnvFile != "" {
+				runnerParams["envFile"] = engineSpec.EnvFile
 			}
-			if runnerSpec.WorkDir != "" {
-				runnerParams["workDir"] = runnerSpec.WorkDir
+			if engineSpec.WorkDir != "" {
+				runnerParams["workDir"] = engineSpec.WorkDir
 			}
+		}
+	}
+
+	// Also inject testSpec.Spec fields (for both direct go:// URIs and aliases)
+	// This allows test stage-level spec to override engine-level spec
+	if testSpec != nil && testSpec.Spec != nil {
+		for k, v := range testSpec.Spec {
+			runnerParams[k] = v
 		}
 	}
 

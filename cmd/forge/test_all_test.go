@@ -260,3 +260,102 @@ func TestExample(t *testing.T) {
 		t.Error("Expected to see 'All test stages passed' in output")
 	}
 }
+
+func TestTestAll_FailFast(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	// Setup temporary directory
+	tmpDir := t.TempDir()
+	forgeRoot, err := testutil.FindForgeRepository()
+	if err != nil {
+		t.Fatalf("Failed to find forge repository root: %v", err)
+	}
+
+	// Set FORGE_REPO_PATH so forge can find engines
+	t.Setenv("FORGE_REPO_PATH", forgeRoot)
+
+	// Create forge.yaml with 3 stages: pass, fail, should-not-run
+	// Using direct go:// URIs with spec fields at test level
+	forgeYAML := `name: test-fail-fast
+artifactStorePath: .forge/artifact-store.yaml
+
+build:
+  - name: dummy-build
+    src: .
+    dest: ./build
+    engine: go://generic-builder
+    spec:
+      command: "true"
+
+test:
+  - name: stage1-pass
+    runner: go://generic-test-runner
+    spec:
+      command: "true"
+
+  - name: stage2-fail
+    runner: go://generic-test-runner
+    spec:
+      command: "false"
+
+  - name: stage3-should-not-run
+    runner: go://generic-test-runner
+    spec:
+      command: "true"
+`
+	forgeYAMLPath := filepath.Join(tmpDir, "forge.yaml")
+	if err := os.WriteFile(forgeYAMLPath, []byte(forgeYAML), 0o644); err != nil {
+		t.Fatalf("Failed to write forge.yaml: %v", err)
+	}
+
+	// Verify forge binary exists
+	forgeBin := filepath.Join(forgeRoot, "build", "bin", "forge")
+	if _, err := os.Stat(forgeBin); err != nil {
+		t.Fatalf("Forge binary not found at %s. Run 'forge build' first.", forgeBin)
+	}
+
+	// Execute test-all
+	cmd := exec.Command(forgeBin, "test-all")
+	cmd.Dir = tmpDir
+
+	output, err := cmd.CombinedOutput()
+	outputStr := string(output)
+
+	t.Logf("forge test-all output:\n%s", outputStr)
+
+	// Verify fail-fast behavior
+	if !strings.Contains(outputStr, "Running test stage: stage1-pass") {
+		t.Error("Expected stage1-pass to run")
+	}
+
+	if !strings.Contains(outputStr, "Stage 'stage1-pass' passed") {
+		t.Error("Expected stage1-pass to pass")
+	}
+
+	if !strings.Contains(outputStr, "Running test stage: stage2-fail") {
+		t.Error("Expected stage2-fail to run")
+	}
+
+	if !strings.Contains(outputStr, "Stage 'stage2-fail' failed") {
+		t.Error("Expected stage2-fail to fail")
+	}
+
+	if strings.Contains(outputStr, "Running test stage: stage3-should-not-run") {
+		t.Error("stage3-should-not-run should NOT have run (fail-fast violated)")
+	}
+
+	if strings.Contains(outputStr, "All test stages passed") {
+		t.Error("Should NOT show 'All test stages passed' when a stage failed")
+	}
+
+	if err == nil {
+		t.Error("Expected command to exit with error, but it succeeded")
+	}
+
+	// Verify error message mentions the failed stage
+	if !strings.Contains(outputStr, "test stage 'stage2-fail' failed") {
+		t.Error("Expected error message to mention 'test stage 'stage2-fail' failed'")
+	}
+}

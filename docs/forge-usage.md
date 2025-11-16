@@ -533,6 +533,80 @@ Run linter as a test:
 forge test run lint
 ```
 
+#### Run All Tests (test-all)
+
+Run the complete test workflow with fail-fast behavior:
+
+```bash
+forge test-all
+```
+
+**What it does:**
+1. Builds all artifacts defined in forge.yaml
+2. Runs all test stages sequentially in order
+3. Auto-deletes test environments after each stage
+4. Stops execution immediately if a stage fails (fail-fast)
+5. Returns error immediately on first failure
+
+**Behavior:**
+- **Fail-fast**: Execution stops at the first failing stage. Subsequent stages do not run.
+- **Auto-cleanup**: Test environments are automatically deleted after each stage, even on failure (best-effort).
+- **Exit code**: Returns non-zero exit code if any stage fails.
+
+**Success output example:**
+```
+Building all artifacts...
+✅ Build completed: 3 artifact(s) built
+
+--- Running test stage: verify-tags ---
+✅ Stage 'verify-tags' passed
+
+--- Running test stage: lint ---
+✅ Stage 'lint' passed
+
+--- Running test stage: unit ---
+✅ Stage 'unit' passed
+
+--- Running test stage: integration ---
+🧹 Cleaned up test environment for stage 'integration'
+✅ Stage 'integration' passed
+
+--- Running test stage: e2e ---
+✅ Stage 'e2e' passed
+
+✅ All test stages passed!
+```
+
+**Failure output example:**
+```
+Building all artifacts...
+✅ Build completed: 3 artifact(s) built
+
+--- Running test stage: verify-tags ---
+✅ Stage 'verify-tags' passed
+
+--- Running test stage: lint ---
+❌ Stage 'lint' failed: exit status 1
+test stage 'lint' failed
+```
+
+**Note:** In the failure example above, stages `unit`, `integration`, and `e2e` did not run because execution stopped at the first failure (lint stage).
+
+**When to use:**
+- CI/CD pipelines where you want fast feedback
+- Pre-commit hooks to validate all tests pass
+- Quick validation of complete codebase
+
+**When not to use:**
+- If you need to see results from all stages regardless of failures, run stages individually:
+  ```bash
+  forge test run verify-tags
+  forge test run lint
+  forge test run unit
+  forge test run integration
+  forge test run e2e
+  ```
+
 ### Manage Test Environments
 
 For test stages with testenv orchestrators (like integration tests):
@@ -710,6 +784,21 @@ docker push localhost:5000/my-api:v1.0.0
 
 Complete workflow from build to testing with code quality checks:
 
+**Option A: Using test-all (recommended for CI/CD)**
+
+```bash
+# Run complete build and test workflow with fail-fast
+forge test-all
+```
+
+This automatically:
+- Builds all artifacts
+- Runs all test stages in order
+- Stops on first failure
+- Auto-cleans up test environments
+
+**Option B: Manual stage-by-stage (for debugging or viewing all results)**
+
 ```bash
 # 1. Build all artifacts (automatically formats code)
 forge build
@@ -793,6 +882,23 @@ forge test delete-env integration $ENV_ID
 ### Workflow 4: CI/CD Pipeline
 
 Automate builds in CI/CD:
+
+**Option A: Simple CI/CD with test-all (recommended)**
+
+```bash
+#!/bin/bash
+set -e
+
+# Environment setup
+export GO_BUILD_LDFLAGS="-X main.Version=$CI_COMMIT_TAG -X main.Commit=$CI_COMMIT_SHA"
+export CONTAINER_ENGINE=docker
+
+# Run complete build and test workflow
+# Fails fast on first error, auto-cleans environments
+forge test-all
+```
+
+**Option B: Manual environment management (for persistent test environments)**
 
 ```bash
 #!/bin/bash
