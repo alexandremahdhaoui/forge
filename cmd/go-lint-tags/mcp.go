@@ -8,36 +8,32 @@ import (
 	"time"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/google/uuid"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// runMCPServerImpl starts the go-lint-tags MCP server with stdio transport.
-// It creates an MCP server, registers tools, and runs the server until stdin closes.
-func runMCPServerImpl() error {
-	v, _, _ := versionInfo.Get()
-	server := mcpserver.New("go-lint-tags", v)
+// runMCPServer starts the go-lint-tags MCP server with stdio transport.
+func runMCPServer() error {
+	server := mcpserver.New("go-lint-tags", Version)
 
-	// Register run tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "run",
-		Description: "Verify that all test files have valid build tags (unit, integration, or e2e)",
-	}, handleRunTool)
+	config := engineframework.TestRunnerConfig{
+		Name:        "go-lint-tags",
+		Version:     Version,
+		RunTestFunc: runTestsWrapper,
+	}
 
-	// Run the MCP server
+	if err := engineframework.RegisterTestRunnerTools(server, config); err != nil {
+		return err
+	}
+
 	return server.RunDefault()
 }
 
-// handleRunTool handles the "run" tool call from MCP clients.
-func handleRunTool(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input mcptypes.RunInput,
-) (*mcp.CallToolResult, any, error) {
-	log.Printf("Create called (no-op): stage=%s", input.Stage)
+// runTestsWrapper implements the TestRunnerFunc for verifying build tags
+func runTestsWrapper(ctx context.Context, input mcptypes.RunInput) (*forge.TestReport, error) {
+	log.Printf("Verifying build tags: stage=%s", input.Stage)
 
 	startTime := time.Now()
 
@@ -76,8 +72,8 @@ func handleRunTool(
 		report.ErrorMessage = fmt.Sprintf("Verification failed: %v", err)
 		report.TestStats = forge.TestStats{Total: 0, Passed: 0, Failed: 0, Skipped: 0}
 
-		result := mcputil.ErrorResult(report.ErrorMessage)
-		return result, report, nil
+		// CRITICAL: Return report with error message, but nil error
+		return report, nil
 	}
 
 	if len(filesWithoutTags) > 0 {
@@ -97,13 +93,11 @@ func handleRunTool(
 
 		report.ErrorMessage = details.String()
 
-		result := mcputil.ErrorResult(details.String())
-		return result, report, nil
+		// CRITICAL: Return report with error message, but nil error
+		return report, nil
 	}
 
 	report.Status = "passed"
-	successMsg := fmt.Sprintf("✅ All %d test files have valid build tags", totalFiles)
 
-	result, returnedArtifact := mcputil.SuccessResultWithArtifact(successMsg, report)
-	return result, returnedArtifact, nil
+	return report, nil
 }

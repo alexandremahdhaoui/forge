@@ -159,16 +159,4 @@ func TestBuildSpecCompatibility(t *testing.T) {
 	}
 }
 
-// TestVersionInfoInitialized tests that version info is properly initialized
-func TestVersionInfoInitialized(t *testing.T) {
-	if versionInfo == nil {
-		t.Fatal("versionInfo should be initialized in init()")
-	}
-
-	// versionInfo.Get() returns (version, commit, timestamp), not tool name
-	// Just verify it's not nil and can be called without panicking
-	version, _, _ := versionInfo.Get()
-	if version == "" {
-		t.Log("Version is empty, which is expected for non-built binaries")
-	}
-}
+// TestVersionInfoInitialized removed - version info now handled by cli.Bootstrap

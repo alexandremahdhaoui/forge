@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 
@@ -17,8 +16,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/util"
-	"github.com/alexandremahdhaoui/forge/internal/version"
 	"github.com/alexandremahdhaoui/forge/pkg/flaterrors"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
@@ -33,16 +32,6 @@ var (
 	CommitSHA      = "unknown"
 	BuildTimestamp = "unknown"
 )
-
-// versionInfo holds testenv-lcr's version information
-var versionInfo *version.Info
-
-func init() {
-	versionInfo = version.New(Name)
-	versionInfo.Version = Version
-	versionInfo.CommitSHA = CommitSHA
-	versionInfo.BuildTimestamp = BuildTimestamp
-}
 
 // ----------------------------------------------------- ENVS ------------------------------------------------------- //
 
@@ -73,87 +62,13 @@ func readEnvs() (Envs, error) {
 // ----------------------------------------------------- MAIN ------------------------------------------------------- //
 
 func main() {
-	// Command parsing
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "--mcp":
-			// Run in MCP server mode
-			if err := runMCPServer(); err != nil {
-				log.Printf("MCP server error: %v", err)
-				os.Exit(1)
-			}
-			return
-
-		case "version", "--version", "-v":
-			versionInfo.Print()
-			return
-
-		case "teardown":
-			if err := teardown(); err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "❌ %s\n", err.Error())
-				os.Exit(1)
-			}
-			os.Exit(0)
-
-		case "push":
-			if len(os.Args) < 3 {
-				_, _ = fmt.Fprintf(os.Stderr, "❌ Error: push command requires an image name\n")
-				_, _ = fmt.Fprintf(os.Stderr, "Usage: %s push <image-name>\n", os.Args[0])
-				os.Exit(1)
-			}
-			if err := push(os.Args[2]); err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "❌ %s\n", err.Error())
-				os.Exit(1)
-			}
-			os.Exit(0)
-
-		case "push-all":
-			if err := pushAll(); err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "❌ %s\n", err.Error())
-				os.Exit(1)
-			}
-			os.Exit(0)
-
-		case "create-image-pull-secret":
-			if len(os.Args) < 3 {
-				_, _ = fmt.Fprintf(os.Stderr, "❌ Error: create-image-pull-secret command requires a namespace\n")
-				_, _ = fmt.Fprintf(os.Stderr, "Usage: %s create-image-pull-secret <namespace> [secret-name]\n", os.Args[0])
-				os.Exit(1)
-			}
-			namespace := os.Args[2]
-			secretName := ""
-			if len(os.Args) > 3 {
-				secretName = os.Args[3]
-			}
-			if err := createImagePullSecret(namespace, secretName); err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "❌ %s\n", err.Error())
-				os.Exit(1)
-			}
-			os.Exit(0)
-
-		case "list-image-pull-secrets":
-			namespace := ""
-			if len(os.Args) > 2 {
-				namespace = os.Args[2]
-			}
-			if err := listImagePullSecrets(namespace); err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "❌ %s\n", err.Error())
-				os.Exit(1)
-			}
-			os.Exit(0)
-		}
-	}
-
-	// Default: setup
-	if err := setup(); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "❌ %s\n", err.Error())
-
-		if err := teardown(); err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "❌ %s\n", err.Error())
-		}
-
-		os.Exit(1)
-	}
+	cli.Bootstrap(cli.Config{
+		Name:           Name,
+		Version:        Version,
+		CommitSHA:      CommitSHA,
+		BuildTimestamp: BuildTimestamp,
+		RunMCP:         runMCPServer,
+	})
 }
 
 var errSettingLocalContainerRegistry = errors.New("error received while setting up " + Name)

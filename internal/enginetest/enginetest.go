@@ -1,8 +1,10 @@
 package enginetest
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -202,5 +204,132 @@ func AllEngines(repoRoot string) []Engine {
 		{Name: "go-gen-openapi", BinaryPath: filepath.Join(buildBin, "go-gen-openapi"), SupportsMCP: true},
 		{Name: "ci-orchestrator", BinaryPath: filepath.Join(buildBin, "ci-orchestrator"), SupportsMCP: true},
 		{Name: "forge-e2e", BinaryPath: filepath.Join(buildBin, "forge-e2e"), SupportsMCP: true},
+	}
+}
+
+// TestBuildEngineTools verifies that a build engine implements both "build" and "buildBatch" tools.
+// This prevents issues where engines might be missing batch support, which would cause errors when
+// forge tries to build multiple artifacts with the same engine.
+func TestBuildEngineTools(t *testing.T, engine Engine) {
+	t.Helper()
+
+	if !engine.SupportsMCP {
+		t.Skipf("Engine %s does not support MCP mode", engine.Name)
+	}
+
+	if _, err := os.Stat(engine.BinaryPath); os.IsNotExist(err) {
+		t.Skipf("Binary not found: %s", engine.BinaryPath)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, engine.BinaryPath, "--mcp")
+
+	// MCP servers communicate via stdin/stdout
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatalf("Failed to create stdin pipe: %v", err)
+	}
+	defer func() { _ = stdin.Close() }()
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("Failed to create stdout pipe: %v", err)
+	}
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	// Start the MCP server
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("Failed to start MCP server: %v", err)
+	}
+	defer func() {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+	}()
+
+	// Send initialize request
+	initRequest := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}` + "\n"
+	if _, err := stdin.Write([]byte(initRequest)); err != nil {
+		t.Fatalf("Failed to send initialize request: %v", err)
+	}
+
+	// Read initialize response
+	scanner := bufio.NewScanner(stdout)
+	if !scanner.Scan() {
+		t.Fatalf("Failed to read initialize response: %v", scanner.Err())
+	}
+
+	// Send tools/list request
+	toolsListRequest := `{"jsonrpc":"2.0","id":2,"method":"tools/list"}` + "\n"
+	if _, err := stdin.Write([]byte(toolsListRequest)); err != nil {
+		t.Fatalf("Failed to send tools/list request: %v", err)
+	}
+
+	// Read tools/list response
+	if !scanner.Scan() {
+		t.Fatalf("Failed to read tools/list response: %v", scanner.Err())
+	}
+
+	response := scanner.Text()
+
+	// Parse JSON-RPC response
+	var jsonRPCResponse struct {
+		JSONRPC string `json:"jsonrpc"`
+		ID      int    `json:"id"`
+		Result  struct {
+			Tools []struct {
+				Name        string `json:"name"`
+				Description string `json:"description"`
+			} `json:"tools"`
+		} `json:"result"`
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+
+	if err := json.Unmarshal([]byte(response), &jsonRPCResponse); err != nil {
+		t.Fatalf("Failed to parse tools/list response: %v\nResponse: %s", err, response)
+	}
+
+	if jsonRPCResponse.Error != nil {
+		t.Fatalf("tools/list returned error: %s", jsonRPCResponse.Error.Message)
+	}
+
+	// Check for required tools
+	tools := make(map[string]bool)
+	for _, tool := range jsonRPCResponse.Result.Tools {
+		tools[tool.Name] = true
+	}
+
+	// Verify both "build" and "buildBatch" tools are present
+	requiredTools := []string{"build", "buildBatch"}
+	var missingTools []string
+
+	for _, toolName := range requiredTools {
+		if !tools[toolName] {
+			missingTools = append(missingTools, toolName)
+		}
+	}
+
+	if len(missingTools) > 0 {
+		availableTools := make([]string, 0, len(tools))
+		for name := range tools {
+			availableTools = append(availableTools, name)
+		}
+		t.Errorf("Engine %s is missing required tools: %v\nAvailable tools: %v",
+			engine.Name, missingTools, availableTools)
+	}
+
+	// Verify tool names are correct
+	if !tools["build"] {
+		t.Errorf("Engine %s does not implement 'build' tool (required for single artifact builds)", engine.Name)
+	}
+	if !tools["buildBatch"] {
+		t.Errorf("Engine %s does not implement 'buildBatch' tool (required for batch builds)", engine.Name)
 	}
 }

@@ -2,18 +2,16 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
-	"time"
 
+	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
-	"github.com/alexandremahdhaoui/forge/internal/version"
+	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Version information (set via ldflags during build)
@@ -23,70 +21,34 @@ var (
 	BuildTimestamp = "unknown"
 )
 
-var versionInfo *version.Info
-
-func init() {
-	versionInfo = version.New("go-format")
-	versionInfo.Version = Version
-	versionInfo.CommitSHA = CommitSHA
-	versionInfo.BuildTimestamp = BuildTimestamp
-}
-
 func main() {
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "--mcp":
-			if err := runMCPServer(); err != nil {
-				log.Printf("MCP server error: %v", err)
-				os.Exit(1)
-			}
-			return
-		case "version", "--version", "-v":
-			versionInfo.Print()
-			return
-		case "help", "--help", "-h":
-			printUsage()
-			return
-		}
-	}
-
-	// Direct invocation - format current directory
-	if err := formatCode("."); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-}
-
-func printUsage() {
-	fmt.Println(`go-format - Format Go code using gofumpt
-
-Usage:
-  go-format [path]          Format Go code at path (default: .)
-  go-format --mcp           Run as MCP server
-  go-format version         Show version information
-  go-format help            Show this help message
-
-Environment Variables:
-  GOFUMPT_VERSION          Version of gofumpt to use (default: v0.6.0)`)
+	cli.Bootstrap(cli.Config{
+		Name:           "go-format",
+		Version:        Version,
+		CommitSHA:      CommitSHA,
+		BuildTimestamp: BuildTimestamp,
+		RunMCP:         runMCPServer,
+	})
 }
 
 func runMCPServer() error {
-	v, _, _ := versionInfo.Get()
-	server := mcpserver.New("go-format", v)
+	server := mcpserver.New("go-format", Version)
 
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "build",
-		Description: "Format Go code using gofumpt",
-	}, handleBuild)
+	config := engineframework.BuilderConfig{
+		Name:      "go-format",
+		Version:   Version,
+		BuildFunc: build,
+	}
+
+	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+		return err
+	}
 
 	return server.RunDefault()
 }
 
-func handleBuild(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input mcptypes.BuildInput,
-) (*mcp.CallToolResult, any, error) {
+// build implements the BuilderFunc for formatting Go code
+func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, error) {
 	path := input.Path
 	if path == "" && input.Src != "" {
 		path = input.Src
@@ -98,28 +60,15 @@ func handleBuild(
 	log.Printf("Formatting Go code at: %s", path)
 
 	if err := formatCode(path); err != nil {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("Formatting failed: %v", err)},
-			},
-			IsError: true,
-		}, nil, nil
+		return nil, fmt.Errorf("formatting failed: %w", err)
 	}
 
-	// Return artifact information
-	artifact := forge.Artifact{
-		Name:      "formatted-code",
-		Type:      "formatted",
-		Location:  path,
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
-
-	artifactJSON, _ := json.Marshal(artifact)
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: string(artifactJSON)},
-		},
-	}, artifact, nil
+	// Return artifact using CreateArtifact (formatted code has no version)
+	return engineframework.CreateArtifact(
+		"formatted-code",
+		"formatted",
+		path,
+	), nil
 }
 
 func formatCode(path string) error {

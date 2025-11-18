@@ -8,26 +8,12 @@ import (
 	"path/filepath"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"sigs.k8s.io/yaml"
 )
-
-// CreateInput represents the input for the create tool.
-type CreateInput struct {
-	TestID   string            `json:"testID"`         // Test environment ID (required)
-	Stage    string            `json:"stage"`          // Test stage name (required)
-	TmpDir   string            `json:"tmpDir"`         // Temporary directory for this test environment
-	Metadata map[string]string `json:"metadata"`       // Metadata from previous testenv-subengines (optional)
-	Spec     map[string]any    `json:"spec,omitempty"` // Optional spec for configuration override
-}
-
-// DeleteInput represents the input for the delete tool.
-type DeleteInput struct {
-	TestID   string            `json:"testID"`   // Test environment ID (required)
-	Metadata map[string]string `json:"metadata"` // Metadata from test environment (optional)
-}
 
 // CreateImagePullSecretInput represents the input for the create-image-pull-secret tool.
 type CreateImagePullSecretInput struct {
@@ -44,65 +30,49 @@ type ListImagePullSecretsInput struct {
 	Metadata  map[string]string `json:"metadata"`            // Metadata from testenv (optional, provides kubeconfig path)
 }
 
-// runMCPServer starts the MCP server.
+// runMCPServer starts the testenv-lcr MCP server with stdio transport.
 func runMCPServer() error {
-	v, _, _ := versionInfo.Get()
-	server := mcpserver.New("testenv-lcr", v)
+	server := mcpserver.New(Name, Version)
 
-	// Register create tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "create",
-		Description: "Create a local container registry in a kind cluster",
-	}, handleCreateTool)
+	// Use framework for standard create/delete tools
+	config := engineframework.TestEnvSubengineConfig{
+		Name:       Name,
+		Version:    Version,
+		CreateFunc: createLocalContainerRegistry,
+		DeleteFunc: deleteLocalContainerRegistry,
+	}
 
-	// Register delete tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "delete",
-		Description: "Delete a local container registry from a kind cluster",
-	}, handleDeleteTool)
+	if err := engineframework.RegisterTestEnvSubengineTools(server, config); err != nil {
+		return err
+	}
 
-	// Register create-image-pull-secret tool
+	// Manually register additional tools specific to testenv-lcr
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "create-image-pull-secret",
 		Description: "Create an image pull secret in a specific namespace for the local container registry",
 	}, handleCreateImagePullSecretTool)
 
-	// Register list-image-pull-secrets tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "list-image-pull-secrets",
 		Description: "List all image pull secrets created by testenv-lcr across all namespaces or in a specific namespace",
 	}, handleListImagePullSecretsTool)
 
-	// Run the MCP server
 	return server.RunDefault()
 }
 
-// handleCreateTool handles the "create" tool call from MCP clients.
-func handleCreateTool(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input CreateInput,
-) (*mcp.CallToolResult, any, error) {
+// createLocalContainerRegistry implements the CreateFunc for creating a local container registry.
+func createLocalContainerRegistry(ctx context.Context, input engineframework.CreateInput) (*engineframework.TestEnvArtifact, error) {
 	log.Printf("Creating local container registry: testID=%s, stage=%s", input.TestID, input.Stage)
 
-	// Redirect stdout to stderr immediately (setup() and other code writes to stdout, but MCP uses stdout for JSON-RPC)
+	// Redirect stdout to stderr (setup() writes to stdout, but MCP uses stdout for JSON-RPC)
 	oldStdout := os.Stdout
 	os.Stdout = os.Stderr
 	defer func() { os.Stdout = oldStdout }()
 
-	// Validate inputs
-	if result := mcputil.ValidateRequiredWithPrefix("Create failed", map[string]string{
-		"testID": input.TestID,
-		"stage":  input.Stage,
-		"tmpDir": input.TmpDir,
-	}); result != nil {
-		return result, nil, nil
-	}
-
 	// Read forge.yaml configuration
 	config, err := forge.ReadSpec()
 	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Create failed: %v", err)), nil, nil
+		return nil, fmt.Errorf("failed to read forge spec: %w", err)
 	}
 
 	// Override config with spec values if provided
@@ -132,7 +102,13 @@ func handleCreateTool(
 
 	// Check if local container registry is enabled
 	if !config.LocalContainerRegistry.Enabled {
-		return mcputil.SuccessResult("Local container registry is disabled, skipping setup"), nil, nil
+		log.Printf("Local container registry is disabled, skipping setup")
+		return &engineframework.TestEnvArtifact{
+			TestID:           input.TestID,
+			Files:            map[string]string{},
+			Metadata:         map[string]string{"testenv-lcr.enabled": "false"},
+			ManagedResources: []string{},
+		}, nil
 	}
 
 	// Override kubeconfig path from metadata (if provided by testenv-kind)
@@ -147,15 +123,15 @@ func handleCreateTool(
 	config.LocalContainerRegistry.CaCrtPath = caCrtPath
 	config.LocalContainerRegistry.CredentialPath = credentialPath
 
-	// Call the existing setup logic with the overridden config (stdout already redirected to stderr at function start)
+	// Call the existing setup logic with the overridden config
 	if err := setupWithConfig(&config); err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Create failed: %v", err)), nil, nil
+		return nil, fmt.Errorf("failed to setup local container registry: %w", err)
 	}
 
 	// Create Kubernetes client to list created image pull secrets
 	cl, err := createKubeClient(config)
 	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Create failed: failed to create kube client: %v", err)), nil, nil
+		return nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
 
 	// Prepare files map (relative paths within tmpDir)
@@ -171,6 +147,7 @@ func handleCreateTool(
 		"testenv-lcr.namespace":      config.LocalContainerRegistry.Namespace,
 		"testenv-lcr.caCrtPath":      caCrtPath,
 		"testenv-lcr.credentialPath": credentialPath,
+		"testenv-lcr.enabled":        "true",
 	}
 
 	// Prepare managed resources (for cleanup)
@@ -199,45 +176,35 @@ func handleCreateTool(
 		}
 	}
 
-	// Return success with artifact
-	artifact := map[string]interface{}{
-		"testID":           input.TestID,
-		"files":            files,
-		"metadata":         metadata,
-		"managedResources": managedResources,
-	}
-
-	result, returnedArtifact := mcputil.SuccessResultWithArtifact(
-		fmt.Sprintf("Created local container registry: %s", registryFQDN),
-		artifact,
-	)
-	return result, returnedArtifact, nil
+	return &engineframework.TestEnvArtifact{
+		TestID:           input.TestID,
+		Files:            files,
+		Metadata:         metadata,
+		ManagedResources: managedResources,
+	}, nil
 }
 
-// handleDeleteTool handles the "delete" tool call from MCP clients.
-func handleDeleteTool(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input DeleteInput,
-) (*mcp.CallToolResult, any, error) {
+// deleteLocalContainerRegistry implements the DeleteFunc for deleting a local container registry.
+func deleteLocalContainerRegistry(ctx context.Context, input engineframework.DeleteInput) error {
 	log.Printf("Deleting local container registry: testID=%s", input.TestID)
 
-	// Validate inputs
-	if result := mcputil.ValidateRequiredWithPrefix("Delete failed", map[string]string{
-		"testID": input.TestID,
-	}); result != nil {
-		return result, nil, nil
+	// Check if registry was enabled
+	if enabled, ok := input.Metadata["testenv-lcr.enabled"]; ok && enabled == "false" {
+		log.Printf("Local container registry was disabled, skipping teardown")
+		return nil
 	}
 
 	// Read forge.yaml configuration
 	config, err := forge.ReadSpec()
 	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Delete failed: %v", err)), nil, nil
+		log.Printf("Warning: failed to read forge spec: %v", err)
+		return nil // Best-effort cleanup
 	}
 
 	// Check if local container registry is enabled
 	if !config.LocalContainerRegistry.Enabled {
-		return mcputil.SuccessResult("Local container registry is disabled, skipping teardown"), nil, nil
+		log.Printf("Local container registry is disabled, skipping teardown")
+		return nil
 	}
 
 	// Override kubeconfig path from metadata (if provided)
@@ -245,13 +212,13 @@ func handleDeleteTool(
 		config.Kindenv.KubeconfigPath = kubeconfigPath
 	}
 
-	// Call the existing teardown logic
+	// Call the existing teardown logic (best-effort)
 	if err := teardown(); err != nil {
 		// Log error but don't fail - best effort cleanup
-		log.Printf("Warning: failed to delete local container registry: %v", err)
+		log.Printf("Warning: failed to teardown local container registry: %v", err)
 	}
 
-	return mcputil.SuccessResult("Deleted local container registry"), nil, nil
+	return nil
 }
 
 // handleCreateImagePullSecretTool handles the "create-image-pull-secret" tool call from MCP clients.
@@ -355,7 +322,7 @@ func handleListImagePullSecretsTool(
 	req *mcp.CallToolRequest,
 	input ListImagePullSecretsInput,
 ) (*mcp.CallToolResult, any, error) {
-	log.Printf("Listing image pull secrets: testID=%s, namespace=%s", input.TestID, input.Namespace)
+	log.Printf("Listing image pull secrets: testID=%s", input.TestID)
 
 	// Validate inputs
 	if result := mcputil.ValidateRequiredWithPrefix("List image pull secrets failed", map[string]string{
@@ -387,16 +354,15 @@ func handleListImagePullSecretsTool(
 		return mcputil.ErrorResult(fmt.Sprintf("List image pull secrets failed: %v", err)), nil, nil
 	}
 
-	// Return success with artifact containing the list
-	artifact := map[string]interface{}{
-		"testID":  input.TestID,
-		"secrets": secrets,
-		"count":   len(secrets),
+	if len(secrets) == 0 {
+		return mcputil.SuccessResult("No image pull secrets found"), nil, nil
 	}
 
-	result, returnedArtifact := mcputil.SuccessResultWithArtifact(
-		fmt.Sprintf("Found %d image pull secret(s)", len(secrets)),
-		artifact,
-	)
-	return result, returnedArtifact, nil
+	// Build response message
+	message := fmt.Sprintf("Found %d image pull secret(s):\n", len(secrets))
+	for _, secret := range secrets {
+		message += fmt.Sprintf("  - %s/%s (created: %v)\n", secret.Namespace, secret.SecretName, secret.CreatedAt)
+	}
+
+	return mcputil.SuccessResult(message), nil, nil
 }

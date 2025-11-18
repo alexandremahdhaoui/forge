@@ -4,80 +4,95 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
+	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the generic-test-runner MCP server with stdio transport.
 func runMCPServer() error {
-	v, _, _ := versionInfo.Get()
-	server := mcpserver.New("generic-test-runner", v)
+	server := mcpserver.New("generic-test-runner", Version)
 
-	// Register run tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "run",
-		Description: "Run tests for a given stage and generate structured report",
-	}, handleRunTool)
+	// Configure test runner with engineframework
+	config := engineframework.TestRunnerConfig{
+		Name:        "generic-test-runner",
+		Version:     Version,
+		RunTestFunc: runTests,
+	}
+
+	// Register test runner tools (registers 'run')
+	if err := engineframework.RegisterTestRunnerTools(server, config); err != nil {
+		return err
+	}
 
 	// Run the MCP server
 	return server.RunDefault()
 }
 
-// handleRunTool handles the "run" tool call from MCP clients.
-func handleRunTool(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input mcptypes.RunInput,
-) (*mcp.CallToolResult, any, error) {
+// runTests is the core business logic for executing a test command.
+// It implements engineframework.TestRunnerFunc.
+func runTests(ctx context.Context, input mcptypes.RunInput) (*forge.TestReport, error) {
 	log.Printf("Running tests: stage=%s name=%s command=%s", input.Stage, input.Name, input.Command)
 
 	// Validate required fields
-	if result := mcputil.ValidateRequiredWithPrefix("Test run failed", map[string]string{
-		"stage":   input.Stage,
-		"name":    input.Name,
-		"command": input.Command,
-	}); result != nil {
-		return result, nil, nil
+	if input.Command == "" {
+		return nil, fmt.Errorf("command is required")
 	}
 
-	// Convert RunInput to TestInput
-	testInput := TestInput{
-		Stage:    input.Stage,
-		Name:     input.Name,
-		Command:  input.Command,
-		Args:     input.Args,
-		Env:      input.Env,
-		EnvFile:  input.EnvFile,
-		WorkDir:  input.WorkDir,
-		TmpDir:   input.TmpDir,
-		BuildDir: input.BuildDir,
-		RootDir:  input.RootDir,
+	// Execute command
+	execInput := ExecuteInput{
+		Command: input.Command,
+		Args:    input.Args,
+		Env:     input.Env,
+		EnvFile: input.EnvFile,
+		WorkDir: input.WorkDir,
 	}
 
-	// Run tests
-	report, err := runTests(testInput)
-	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Test run failed: %v", err)), nil, nil
+	output := executeCommand(execInput)
+
+	// Create test report based on exit code
+	// CRITICAL: Return report even if tests failed (Status="failed")
+	status := "passed"
+	passed := 1
+	failed := 0
+	errorMessage := ""
+
+	if output.ExitCode != 0 {
+		status = "failed"
+		passed = 0
+		failed = 1
+		errorMessage = fmt.Sprintf("Command exited with code %d", output.ExitCode)
+		if output.Error != "" {
+			errorMessage += fmt.Sprintf(": %s", output.Error)
+		}
 	}
 
-	// Create status message
-	statusMsg := fmt.Sprintf("Tests %s: stage=%s, total=%d, passed=%d, failed=%d, skipped=%d",
-		report.Status,
-		report.Stage,
-		report.TestStats.Total,
-		report.TestStats.Passed,
-		report.TestStats.Failed,
-		report.TestStats.Skipped,
-	)
-
-	// Return result with TestReport as artifact based on status
-	if report.Status == "failed" {
-		result := mcputil.ErrorResult(statusMsg)
-		return result, report, nil
+	// Log output
+	if output.Stdout != "" {
+		log.Printf("Stdout: %s", output.Stdout)
 	}
-	result, returnedArtifact := mcputil.SuccessResultWithArtifact(statusMsg, report)
-	return result, returnedArtifact, nil
+	if output.Stderr != "" {
+		log.Printf("Stderr: %s", output.Stderr)
+	}
+
+	report := &forge.TestReport{
+		Stage:        input.Stage,
+		Status:       status,
+		ErrorMessage: errorMessage,
+		StartTime:    time.Now().UTC(),
+		Duration:     0, // Duration not tracked for generic test runner
+		TestStats: forge.TestStats{
+			Total:  1,
+			Passed: passed,
+			Failed: failed,
+		},
+		Coverage: forge.Coverage{
+			Percentage: 0.0, // Coverage not tracked for generic test runner
+		},
+	}
+
+	return report, nil
 }

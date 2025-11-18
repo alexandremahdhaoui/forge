@@ -4,120 +4,108 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
+	"os"
+	"os/exec"
+	"path/filepath"
 
-	"github.com/alexandremahdhaoui/forge/internal/gitutil"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the go-build MCP server with stdio transport.
-// It creates an MCP server, registers tools, and runs the server until stdin closes.
 func runMCPServer() error {
 	server := mcpserver.New(Name, Version)
 
-	// Register build tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "build",
-		Description: "Build a single Go binary from source",
-	}, handleBuildTool)
+	config := engineframework.BuilderConfig{
+		Name:      Name,
+		Version:   Version,
+		BuildFunc: build,
+	}
 
-	// Register buildBatch tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "buildBatch",
-		Description: "Build multiple Go binaries from source",
-	}, handleBuildBatchTool)
+	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+		return err
+	}
 
-	// Run the MCP server
 	return server.RunDefault()
 }
 
-// handleBuildTool handles the "build" tool call from MCP clients.
-func handleBuildTool(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input mcptypes.BuildInput,
-) (*mcp.CallToolResult, any, error) {
+// build implements the BuilderFunc for building Go binaries
+func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, error) {
 	log.Printf("Building binary: %s from %s", input.Name, input.Src)
-
-	// Validate inputs
-	if result := mcputil.ValidateRequiredWithPrefix("Build failed", map[string]string{
-		"name": input.Name,
-		"src":  input.Src,
-	}); result != nil {
-		return result, nil, nil
-	}
-
-	// Get git version
-	version, err := gitutil.GetCurrentCommitSHA()
-	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Build failed: could not get git version: %v", err)), nil, nil
-	}
-
-	// Create BuildSpec from input
-	spec := forge.BuildSpec{
-		Name:   input.Name,
-		Src:    input.Src,
-		Dest:   input.Dest,
-		Engine: input.Engine,
-	}
 
 	// Extract build options from input
 	opts := extractBuildOptionsFromInput(input)
 
-	// Build the binary
-	timestamp := time.Now().UTC().Format(time.RFC3339)
-	envs := Envs{} // Use default (empty) environment
-
-	// We don't have artifact store in MCP mode, pass nil
-	var dummyStore forge.ArtifactStore
-
-	// Note: Pass isMCPMode=true to suppress stdout output that would corrupt JSON-RPC
-	if err := buildBinary(envs, spec, version, timestamp, &dummyStore, true, opts); err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Build failed: %v", err)), nil, nil
-	}
-
-	// Determine final location
-	dest := spec.Dest
+	// Determine destination directory
+	dest := input.Dest
 	if dest == "" {
 		dest = "./build/bin"
 	}
 
-	// Create artifact response
-	artifact := forge.Artifact{
-		Name:      input.Name,
-		Type:      "binary",
-		Location:  fmt.Sprintf("%s/%s", dest, input.Name),
-		Timestamp: timestamp,
-		Version:   version,
+	// Create destination directory
+	if err := os.MkdirAll(dest, 0o755); err != nil {
+		return nil, fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
-	result, returnedArtifact := mcputil.SuccessResultWithArtifact(
-		fmt.Sprintf("Built binary: %s successfully (version: %s)", input.Name, version),
-		artifact,
+	outputPath := filepath.Join(dest, input.Name)
+
+	// Set CGO_ENABLED=0 for static binaries (can be overridden by custom env)
+	if err := os.Setenv("CGO_ENABLED", "0"); err != nil {
+		return nil, fmt.Errorf("failed to set CGO_ENABLED: %w", err)
+	}
+
+	// Apply custom environment variables if provided
+	if opts != nil && len(opts.CustomEnv) > 0 {
+		for key, value := range opts.CustomEnv {
+			if err := os.Setenv(key, value); err != nil {
+				return nil, fmt.Errorf("failed to set environment variable %s: %w", key, err)
+			}
+		}
+	}
+
+	// Build command arguments
+	args := []string{
+		"build",
+		"-o", outputPath,
+	}
+
+	// Add ldflags from environment if provided
+	if ldflags := os.Getenv("GO_BUILD_LDFLAGS"); ldflags != "" {
+		args = append(args, "-ldflags", ldflags)
+	}
+
+	// Add custom args if provided
+	if opts != nil && len(opts.CustomArgs) > 0 {
+		args = append(args, opts.CustomArgs...)
+	}
+
+	// Add source path
+	args = append(args, input.Src)
+
+	// Execute build
+	cmd := exec.Command("go", args...)
+	cmd.Stdout = os.Stderr // MCP mode: redirect to stderr
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("go build failed: %w", err)
+	}
+
+	// Create versioned artifact
+	artifact, err := engineframework.CreateVersionedArtifact(
+		input.Name,
+		"binary",
+		outputPath,
 	)
-	return result, returnedArtifact, nil
-}
+	if err != nil {
+		return nil, fmt.Errorf("failed to create artifact: %w", err)
+	}
 
-// handleBuildBatchTool handles batch building of multiple binaries.
-func handleBuildBatchTool(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input mcptypes.BatchBuildInput,
-) (*mcp.CallToolResult, any, error) {
-	log.Printf("Building %d binaries in batch", len(input.Specs))
+	fmt.Fprintf(os.Stderr, "✅ Built binary: %s (version: %s)\n", input.Name, artifact.Version)
 
-	// Use generic batch handler
-	artifacts, errorMsgs := mcputil.HandleBatchBuild(ctx, input.Specs, func(ctx context.Context, spec mcptypes.BuildInput) (*mcp.CallToolResult, any, error) {
-		return handleBuildTool(ctx, req, spec)
-	})
-
-	// Format the result
-	result, returnedArtifacts := mcputil.FormatBatchResult("binaries", artifacts, errorMsgs)
-	return result, returnedArtifacts, nil
+	return artifact, nil
 }
 
 // extractBuildOptionsFromInput extracts BuildOptions from BuildInput fields.

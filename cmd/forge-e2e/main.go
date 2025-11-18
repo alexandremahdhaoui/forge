@@ -1,21 +1,17 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/testutil"
-	"github.com/alexandremahdhaoui/forge/internal/version"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Version information (set via ldflags during build)
@@ -24,15 +20,6 @@ var (
 	CommitSHA      = "unknown"
 	BuildTimestamp = "unknown"
 )
-
-var versionInfo *version.Info
-
-func init() {
-	versionInfo = version.New("forge-e2e")
-	versionInfo.Version = Version
-	versionInfo.CommitSHA = CommitSHA
-	versionInfo.BuildTimestamp = BuildTimestamp
-}
 
 // TestCategory represents a category of tests
 type TestCategory string
@@ -601,32 +588,8 @@ func (ts *TestSuite) getCategoriesUsed() map[TestCategory]bool {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
-	}
-
-	command := os.Args[1]
-
-	switch command {
-	case "--mcp":
-		// Run in MCP server mode
-		if err := runMCPServer(); err != nil {
-			log.Printf("MCP server error: %v", err)
-			os.Exit(1)
-		}
-	case "version", "--version", "-v":
-		versionInfo.Print()
-	case "help", "--help", "-h":
-		printUsage()
-	default:
-		// Assume first arg is stage, second is name
-		if len(os.Args) < 3 {
-			fmt.Fprintf(os.Stderr, "Error: requires <STAGE> and <NAME> arguments\n\n")
-			printUsage()
-			os.Exit(1)
-		}
-
+	// Check if running in direct CLI mode (forge-e2e <STAGE> <NAME>)
+	if len(os.Args) >= 3 && os.Args[1] != "--mcp" && os.Args[1] != "version" && os.Args[1] != "--version" && os.Args[1] != "-v" && os.Args[1] != "help" && os.Args[1] != "--help" && os.Args[1] != "-h" {
 		stage := os.Args[1]
 		name := os.Args[2]
 
@@ -634,7 +597,17 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+		return
 	}
+
+	// Otherwise, use standard cli.Bootstrap for MCP mode and version handling
+	cli.Bootstrap(cli.Config{
+		Name:           "forge-e2e",
+		Version:        Version,
+		CommitSHA:      CommitSHA,
+		BuildTimestamp: BuildTimestamp,
+		RunMCP:         runMCPServer,
+	})
 }
 
 func printUsage() {
@@ -690,72 +663,6 @@ Test Categories:
   performance     - Performance tests`)
 }
 
-func runMCPServer() error {
-	v, _, _ := versionInfo.Get()
-	server := mcpserver.New("forge-e2e", v)
-
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "run",
-		Description: "Run forge end-to-end tests",
-	}, handleRun)
-
-	return server.RunDefault()
-}
-
-func handleRun(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input RunInput,
-) (*mcp.CallToolResult, any, error) {
-	log.Printf("Running e2e tests: stage=%s, name=%s", input.Stage, input.Name)
-
-	// Validate required inputs
-	if input.Stage == "" {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: "Run failed: missing required field 'stage'"},
-			},
-			IsError: true,
-		}, nil, nil
-	}
-
-	if input.Name == "" {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: "Run failed: missing required field 'name'"},
-			},
-			IsError: true,
-		}, nil, nil
-	}
-
-	report := runTests(input.Stage, input.Name)
-
-	// Return the test report as JSON
-	reportJSON, _ := json.Marshal(report)
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: string(reportJSON)},
-		},
-		IsError: report.Status == "failed",
-	}, report, nil
-}
-
-func run(stage, name string) error {
-	// Execute tests and generate report
-	report := runTests(stage, name)
-
-	// Output JSON report to stdout
-	if err := json.NewEncoder(os.Stdout).Encode(report); err != nil {
-		return fmt.Errorf("failed to encode report: %w", err)
-	}
-
-	// Exit with non-zero if tests failed
-	if report.Status == "failed" {
-		os.Exit(1)
-	}
-
-	return nil
-}
 
 func runTests(stage, name string) *DetailedTestReport {
 	fmt.Fprintf(os.Stderr, "Stage: %s, Name: %s\n", stage, name)

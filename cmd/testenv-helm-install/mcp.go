@@ -11,24 +11,8 @@ import (
 	"time"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
-	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 )
-
-// CreateInput represents the input for the create tool.
-type CreateInput struct {
-	TestID   string            `json:"testID"`         // Test environment ID (required)
-	Stage    string            `json:"stage"`          // Test stage name (required)
-	TmpDir   string            `json:"tmpDir"`         // Temporary directory for this test environment
-	Metadata map[string]string `json:"metadata"`       // Metadata from previous testenv-subengines (optional)
-	Spec     map[string]any    `json:"spec,omitempty"` // Spec containing charts configuration
-}
-
-// DeleteInput represents the input for the delete tool.
-type DeleteInput struct {
-	TestID   string            `json:"testID"`   // Test environment ID (required)
-	Metadata map[string]string `json:"metadata"` // Metadata from test environment (required for chart names)
-}
 
 // ChartSpec defines a Helm chart to install
 type ChartSpec struct {
@@ -40,43 +24,27 @@ type ChartSpec struct {
 	ReleaseName string            `json:"releaseName,omitempty"` // Custom release name (optional, defaults to chart name)
 }
 
-// runMCPServer starts the MCP server.
+// runMCPServer starts the testenv-helm-install MCP server with stdio transport.
 func runMCPServer() error {
-	v, _, _ := versionInfo.Get()
-	server := mcpserver.New("testenv-helm-install", v)
+	server := mcpserver.New("testenv-helm-install", Version)
 
-	// Register create tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "create",
-		Description: "Install Helm charts into a Kubernetes cluster",
-	}, handleCreateTool)
+	config := engineframework.TestEnvSubengineConfig{
+		Name:       "testenv-helm-install",
+		Version:    Version,
+		CreateFunc: installHelmCharts,
+		DeleteFunc: uninstallHelmCharts,
+	}
 
-	// Register delete tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "delete",
-		Description: "Uninstall Helm charts from a Kubernetes cluster",
-	}, handleDeleteTool)
+	if err := engineframework.RegisterTestEnvSubengineTools(server, config); err != nil {
+		return err
+	}
 
-	// Run the MCP server
 	return server.RunDefault()
 }
 
-// handleCreateTool handles the "create" tool call from MCP clients.
-func handleCreateTool(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input CreateInput,
-) (*mcp.CallToolResult, any, error) {
+// installHelmCharts implements the CreateFunc for installing Helm charts.
+func installHelmCharts(ctx context.Context, input engineframework.CreateInput) (*engineframework.TestEnvArtifact, error) {
 	log.Printf("Installing Helm charts: testID=%s, stage=%s", input.TestID, input.Stage)
-
-	// Validate inputs
-	if result := mcputil.ValidateRequiredWithPrefix("Create failed", map[string]string{
-		"testID": input.TestID,
-		"stage":  input.Stage,
-		"tmpDir": input.TmpDir,
-	}); result != nil {
-		return result, nil, nil
-	}
 
 	// Parse charts from spec
 	charts, err := parseChartsFromSpec(input.Spec)
@@ -85,40 +53,30 @@ func handleCreateTool(
 		log.Printf("No charts specified, skipping helm installation")
 
 		// Return success with empty metadata
-		artifact := map[string]interface{}{
-			"testID":           input.TestID,
-			"files":            map[string]string{},
-			"metadata":         map[string]string{"testenv-helm-install.chartCount": "0"},
-			"managedResources": []string{},
-		}
-		result, returnedArtifact := mcputil.SuccessResultWithArtifact(
-			"Skipped Helm chart installation (no charts specified)",
-			artifact,
-		)
-		return result, returnedArtifact, nil
+		return &engineframework.TestEnvArtifact{
+			TestID:           input.TestID,
+			Files:            map[string]string{},
+			Metadata:         map[string]string{"testenv-helm-install.chartCount": "0"},
+			ManagedResources: []string{},
+		}, nil
 	}
 
 	if len(charts) == 0 {
 		log.Printf("Empty charts list, skipping helm installation")
 
 		// Return success with empty metadata
-		artifact := map[string]interface{}{
-			"testID":           input.TestID,
-			"files":            map[string]string{},
-			"metadata":         map[string]string{"testenv-helm-install.chartCount": "0"},
-			"managedResources": []string{},
-		}
-		result, returnedArtifact := mcputil.SuccessResultWithArtifact(
-			"Skipped Helm chart installation (empty charts list)",
-			artifact,
-		)
-		return result, returnedArtifact, nil
+		return &engineframework.TestEnvArtifact{
+			TestID:           input.TestID,
+			Files:            map[string]string{},
+			Metadata:         map[string]string{"testenv-helm-install.chartCount": "0"},
+			ManagedResources: []string{},
+		}, nil
 	}
 
 	// Find kubeconfig from tmpDir or metadata
 	kubeconfigPath, err := findKubeconfig(input.TmpDir, input.Metadata)
 	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Create failed: %v", err)), nil, nil
+		return nil, fmt.Errorf("failed to find kubeconfig: %w", err)
 	}
 
 	log.Printf("Using kubeconfig: %s", kubeconfigPath)
@@ -140,13 +98,13 @@ func handleCreateTool(
 			// Extract repo name from chart name (e.g., "bitnami/nginx" -> "bitnami")
 			repoName := extractRepoName(chart.Name, chart.Repo)
 			if err := addHelmRepo(repoName, chart.Repo); err != nil {
-				return mcputil.ErrorResult(fmt.Sprintf("Create failed: failed to add helm repo %s: %v", chart.Repo, err)), nil, nil
+				return nil, fmt.Errorf("failed to add helm repo %s: %w", chart.Repo, err)
 			}
 		}
 
 		// Install the chart
 		if err := installChart(chart, kubeconfigPath); err != nil {
-			return mcputil.ErrorResult(fmt.Sprintf("Create failed: failed to install chart %s: %v", chart.Name, err)), nil, nil
+			return nil, fmt.Errorf("failed to install chart %s: %w", chart.Name, err)
 		}
 
 		installedCharts = append(installedCharts, releaseName)
@@ -169,58 +127,41 @@ func handleCreateTool(
 	// Prepare managed resources (for cleanup)
 	managedResources := []string{}
 
-	// Return success with artifact
-	artifact := map[string]interface{}{
-		"testID":           input.TestID,
-		"files":            files,
-		"metadata":         metadata,
-		"managedResources": managedResources,
-	}
-
-	result, returnedArtifact := mcputil.SuccessResultWithArtifact(
-		fmt.Sprintf("Installed %d Helm chart(s): %v", len(installedCharts), installedCharts),
-		artifact,
-	)
-	return result, returnedArtifact, nil
+	// Return artifact
+	return &engineframework.TestEnvArtifact{
+		TestID:           input.TestID,
+		Files:            files,
+		Metadata:         metadata,
+		ManagedResources: managedResources,
+	}, nil
 }
 
-// handleDeleteTool handles the "delete" tool call from MCP clients.
-func handleDeleteTool(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input DeleteInput,
-) (*mcp.CallToolResult, any, error) {
+// uninstallHelmCharts implements the DeleteFunc for uninstalling Helm charts.
+func uninstallHelmCharts(ctx context.Context, input engineframework.DeleteInput) error {
 	log.Printf("Uninstalling Helm charts: testID=%s", input.TestID)
-
-	// Validate inputs
-	if result := mcputil.ValidateRequiredWithPrefix("Delete failed", map[string]string{
-		"testID": input.TestID,
-	}); result != nil {
-		return result, nil, nil
-	}
 
 	// Extract chart count from metadata
 	chartCountStr, ok := input.Metadata["testenv-helm-install.chartCount"]
 	if !ok {
 		// No charts to uninstall
 		log.Printf("No charts found in metadata, skipping uninstall")
-		return mcputil.SuccessResult("No Helm charts to uninstall"), nil, nil
+		return nil
 	}
 
 	var chartCount int
 	if _, err := fmt.Sscanf(chartCountStr, "%d", &chartCount); err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Delete failed: invalid chartCount: %v", err)), nil, nil
+		log.Printf("Warning: invalid chartCount in metadata: %v", err)
+		return nil
 	}
 
 	// Find kubeconfig from metadata (use testenv-kind's kubeconfig)
 	kubeconfigPath, ok := input.Metadata["testenv-kind.kubeconfigPath"]
 	if !ok {
 		log.Printf("Warning: kubeconfig not found in metadata, skipping helm uninstall")
-		return mcputil.SuccessResult("Skipped Helm chart uninstall (no kubeconfig)"), nil, nil
+		return nil
 	}
 
-	// Uninstall each chart in reverse order
-	uninstalledCharts := []string{}
+	// Uninstall each chart in reverse order (best effort)
 	for i := chartCount - 1; i >= 0; i-- {
 		prefix := fmt.Sprintf("testenv-helm-install.chart.%d", i)
 		releaseName := input.Metadata[prefix+".releaseName"]
@@ -236,13 +177,11 @@ func handleDeleteTool(
 		// Uninstall the chart (best effort)
 		if err := uninstallChart(releaseName, namespace, kubeconfigPath); err != nil {
 			log.Printf("Warning: failed to uninstall chart %s: %v", releaseName, err)
-			// Continue with other charts
-		} else {
-			uninstalledCharts = append(uninstalledCharts, releaseName)
+			// Continue with other charts (best effort cleanup)
 		}
 	}
 
-	return mcputil.SuccessResult(fmt.Sprintf("Uninstalled %d Helm chart(s)", len(uninstalledCharts))), nil, nil
+	return nil
 }
 
 // parseChartsFromSpec extracts chart specifications from the spec map

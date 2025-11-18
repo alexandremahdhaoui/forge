@@ -2,17 +2,17 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"time"
 
+	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
-	"github.com/alexandremahdhaoui/forge/internal/version"
+	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
+	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Version information (set via ldflags during build)
@@ -22,146 +22,36 @@ var (
 	BuildTimestamp = "unknown"
 )
 
-var versionInfo *version.Info
-
-func init() {
-	versionInfo = version.New("go-lint")
-	versionInfo.Version = Version
-	versionInfo.CommitSHA = CommitSHA
-	versionInfo.BuildTimestamp = BuildTimestamp
-}
-
-// TestReport represents the structured output of a lint run
-type TestReport struct {
-	Status       string  `json:"status"` // "passed" or "failed"
-	ErrorMessage string  `json:"error,omitempty"`
-	Duration     float64 `json:"duration"` // seconds
-	Total        int     `json:"total"`    // total issues found
-	Passed       int     `json:"passed"`   // always 0 or 1
-	Failed       int     `json:"failed"`   // 0 if passed, 1 if failed
-}
-
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
-	}
-
-	command := os.Args[1]
-
-	switch command {
-	case "--mcp":
-		// Run in MCP server mode
-		if err := runMCPServer(); err != nil {
-			log.Printf("MCP server error: %v", err)
-			os.Exit(1)
-		}
-	case "version", "--version", "-v":
-		versionInfo.Print()
-	case "help", "--help", "-h":
-		printUsage()
-	default:
-		// Assume first arg is stage, second is name
-		if len(os.Args) < 3 {
-			fmt.Fprintf(os.Stderr, "Error: requires <STAGE> and <NAME> arguments\n\n")
-			printUsage()
-			os.Exit(1)
-		}
-
-		stage := os.Args[1]
-		name := os.Args[2]
-
-		if err := run(stage, name); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	}
-}
-
-func printUsage() {
-	fmt.Println(`go-lint - Lint Go code using golangci-lint
-
-Usage:
-  go-lint <STAGE> <NAME>        Run linter for the given stage
-  go-lint --mcp                 Run as MCP server
-  go-lint version               Show version information
-
-Arguments:
-  STAGE    Test stage name (e.g., "lint")
-  NAME     Test run identifier
-
-Examples:
-  go-lint lint my-lint-20241103
-  go-lint --mcp
-
-Environment Variables:
-  GOLANGCI_LINT_VERSION    Version of golangci-lint to use (default: v1.59.1)
-
-Output:
-  - Lint output is written to stderr
-  - Structured JSON report is written to stdout`)
+	cli.Bootstrap(cli.Config{
+		Name:           "go-lint",
+		Version:        Version,
+		CommitSHA:      CommitSHA,
+		BuildTimestamp: BuildTimestamp,
+		RunMCP:         runMCPServer,
+	})
 }
 
 func runMCPServer() error {
-	v, _, _ := versionInfo.Get()
-	server := mcpserver.New("go-lint", v)
+	server := mcpserver.New("go-lint", Version)
 
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "run",
-		Description: "Run Go linter using golangci-lint",
-	}, handleRun)
+	config := engineframework.TestRunnerConfig{
+		Name:        "go-lint",
+		Version:     Version,
+		RunTestFunc: runTests,
+	}
+
+	if err := engineframework.RegisterTestRunnerTools(server, config); err != nil {
+		return err
+	}
 
 	return server.RunDefault()
 }
 
-func handleRun(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input mcptypes.RunInput,
-) (*mcp.CallToolResult, any, error) {
+// runTests implements the TestRunnerFunc for running Go linter
+func runTests(ctx context.Context, input mcptypes.RunInput) (*forge.TestReport, error) {
 	log.Printf("Running linter: stage=%s, name=%s", input.Stage, input.Name)
 
-	report, err := runLint(input.Stage, input.Name)
-	if err != nil {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("Lint execution failed: %v", err)},
-			},
-			IsError: true,
-		}, nil, nil
-	}
-
-	// Return the test report as JSON
-	reportJSON, _ := json.Marshal(report)
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: string(reportJSON)},
-		},
-		IsError: report.Status == "failed",
-	}, report, nil
-}
-
-func run(stage, name string) error {
-	// Execute linter and generate report
-	report, err := runLint(stage, name)
-	if err != nil {
-		return fmt.Errorf("lint execution failed: %w", err)
-	}
-
-	// Output JSON report to stdout
-	if err := json.NewEncoder(os.Stdout).Encode(report); err != nil {
-		return fmt.Errorf("failed to encode report: %w", err)
-	}
-
-	// Exit with non-zero if linting failed
-	if report.Status == "failed" {
-		os.Exit(1)
-	}
-
-	return nil
-}
-
-func runLint(stage, name string) (*TestReport, error) {
 	startTime := time.Now()
 
 	golangciVersion := os.Getenv("GOLANGCI_LINT_VERSION")
@@ -179,9 +69,9 @@ func runLint(stage, name string) (*TestReport, error) {
 
 	// Execute the command
 	err := cmd.Run()
-	duration := time.Since(startTime).Seconds()
+	duration := time.Since(startTime)
 
-	// Determine status based on exit code
+	// CRITICAL: Return report even if linting failed (Status="failed")
 	status := "passed"
 	errorMessage := ""
 	total := 0
@@ -200,12 +90,19 @@ func runLint(stage, name string) (*TestReport, error) {
 		}
 	}
 
-	return &TestReport{
+	return &forge.TestReport{
+		Stage:        input.Stage,
 		Status:       status,
 		ErrorMessage: errorMessage,
-		Duration:     duration,
-		Total:        total,
-		Passed:       passed,
-		Failed:       failed,
+		StartTime:    startTime,
+		Duration:     duration.Seconds(),
+		TestStats: forge.TestStats{
+			Total:  total,
+			Passed: passed,
+			Failed: failed,
+		},
+		Coverage: forge.Coverage{
+			Percentage: 0.0, // Linting doesn't provide coverage
+		},
 	}, nil
 }

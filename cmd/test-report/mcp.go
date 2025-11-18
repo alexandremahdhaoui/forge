@@ -34,8 +34,7 @@ type ListInput struct {
 
 // runMCPServer starts the MCP server.
 func runMCPServer() error {
-	v, _, _ := versionInfo.Get()
-	server := mcpserver.New("test-report", v)
+	server := mcpserver.New("test-report", Version)
 
 	// Register create tool (no-op for compatibility with test engine interface)
 	mcpserver.RegisterTool(server, &mcp.Tool{

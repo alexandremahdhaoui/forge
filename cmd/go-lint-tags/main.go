@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/alexandremahdhaoui/forge/internal/version"
+	"github.com/alexandremahdhaoui/forge/internal/cli"
 )
 
 // Version information (set via ldflags during build)
@@ -17,95 +17,14 @@ var (
 	BuildTimestamp = "unknown"
 )
 
-var versionInfo *version.Info
-
-func init() {
-	versionInfo = version.New("go-lint-tags")
-	versionInfo.Version = Version
-	versionInfo.CommitSHA = CommitSHA
-	versionInfo.BuildTimestamp = BuildTimestamp
-}
-
 func main() {
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "--mcp":
-			// Run in MCP server mode
-			if err := runMCPServer(); err != nil {
-				fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-				os.Exit(1)
-			}
-			return
-		case "version", "--version", "-v":
-			versionInfo.Print()
-			return
-		case "help", "--help", "-h":
-			printUsage()
-			return
-		}
-	}
-
-	// Get the root directory to search (default to current directory)
-	rootDir := "."
-	if len(os.Args) > 1 {
-		rootDir = os.Args[1]
-	}
-
-	// Find all test files
-	testFiles, err := findTestFiles(rootDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error finding test files: %v\n", err)
-		os.Exit(1)
-	}
-
-	if len(testFiles) == 0 {
-		fmt.Println("No test files found")
-		return
-	}
-
-	fmt.Printf("Checking %d test files for build tags...\n", len(testFiles))
-
-	// Verify each test file has a build tag
-	var filesWithoutTags []string
-	for _, file := range testFiles {
-		hasBuildTag, err := checkBuildTag(file)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error checking %s: %v\n", file, err)
-			continue
-		}
-		if !hasBuildTag {
-			filesWithoutTags = append(filesWithoutTags, file)
-		}
-	}
-
-	// Report results
-	if len(filesWithoutTags) > 0 {
-		fmt.Fprintf(os.Stderr, "\n❌ Found %d test file(s) without build tags:\n\n", len(filesWithoutTags))
-
-		// Print table header
-		fmt.Fprintf(os.Stderr, "%-80s  %s\n", "FILE PATH", "MISSING TAG")
-		fmt.Fprintf(os.Stderr, "%s  %s\n",
-			"--------------------------------------------------------------------------------",
-			"------------")
-
-		// Print each file
-		for _, file := range filesWithoutTags {
-			relPath := file
-			if len(relPath) > 80 {
-				// Truncate long paths with ellipsis
-				relPath = "..." + relPath[len(relPath)-77:]
-			}
-			fmt.Fprintf(os.Stderr, "%-80s  ❌\n", relPath)
-		}
-
-		fmt.Fprintf(os.Stderr, "\nTest files must have one of these build tags:\n")
-		fmt.Fprintf(os.Stderr, "  //go:build unit\n")
-		fmt.Fprintf(os.Stderr, "  //go:build integration\n")
-		fmt.Fprintf(os.Stderr, "  //go:build e2e\n")
-		os.Exit(1)
-	}
-
-	fmt.Printf("✅ All test files have valid build tags\n")
+	cli.Bootstrap(cli.Config{
+		Name:           "go-lint-tags",
+		Version:        Version,
+		CommitSHA:      CommitSHA,
+		BuildTimestamp: BuildTimestamp,
+		RunMCP:         runMCPServer,
+	})
 }
 
 // findTestFiles recursively finds all *_test.go files
@@ -176,11 +95,6 @@ func checkBuildTag(filePath string) (bool, error) {
 	return false, nil
 }
 
-// runMCPServer starts the MCP server.
-func runMCPServer() error {
-	return runMCPServerImpl()
-}
-
 // verifyTags performs the tag verification and returns results.
 // Returns (filesWithoutTags, totalFiles, error).
 func verifyTags(rootDir string) ([]string, int, error) {
@@ -208,29 +122,4 @@ func verifyTags(rootDir string) ([]string, int, error) {
 	}
 
 	return filesWithoutTags, len(testFiles), nil
-}
-
-func printUsage() {
-	fmt.Print(`go-lint-tags - Verify all test files have build tags
-
-Usage:
-  go-lint-tags [directory]    Verify test files in directory (default: .)
-  go-lint-tags --mcp          Run as MCP server
-  go-lint-tags version        Show version information
-  go-lint-tags help           Show this help message
-
-Description:
-  This tool recursively searches for *_test.go files and verifies that each
-  file has a valid build tag. Valid build tags are:
-    //go:build unit
-    //go:build integration
-    //go:build e2e
-
-  The tool exits with code 1 if any test files are missing build tags.
-
-Examples:
-  go-lint-tags .
-  go-lint-tags ./cmd/forge
-  go-lint-tags /path/to/project
-`)
 }

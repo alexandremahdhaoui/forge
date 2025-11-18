@@ -138,3 +138,30 @@ func TestMCPEnginesConfiguration(t *testing.T) {
 		}
 	}
 }
+
+// TestAllBuildEnginesImplementBuildBatch verifies that all build engines
+// implement both "build" and "buildBatch" MCP tools. This test ensures that
+// the issue where go-gen-openapi was missing buildBatch never happens again.
+func TestAllBuildEnginesImplementBuildBatch(t *testing.T) {
+	repoRoot := getRepoRoot(t)
+	engines := enginetest.AllEngines(repoRoot)
+
+	// Build engines are those that should implement build and buildBatch tools
+	buildEngines := map[string]bool{
+		"go-build":        true,
+		"container-build": true,
+		"go-gen-openapi":  true,
+		"go-gen-mocks":    true,
+		"generic-builder": true,
+	}
+
+	for _, engine := range engines {
+		if !buildEngines[engine.Name] {
+			continue
+		}
+
+		t.Run(engine.Name, func(t *testing.T) {
+			enginetest.TestBuildEngineTools(t, engine)
+		})
+	}
+}

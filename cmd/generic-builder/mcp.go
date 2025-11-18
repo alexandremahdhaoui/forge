@@ -10,47 +10,45 @@ import (
 
 	"github.com/alexandremahdhaoui/forge/internal/cmdutil"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// runMCPServer starts the generic-engine MCP server with stdio transport.
+// runMCPServer starts the generic-builder MCP server with stdio transport.
 func runMCPServer() error {
-	v, _, _ := versionInfo.Get()
-	server := mcpserver.New("generic-engine", v)
+	server := mcpserver.New("generic-builder", Version)
 
-	// Register build tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "build",
-		Description: "Execute a shell command and return structured output",
-	}, handleBuildTool)
+	// Configure builder with engineframework
+	config := engineframework.BuilderConfig{
+		Name:      "generic-builder",
+		Version:   Version,
+		BuildFunc: build,
+	}
+
+	// Register builder tools (registers both 'build' and 'buildBatch')
+	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+		return err
+	}
 
 	// Run the MCP server
 	return server.RunDefault()
 }
 
-// handleBuildTool handles the "build" tool call from MCP clients.
-func handleBuildTool(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input mcptypes.BuildInput,
-) (*mcp.CallToolResult, any, error) {
+// build is the core business logic for executing a shell command as a build step.
+// It implements engineframework.BuilderFunc.
+func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, error) {
 	log.Printf("Executing command: %s %v (workDir: %s)", input.Command, input.Args, input.WorkDir)
 
-	// Validate inputs
-	if result := mcputil.ValidateRequiredWithPrefix("Build failed", map[string]string{
-		"name":    input.Name,
-		"command": input.Command,
-	}); result != nil {
-		return result, nil, nil
+	// Validate required fields
+	if input.Command == "" {
+		return nil, fmt.Errorf("command is required")
 	}
 
 	// Process templated arguments
 	processedArgs, err := processTemplatedArgs(input.Args, input)
 	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Template processing failed: %v", err)), nil, nil
+		return nil, fmt.Errorf("template processing failed: %w", err)
 	}
 
 	// Convert BuildInput to ExecuteInput
@@ -67,18 +65,22 @@ func handleBuildTool(
 
 	// Check if command failed
 	if output.ExitCode != 0 {
-		errorMsg := fmt.Sprintf("Command failed with exit code %d\n", output.ExitCode)
+		errorMsg := fmt.Sprintf("command failed with exit code %d", output.ExitCode)
 		if output.Error != "" {
-			errorMsg += fmt.Sprintf("Error: %s\n", output.Error)
+			errorMsg += fmt.Sprintf(": %s", output.Error)
 		}
 		if output.Stderr != "" {
-			errorMsg += fmt.Sprintf("Stderr: %s\n", output.Stderr)
+			errorMsg += fmt.Sprintf(" (stderr: %s)", output.Stderr)
 		}
-		if output.Stdout != "" {
-			errorMsg += fmt.Sprintf("Stdout: %s", output.Stdout)
-		}
+		return nil, fmt.Errorf("%s", errorMsg)
+	}
 
-		return mcputil.ErrorResult(errorMsg), nil, nil
+	// Log output
+	if output.Stdout != "" {
+		log.Printf("Stdout: %s", output.Stdout)
+	}
+	if output.Stderr != "" {
+		log.Printf("Stderr: %s", output.Stderr)
 	}
 
 	// Determine location (use WorkDir if specified, otherwise Src or ".")
@@ -91,7 +93,7 @@ func handleBuildTool(
 	}
 
 	// Create artifact
-	artifact := forge.Artifact{
+	artifact := &forge.Artifact{
 		Name:      input.Name,
 		Type:      "command-output",
 		Location:  location,
@@ -99,17 +101,7 @@ func handleBuildTool(
 		Version:   fmt.Sprintf("%s-exit%d", input.Command, output.ExitCode),
 	}
 
-	// Create success message
-	successMsg := fmt.Sprintf("Command executed successfully: %s\nExit code: %d", input.Name, output.ExitCode)
-	if output.Stdout != "" {
-		log.Printf("Stdout: %s", output.Stdout)
-	}
-	if output.Stderr != "" {
-		log.Printf("Stderr: %s", output.Stderr)
-	}
-
-	result, returnedArtifact := mcputil.SuccessResultWithArtifact(successMsg, artifact)
-	return result, returnedArtifact, nil
+	return artifact, nil
 }
 
 // processTemplatedArgs processes arguments with Go template syntax.

@@ -2,18 +2,16 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
-	"time"
 
+	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
-	"github.com/alexandremahdhaoui/forge/internal/version"
+	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Version information (set via ldflags during build)
@@ -23,99 +21,49 @@ var (
 	BuildTimestamp = "unknown"
 )
 
-var versionInfo *version.Info
-
-func init() {
-	versionInfo = version.New("go-gen-mocks")
-	versionInfo.Version = Version
-	versionInfo.CommitSHA = CommitSHA
-	versionInfo.BuildTimestamp = BuildTimestamp
-}
-
 func main() {
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "--mcp":
-			if err := runMCPServer(); err != nil {
-				log.Printf("MCP server error: %v", err)
-				os.Exit(1)
-			}
-			return
-		case "version", "--version", "-v":
-			versionInfo.Print()
-			return
-		case "help", "--help", "-h":
-			printUsage()
-			return
-		}
-	}
-
-	// Direct invocation - generate mocks
-	if err := generateMocks(""); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-}
-
-func printUsage() {
-	fmt.Println(`go-gen-mocks - Generate Go mocks using mockery
-
-Usage:
-  go-gen-mocks                Generate mocks
-  go-gen-mocks --mcp          Run as MCP server
-  go-gen-mocks version        Show version information
-  go-gen-mocks help           Show this help message
-
-Environment Variables:
-  MOCKERY_VERSION              Version of mockery to use (default: v2.42.0)
-  MOCKS_DIR                    Directory to clean/generate mocks (default: ./internal/util/mocks)`)
+	cli.Bootstrap(cli.Config{
+		Name:           "go-gen-mocks",
+		Version:        Version,
+		CommitSHA:      CommitSHA,
+		BuildTimestamp: BuildTimestamp,
+		RunMCP:         runMCPServer,
+	})
 }
 
 func runMCPServer() error {
-	v, _, _ := versionInfo.Get()
-	server := mcpserver.New("go-gen-mocks", v)
+	server := mcpserver.New("go-gen-mocks", Version)
 
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "build",
-		Description: "Generate Go mocks using mockery",
-	}, handleBuild)
+	config := engineframework.BuilderConfig{
+		Name:      "go-gen-mocks",
+		Version:   Version,
+		BuildFunc: build,
+	}
+
+	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+		return err
+	}
 
 	return server.RunDefault()
 }
 
-func handleBuild(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input mcptypes.BuildInput,
-) (*mcp.CallToolResult, any, error) {
+// build implements the BuilderFunc for generating Go mocks using mockery
+func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, error) {
 	log.Printf("Generating mocks")
 
 	// Get mocksDir from environment variable
 	mocksDir := os.Getenv("MOCKS_DIR")
 
 	if err := generateMocks(mocksDir); err != nil {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("Mock generation failed: %v", err)},
-			},
-			IsError: true,
-		}, nil, nil
+		return nil, fmt.Errorf("mock generation failed: %w", err)
 	}
 
-	// Return artifact information
-	artifact := forge.Artifact{
-		Name:      "mocks",
-		Type:      "generated",
-		Location:  getMocksDir(mocksDir),
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
-
-	artifactJSON, _ := json.Marshal(artifact)
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: string(artifactJSON)},
-		},
-	}, artifact, nil
+	// Return artifact using CreateArtifact (generated code has no version)
+	return engineframework.CreateArtifact(
+		"mocks",
+		"generated",
+		getMocksDir(mocksDir),
+	), nil
 }
 
 func getMocksDir(mocksDir string) string {

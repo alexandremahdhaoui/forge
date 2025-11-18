@@ -128,6 +128,88 @@ Generate OpenAPI client and server code from a specification file.
 }
 ```
 
+### `buildBatch`
+
+Generate OpenAPI client and server code for multiple specifications in batch.
+
+**Input Schema:**
+```json
+{
+  "specs": [
+    {
+      "name": "string (required)",
+      "engine": "string (required)",
+      "spec": {
+        // Same structure as build tool spec field
+        // See build tool documentation above for full spec schema
+      }
+    }
+  ]
+}
+```
+
+**Output Schema:**
+```json
+{
+  "artifacts": [
+    {
+      "name": "string",
+      "type": "generated",
+      "location": "string",
+      "timestamp": "string"
+    }
+  ],
+  "summary": "string",
+  "count": number
+}
+```
+
+**Behavior:**
+- Processes multiple OpenAPI specs in sequence
+- Each spec is processed using the same logic as the `build` tool
+- Returns all successfully generated artifacts
+- If any specs fail, returns error result with details
+
+**Example:**
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "buildBatch",
+    "arguments": {
+      "specs": [
+        {
+          "name": "example-api-v1",
+          "engine": "go://go-gen-openapi",
+          "spec": {
+            "sourceFile": "./api/example-api.v1.yaml",
+            "destinationDir": "./pkg/generated",
+            "client": {
+              "enabled": true,
+              "packageName": "exampleclient"
+            }
+          }
+        },
+        {
+          "name": "products-api-v2",
+          "engine": "go://go-gen-openapi",
+          "spec": {
+            "sourceFile": "./api/products-api.v2.yaml",
+            "destinationDir": "./pkg/generated",
+            "client": {
+              "enabled": true,
+              "packageName": "productsclientv2"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+**Note:** This tool is automatically invoked by forge when building multiple OpenAPI specs. You typically don't need to call it directly.
+
 ## Integration with Forge
 
 ### Basic Usage

@@ -22,8 +22,7 @@ type DeleteInput struct {
 
 // runMCPServer starts the MCP server.
 func runMCPServer() error {
-	v, _, _ := versionInfo.Get()
-	server := mcpserver.New("testenv", v)
+	server := mcpserver.New("testenv", Version)
 
 	// Register create tool
 	mcpserver.RegisterTool(server, &mcp.Tool{

@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
-	"github.com/alexandremahdhaoui/forge/internal/version"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -19,38 +19,21 @@ var (
 	BuildTimestamp = "unknown"
 )
 
-var versionInfo *version.Info
-
-func init() {
-	versionInfo = version.New("ci-orchestrator")
-	versionInfo.Version = Version
-	versionInfo.CommitSHA = CommitSHA
-	versionInfo.BuildTimestamp = BuildTimestamp
-}
-
 func main() {
-	if len(os.Args) < 2 {
+	// Check if user needs help
+	if len(os.Args) >= 2 && (os.Args[1] == "help" || os.Args[1] == "--help" || os.Args[1] == "-h") {
 		printUsage()
-		os.Exit(1)
+		return
 	}
 
-	command := os.Args[1]
-
-	switch command {
-	case "--mcp":
-		if err := runMCPServer(); err != nil {
-			log.Printf("MCP server error: %v", err)
-			os.Exit(1)
-		}
-	case "version", "--version", "-v":
-		versionInfo.Print()
-	case "help", "--help", "-h":
-		printUsage()
-	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
-		printUsage()
-		os.Exit(1)
-	}
+	// Otherwise, use standard cli.Bootstrap for MCP mode and version handling
+	cli.Bootstrap(cli.Config{
+		Name:           "ci-orchestrator",
+		Version:        Version,
+		CommitSHA:      CommitSHA,
+		BuildTimestamp: BuildTimestamp,
+		RunMCP:         runMCPServer,
+	})
 }
 
 func printUsage() {
@@ -73,8 +56,7 @@ type RunInput struct {
 }
 
 func runMCPServer() error {
-	v, _, _ := versionInfo.Get()
-	server := mcpserver.New("ci-orchestrator", v)
+	server := mcpserver.New("ci-orchestrator", Version)
 
 	// Register run tool (not yet implemented)
 	mcpserver.RegisterTool(server, &mcp.Tool{

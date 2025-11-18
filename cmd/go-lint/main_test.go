@@ -111,66 +111,7 @@ func TestRunInputStructure(t *testing.T) {
 	}
 }
 
-// TestTestReportStructure tests the TestReport structure
-func TestTestReportStructure(t *testing.T) {
-	report := &TestReport{
-		Status:       "passed",
-		ErrorMessage: "",
-		Duration:     1.5,
-		Total:        0,
-		Passed:       1,
-		Failed:       0,
-	}
-
-	if report.Status != "passed" {
-		t.Errorf("Expected Status to be 'passed', got %s", report.Status)
-	}
-	if report.Passed != 1 {
-		t.Errorf("Expected Passed to be 1, got %d", report.Passed)
-	}
-	if report.Failed != 0 {
-		t.Errorf("Expected Failed to be 0, got %d", report.Failed)
-	}
-}
-
-// TestTestReportFailedStatus tests TestReport for failed linting
-func TestTestReportFailedStatus(t *testing.T) {
-	report := &TestReport{
-		Status:       "failed",
-		ErrorMessage: "linting failed with exit code 1",
-		Duration:     2.5,
-		Total:        1,
-		Passed:       0,
-		Failed:       1,
-	}
-
-	if report.Status != "failed" {
-		t.Errorf("Expected Status to be 'failed', got %s", report.Status)
-	}
-	if report.ErrorMessage == "" {
-		t.Error("Expected ErrorMessage to be set for failed status")
-	}
-	if report.Passed != 0 {
-		t.Errorf("Expected Passed to be 0 for failed run, got %d", report.Passed)
-	}
-	if report.Failed != 1 {
-		t.Errorf("Expected Failed to be 1, got %d", report.Failed)
-	}
-}
-
-// TestVersionInfoInitialized tests that version info is properly initialized
-func TestVersionInfoInitialized(t *testing.T) {
-	if versionInfo == nil {
-		t.Fatal("versionInfo should be initialized in init()")
-	}
-
-	// versionInfo.Get() returns (version, commit, timestamp), not tool name
-	// Just verify it's not nil and can be called without panicking
-	version, _, _ := versionInfo.Get()
-	if version == "" {
-		t.Log("Version is empty, which is expected for non-built binaries")
-	}
-}
+// Tests for local TestReport type and versionInfo removed - now using forge.TestReport and cli.Bootstrap
 
 // TestGolangciLintCommandArgs tests that the correct command arguments are constructed
 func TestGolangciLintCommandArgs(t *testing.T) {

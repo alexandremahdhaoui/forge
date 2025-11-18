@@ -6,42 +6,31 @@ import (
 	"log"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
+	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// runMCPServerImpl starts the go-test MCP server with stdio transport.
-// It creates an MCP server, registers tools, and runs the server until stdin closes.
-func runMCPServerImpl() error {
-	v, _, _ := versionInfo.Get()
-	server := mcpserver.New("go-test", v)
+// runMCPServer starts the go-test MCP server with stdio transport.
+func runMCPServer() error {
+	server := mcpserver.New("go-test", Version)
 
-	// Register run tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "run",
-		Description: "Run tests for a given stage and generate structured report",
-	}, handleRunTool)
+	config := engineframework.TestRunnerConfig{
+		Name:        "go-test",
+		Version:     Version,
+		RunTestFunc: runTestsWrapper,
+	}
 
-	// Run the MCP server
+	if err := engineframework.RegisterTestRunnerTools(server, config); err != nil {
+		return err
+	}
+
 	return server.RunDefault()
 }
 
-// handleRunTool handles the "run" tool call from MCP clients.
-func handleRunTool(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input mcptypes.RunInput,
-) (*mcp.CallToolResult, any, error) {
+// runTestsWrapper implements the TestRunnerFunc for running Go tests
+func runTestsWrapper(ctx context.Context, input mcptypes.RunInput) (*forge.TestReport, error) {
 	log.Printf("Running tests: stage=%s name=%s", input.Stage, input.Name)
-
-	// Validate inputs
-	if result := mcputil.ValidateRequiredWithPrefix("Test run failed", map[string]string{
-		"stage": input.Stage,
-		"name":  input.Name,
-	}); result != nil {
-		return result, nil, nil
-	}
 
 	// Run tests (pass tmpDir if provided, otherwise use current directory)
 	tmpDir := input.TmpDir
@@ -79,7 +68,7 @@ func handleRunTool(
 
 	report, junitFile, coverageFile, err := runTests(input.Stage, input.Name, tmpDir, testEnv)
 	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Test run failed: %v", err)), nil, nil
+		return nil, fmt.Errorf("test run failed: %w", err)
 	}
 
 	// Store report in artifact store
@@ -88,24 +77,26 @@ func handleRunTool(
 		log.Printf("Warning: failed to store test report: %v", err)
 	}
 
-	// Create success message
-	statusMsg := fmt.Sprintf("Tests %s: stage=%s, total=%d, passed=%d, failed=%d, skipped=%d, coverage=%.1f%%",
-		report.Status,
-		report.Stage,
-		report.TestStats.Total,
-		report.TestStats.Passed,
-		report.TestStats.Failed,
-		report.TestStats.Skipped,
-		report.Coverage.Percentage,
-	)
-
-	// Return result with TestReport as artifact based on status
-	if report.Status == "failed" {
-		result := mcputil.ErrorResult(statusMsg)
-		return result, report, nil
+	// Convert local TestReport to forge.TestReport
+	forgeReport := &forge.TestReport{
+		Stage:        report.Stage,
+		Status:       report.Status,
+		ErrorMessage: report.ErrorMessage,
+		StartTime:    report.StartTime,
+		Duration:     report.Duration,
+		TestStats: forge.TestStats{
+			Total:   report.TestStats.Total,
+			Passed:  report.TestStats.Passed,
+			Failed:  report.TestStats.Failed,
+			Skipped: report.TestStats.Skipped,
+		},
+		Coverage: forge.Coverage{
+			Percentage: report.Coverage.Percentage,
+		},
 	}
-	result, returnedArtifact := mcputil.SuccessResultWithArtifact(statusMsg, report)
-	return result, returnedArtifact, nil
+
+	// CRITICAL: Return report even if tests failed (Status="failed")
+	return forgeReport, nil
 }
 
 // normalizeEnvKey converts a key to an environment variable friendly format.
