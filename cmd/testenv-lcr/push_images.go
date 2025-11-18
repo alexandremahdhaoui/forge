@@ -262,22 +262,3 @@ func pushImagesFromArtifactStore(ctx context.Context, config forge.Spec, envs En
 		return nil
 	})
 }
-
-// pushSingleImage pushes a single image to the local container registry.
-func pushSingleImage(
-	ctx context.Context,
-	config forge.Spec,
-	envs Envs,
-	imageName string,
-) error {
-	_, _ = fmt.Fprintf(os.Stdout, "⏳ Pushing image: %s\n", imageName)
-
-	return withRegistryAccess(ctx, config, envs, func(registryFQDNWithPort string) error {
-		if err := pushImage(envs.ContainerEngineExecutable, imageName, registryFQDNWithPort); err != nil {
-			return flaterrors.Join(err, errPushingSingleImage)
-		}
-
-		_, _ = fmt.Fprintln(os.Stdout, "✅ Image pushed successfully")
-		return nil
-	})
-}

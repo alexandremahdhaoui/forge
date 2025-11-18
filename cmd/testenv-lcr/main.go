@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/util"
@@ -72,12 +71,6 @@ func main() {
 }
 
 var errSettingLocalContainerRegistry = errors.New("error received while setting up " + Name)
-
-// setup executes the main logic of the `local-container-registry setup` command.
-// It reads the project configuration (or uses provided config), creates a Kubernetes client, and sets up the local container registry.
-func setup() error {
-	return setupWithConfig(nil)
-}
 
 // setupWithConfig executes the setup logic with an optional pre-loaded config.
 // If cfg is nil, it reads the config from forge.yaml.
@@ -299,151 +292,6 @@ func teardown() error {
 	}
 
 	_, _ = fmt.Fprintln(os.Stdout, "✅ Torn down "+Name+" successfully")
-
-	return nil
-}
-
-var errPushingImage = errors.New("error received while pushing image to " + Name)
-
-// push executes the main logic of the `local-container-registry push <image>` command.
-// It pushes a single image to the local container registry.
-func push(imageName string) error {
-	ctx := context.Background()
-
-	config, err := forge.ReadSpec()
-	if err != nil {
-		return flaterrors.Join(err, errPushingImage)
-	}
-
-	envs, err := readEnvs()
-	if err != nil {
-		return flaterrors.Join(err, errPushingImage)
-	}
-
-	return pushSingleImage(ctx, config, envs, imageName)
-}
-
-var errPushingAllImages = errors.New("error received while pushing all images to " + Name)
-
-// pushAll executes the main logic of the `local-container-registry push-all` command.
-// It pushes all container images defined in the project configuration from the artifact store.
-func pushAll() error {
-	ctx := context.Background()
-
-	config, err := forge.ReadSpec()
-	if err != nil {
-		return flaterrors.Join(err, errPushingAllImages)
-	}
-
-	envs, err := readEnvs()
-	if err != nil {
-		return flaterrors.Join(err, errPushingAllImages)
-	}
-
-	return pushImagesFromArtifactStore(ctx, config, envs)
-}
-
-var errCreatingImagePullSecretCLI = errors.New("error received while creating image pull secret via CLI")
-
-// createImagePullSecret executes the main logic of the `testenv-lcr create-image-pull-secret <namespace> [secret-name]` command.
-// It creates an image pull secret in the specified namespace.
-func createImagePullSecret(namespace, secretName string) error {
-	ctx := context.Background()
-
-	config, err := forge.ReadSpec()
-	if err != nil {
-		return flaterrors.Join(err, errCreatingImagePullSecretCLI)
-	}
-
-	if !config.LocalContainerRegistry.Enabled {
-		_, _ = fmt.Fprintln(os.Stdout, "Local container registry is disabled")
-		return nil
-	}
-
-	// Create Kubernetes client
-	cl, err := createKubeClient(config)
-	if err != nil {
-		return flaterrors.Join(err, errCreatingImagePullSecretCLI)
-	}
-
-	// Read credentials
-	credBytes, err := os.ReadFile(config.LocalContainerRegistry.CredentialPath)
-	if err != nil {
-		return flaterrors.Join(err, errCreatingImagePullSecretCLI)
-	}
-
-	var credentials Credentials
-	if err := yaml.Unmarshal(credBytes, &credentials); err != nil {
-		return flaterrors.Join(err, errCreatingImagePullSecretCLI)
-	}
-
-	// Read CA certificate
-	caCert, err := os.ReadFile(config.LocalContainerRegistry.CaCrtPath)
-	if err != nil {
-		return flaterrors.Join(err, errCreatingImagePullSecretCLI)
-	}
-
-	// Create container registry to get FQDN
-	containerRegistry := NewContainerRegistry(cl, config.LocalContainerRegistry.Namespace, nil)
-	registryFQDN := containerRegistry.FQDN()
-
-	// Use provided secret name or default from config
-	if secretName == "" {
-		secretName = config.LocalContainerRegistry.ImagePullSecretName
-	}
-
-	// Create image pull secret
-	imagePullSecret := NewImagePullSecret(
-		cl,
-		secretName,
-		registryFQDN,
-		credentials.Username,
-		credentials.Password,
-		caCert,
-	)
-
-	secretFullName, err := imagePullSecret.CreateInNamespace(ctx, namespace)
-	if err != nil {
-		return flaterrors.Join(err, errCreatingImagePullSecretCLI)
-	}
-
-	_, _ = fmt.Fprintf(os.Stdout, "✅ Created image pull secret: %s\n", secretFullName)
-	return nil
-}
-
-var errListingImagePullSecrets = errors.New("error received while listing image pull secrets")
-
-// listImagePullSecrets executes the main logic of the `testenv-lcr list-image-pull-secrets [namespace]` command.
-// It lists all image pull secrets created by testenv-lcr, optionally filtered by namespace.
-func listImagePullSecrets(namespace string) error {
-	ctx := context.Background()
-
-	config, err := forge.ReadSpec()
-	if err != nil {
-		return flaterrors.Join(err, errListingImagePullSecrets)
-	}
-
-	// Create Kubernetes client
-	cl, err := createKubeClient(config)
-	if err != nil {
-		return flaterrors.Join(err, errListingImagePullSecrets)
-	}
-
-	// List image pull secrets
-	secrets, err := ListImagePullSecrets(ctx, cl, namespace)
-	if err != nil {
-		return flaterrors.Join(err, errListingImagePullSecrets)
-	}
-
-	if len(secrets) == 0 {
-		_, _ = fmt.Fprintln(os.Stdout, "No image pull secrets found")
-		return nil
-	}
-
-	_, _ = fmt.Fprintf(os.Stdout, "Found %d image pull secret(s):\n", len(secrets))
-	for _, secret := range secrets {
-		_, _ = fmt.Fprintf(os.Stdout, "  - %s/%s (created: %v)\n", secret.Namespace, secret.SecretName, secret.CreatedAt)
-	}
 
 	return nil
 }

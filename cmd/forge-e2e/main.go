@@ -610,60 +610,6 @@ func main() {
 	})
 }
 
-func printUsage() {
-	fmt.Println(`forge-e2e - End-to-end test runner for forge
-
-Usage:
-  forge-e2e <STAGE> <NAME>      Run e2e tests for the given stage
-  forge-e2e --mcp               Run as MCP server
-  forge-e2e version             Show version information
-
-Arguments:
-  STAGE    Test stage name (e.g., "e2e")
-  NAME     Test run identifier
-
-Environment Variables:
-  TEST_CATEGORY         Filter tests by category (e.g., "build", "testenv")
-  TEST_NAME_PATTERN     Filter tests by name pattern (case-insensitive substring)
-  KIND_BINARY           Path to kind binary (required for testenv tests)
-  CONTAINER_ENGINE      Container engine to use (docker or podman)
-  SKIP_CLEANUP          Set to skip cleanup of test resources for debugging
-  FORGE_E2E_VERBOSE     Enable verbose test output
-
-Examples:
-  # Run all tests
-  forge-e2e e2e test-20241106
-
-  # Run only build tests
-  TEST_CATEGORY=build forge-e2e e2e test-20241106
-
-  # Run tests matching "environment" in the name
-  TEST_NAME_PATTERN=environment forge-e2e e2e test-20241106
-
-  # Run with testenv prerequisites
-  KIND_BINARY=kind CONTAINER_ENGINE=docker forge-e2e e2e test-20241106
-
-  # Keep test resources for debugging
-  SKIP_CLEANUP=1 forge-e2e e2e test-20241106
-
-Output:
-  - Test output is written to stderr
-  - Structured JSON report is written to stdout
-
-Test Categories:
-  build           - Build system tests
-  testenv         - Test environment lifecycle tests
-  test-runner     - Test runner integration tests
-  prompt          - Prompt system tests
-  artifact-store  - Artifact store tests
-  system          - System command tests
-  error-handling  - Error handling tests
-  cleanup         - Resource cleanup tests
-  mcp             - MCP integration tests
-  performance     - Performance tests`)
-}
-
-
 func runTests(stage, name string) *DetailedTestReport {
 	fmt.Fprintf(os.Stderr, "Stage: %s, Name: %s\n", stage, name)
 

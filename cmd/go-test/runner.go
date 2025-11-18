@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,35 +13,6 @@ import (
 
 // run executes tests for the given stage and generates a structured report.
 // Test output goes to stderr, JSON report goes to stdout.
-func run(stage, name string) error {
-	// Use current directory as tmpDir for backward compatibility
-	tmpDir := "."
-
-	// Execute tests and generate report (no testenv for CLI mode)
-	report, junitFile, coverageFile, err := runTests(stage, name, tmpDir, nil)
-	if err != nil {
-		return fmt.Errorf("test execution failed: %w", err)
-	}
-
-	// Store report in artifact store
-	if err := storeTestReport(report, junitFile, coverageFile); err != nil {
-		// Log error but don't fail - storing is best effort
-		fmt.Fprintf(os.Stderr, "Warning: failed to store test report in artifact store: %v\n", err)
-	}
-
-	// Output JSON report to stdout
-	if err := json.NewEncoder(os.Stdout).Encode(report); err != nil {
-		return fmt.Errorf("failed to encode report: %w", err)
-	}
-
-	// Exit with non-zero if tests failed
-	if report.Status == "failed" {
-		os.Exit(1)
-	}
-
-	return nil
-}
-
 // runTests executes the test suite using gotestsum and returns a structured report along with artifact file paths.
 // testEnv contains environment variables to pass to the test process (e.g., artifact file paths, metadata).
 func runTests(stage, name, tmpDir string, testEnv map[string]string) (*TestReport, string, string, error) {

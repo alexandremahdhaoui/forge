@@ -5,27 +5,10 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/alexandremahdhaoui/forge/pkg/flaterrors"
-
 	"github.com/alexandremahdhaoui/forge/internal/util"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/caarlos0/env/v11"
 )
-
-// ----------------------------------------------------- USAGE ------------------------------------------------------ //
-
-const (
-	//nolint:dupword
-	setupUsageTemplate = `
-## Setup
-
-The setup command may expect the following env variables:
-%s`
-)
-
-func formatSetupUsage() string {
-	return fmt.Sprintf(setupUsageTemplate, util.FormatExpectedEnvList[Envs]())
-}
 
 // ----------------------------------------------------- CONFIG ----------------------------------------------------- //
 
@@ -54,33 +37,6 @@ func readEnvs() (Envs, error) {
 }
 
 // ----------------------------------------------------- SETUP ------------------------------------------------------ //
-
-// setup executes the main logic of the `kindenv setup` command.
-// It reads the project and kindenv configuration, and then creates a kind cluster.
-func setup() error {
-	// 1. read project Envs.
-	config, err := forge.ReadSpec()
-	if err != nil {
-		return err // TODO: wrap err
-	}
-
-	_, _ = fmt.Fprintf(os.Stderr, "⏳ Setting up kindenv %q\n", config.Name)
-
-	// 2. read kindenv Envs
-	envs, err := readEnvs()
-	if err != nil {
-		return fmt.Errorf("%s\n❌ ERROR: %w", formatSetupUsage(), err) // TODO: wrap err
-	}
-
-	// 3. Do
-	if err := doSetup(config, envs); err != nil {
-		return flaterrors.Join(err, doTeardown(config, envs))
-	}
-
-	_, _ = fmt.Fprintf(os.Stderr, "✅ kindenv %q set up successfully\n", config.Name)
-
-	return nil
-}
 
 func doSetup(pCfg forge.Spec, envs Envs) error {
 	// 1. Allow prefixing kind binary with "sudo".
