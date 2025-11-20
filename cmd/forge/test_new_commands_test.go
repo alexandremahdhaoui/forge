@@ -294,6 +294,11 @@ func TestCommandParserValidation(t *testing.T) {
 		},
 	}
 
+	// Disable local development mode for this test
+	// This test simulates a user running forge from their project, so we want to use
+	// production mode (go run package@version) instead of local mode (go run -C /path)
+	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "false")
+
 	// Create a temporary forge.yaml for testing
 	tmpDir := t.TempDir()
 	forgeYaml := filepath.Join(tmpDir, "forge.yaml")

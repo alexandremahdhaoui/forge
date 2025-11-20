@@ -120,50 +120,62 @@ func IsForgeRepo(dir string) bool {
 // BuildGoRunCommand constructs the command arguments for executing a forge MCP server
 // via `go run`. The returned slice is suitable for use with exec.Command("go", args...).
 //
+// Environment Variables (checked in order of preference when FORGE_RUN_LOCAL_ENABLED=true):
+// - FORGE_RUN_LOCAL_ENABLED: Set to "true" to run from local source using ./cmd/{packageName}
+// - FORGE_RUN_LOCAL_BASEDIR: Base directory for forge repo when running locally
+// - FORGE_REPO_PATH: Legacy base directory variable (for backward compatibility)
+//
 // Behavior:
-// - If forge module is in dependencies/cache: use module path github.com/alexandremahdhaoui/forge/cmd/{packageName}
-// - If running from within forge repo: use relative path ./cmd/{packageName}
-// - Otherwise: use versioned module syntax github.com/alexandremahdhaoui/forge/cmd/{packageName}@latest
+//   - If FORGE_RUN_LOCAL_ENABLED=true:
+//     → Use `go run -C {basedir} ./cmd/{packageName}`
+//   - Otherwise:
+//     → Use `go run github.com/alexandremahdhaoui/forge/cmd/{packageName}@{forgeVersion}`
+//
+// Using @version syntax ensures go run uses forge's own dependencies from its go.mod/go.sum,
+// not the consuming project's dependencies. This prevents dependency conflicts when forge
+// is used as a library in other projects.
 //
 // Example usage:
 //
-//	args, err := BuildGoRunCommand("testenv-kind")
-//	// Returns: ["run", "github.com/alexandremahdhaoui/forge/cmd/testenv-kind"]
+//	args, err := BuildGoRunCommand("testenv-kind", "v0.9.0")
+//	// Returns: ["run", "github.com/alexandremahdhaoui/forge/cmd/testenv-kind@v0.9.0"]
 //	cmd := exec.Command("go", args...)
-func BuildGoRunCommand(packageName string) ([]string, error) {
+func BuildGoRunCommand(packageName, forgeVersion string) ([]string, error) {
 	if packageName == "" {
 		return nil, fmt.Errorf("package name cannot be empty")
 	}
+	if forgeVersion == "" {
+		return nil, fmt.Errorf("forge version cannot be empty")
+	}
 
-	// Try to use module path first (preferred when forge is in dependencies)
-	moduleCmd := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", forgeModule)
-	if output, err := moduleCmd.Output(); err == nil {
-		modulePath := strings.TrimSpace(string(output))
-		if modulePath != "" {
-			// Module is available in go.mod or cache, use module path
-			return []string{"run", fmt.Sprintf("%s/cmd/%s", forgeModule, packageName)}, nil
+	// Check if local development mode is explicitly enabled
+	if os.Getenv("FORGE_RUN_LOCAL_ENABLED") == "true" {
+		// Check for base directory in order of preference:
+		// 1. FORGE_RUN_LOCAL_BASEDIR (explicit override)
+		// 2. FORGE_REPO_PATH (legacy, used by tests)
+		// 3. FindForgeRepo() - searches current dir, module cache, executable path
+		baseDir := os.Getenv("FORGE_RUN_LOCAL_BASEDIR")
+		if baseDir == "" {
+			baseDir = os.Getenv("FORGE_REPO_PATH")
 		}
+		if baseDir == "" {
+			// Try to find forge repo automatically
+			foundRepo, err := FindForgeRepo()
+			if err == nil {
+				baseDir = foundRepo
+			}
+		}
+
+		if baseDir == "" {
+			return nil, fmt.Errorf("FORGE_RUN_LOCAL_ENABLED=true but cannot find forge repository. Set FORGE_RUN_LOCAL_BASEDIR=/path/to/forge or FORGE_REPO_PATH=/path/to/forge")
+		}
+
+		// Use -C flag to run from forge directory
+		pkgPath := fmt.Sprintf("./cmd/%s", packageName)
+		return []string{"-C", baseDir, "run", pkgPath}, nil
 	}
 
-	// Try to find forge repository locally
-	forgeRepo, err := FindForgeRepo()
-	if err != nil {
-		// Can't find forge locally, use versioned module syntax
-		// This allows `go run` to fetch from the module proxy
-		return []string{"run", fmt.Sprintf("%s/cmd/%s@latest", forgeModule, packageName)}, nil
-	}
-
-	// Found local forge repo - use -C flag to run from forge repo directory
-	// This is important for:
-	// 1. Development workflows (CWD inside forge repo)
-	// 2. Integration tests (FORGE_REPO_PATH set, CWD outside forge repo)
-	absForgeRepo, err := filepath.Abs(forgeRepo)
-	if err != nil {
-		return []string{"run", fmt.Sprintf("%s/cmd/%s@latest", forgeModule, packageName)}, nil
-	}
-
-	// Use -C flag (Go 1.20+) to change to forge repo directory before running
-	// This ensures go run can find the local module and source code
-	pkgPath := fmt.Sprintf("./cmd/%s", packageName)
-	return []string{"-C", absForgeRepo, "run", pkgPath}, nil
+	// Production mode: use versioned module syntax
+	// This ensures the tool runs with its own dependencies
+	return []string{"run", fmt.Sprintf("%s/cmd/%s@%s", forgeModule, packageName, forgeVersion)}, nil
 }

@@ -958,6 +958,24 @@ done
 
 Forge respects several environment variables:
 
+### Engine Execution
+
+| Variable | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `FORGE_RUN_LOCAL_ENABLED` | Enable local development mode (runs engines from source) | `false` | `FORGE_RUN_LOCAL_ENABLED=true forge build` |
+| `FORGE_RUN_LOCAL_BASEDIR` | Base directory for forge repository when running locally | Auto-detected if in forge repo | `FORGE_RUN_LOCAL_BASEDIR=/path/to/forge forge build` |
+| `FORGE_REPO_PATH` | Legacy variable for forge repository location | None | `FORGE_REPO_PATH=/path/to/forge forge build` |
+
+**Local Development Mode (FORGE_RUN_LOCAL_ENABLED=true):**
+- Runs engines using `go run -C /path/to/forge ./cmd/<tool>`
+- Required for development when forge is built without version ldflags
+- Auto-detects forge repo if running from forge directory
+
+**Production Mode (default):**
+- Runs engines using `go run github.com/alexandremahdhaoui/forge/cmd/<tool>@<version>`
+- Ensures correct dependency resolution when using forge from other projects
+- Requires forge to be built with version ldflags or installed via `go install`
+
 ### Build-Related
 
 | Variable | Description | Default | Example |

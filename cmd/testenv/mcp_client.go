@@ -131,7 +131,8 @@ func resolveEngineURI(engineURI string) (string, []string, error) {
 	}
 
 	// Use forgepath to build the go run command
-	runArgs, err := forgepath.BuildGoRunCommand(packagePath)
+	// Use testenv's own version for sub-engines
+	runArgs, err := forgepath.BuildGoRunCommand(packagePath, Version)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to build go run command for %s: %w", packagePath, err)
 	}

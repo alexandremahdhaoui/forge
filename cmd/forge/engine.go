@@ -9,16 +9,16 @@ import (
 
 // parseEngine parses an engine URI and returns the engine type, command, and args for execution.
 // Supports go:// and alias:// protocols:
-//   - go://go-build -> executes via `go run github.com/alexandremahdhaoui/forge/cmd/go-build`
-//   - go://testenv-kind -> executes via `go run github.com/alexandremahdhaoui/forge/cmd/testenv-kind`
+//   - go://go-build -> executes via `go run github.com/alexandremahdhaoui/forge/cmd/go-build@{forgeVersion}`
+//   - go://testenv-kind -> executes via `go run github.com/alexandremahdhaoui/forge/cmd/testenv-kind@{forgeVersion}`
 //   - alias://my-engine -> resolves alias from forge.yaml engines section
 //
 // Returns:
 //   - engineType: "mcp" for go:// URIs, "alias" for alias:// URIs
 //   - command: "go" for go:// URIs, aliasName for alias:// URIs
-//   - args: ["run", "package/path"] for go:// URIs, nil for alias:// URIs
+//   - args: ["run", "package/path@version"] for go:// URIs, nil for alias:// URIs
 //   - err: error if parsing fails
-func parseEngine(engineURI string) (engineType string, command string, args []string, err error) {
+func parseEngine(engineURI, forgeVersion string) (engineType string, command string, args []string, err error) {
 	// Check for alias:// protocol - return special marker
 	if strings.HasPrefix(engineURI, "alias://") {
 		aliasName := strings.TrimPrefix(engineURI, "alias://")
@@ -60,7 +60,7 @@ func parseEngine(engineURI string) (engineType string, command string, args []st
 	}
 
 	// Use forgepath to build the go run command
-	runArgs, err := forgepath.BuildGoRunCommand(packageName)
+	runArgs, err := forgepath.BuildGoRunCommand(packageName, forgeVersion)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to build go run command for %s: %w", packageName, err)
 	}

@@ -162,23 +162,34 @@ func TestBuildGoRunCommand_Success(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := BuildGoRunCommand(tt.packageName)
+			got, err := BuildGoRunCommand(tt.packageName, "v0.9.0")
 			if err != nil {
 				t.Fatalf("BuildGoRunCommand(%q) error = %v, want nil", tt.packageName, err)
 			}
 
 			// Verify we got a command with at least 2 parts: ["run", "<path>"]
-			if len(got) != 2 {
-				t.Fatalf("BuildGoRunCommand(%q) length = %d, want 2", tt.packageName, len(got))
+			if len(got) < 2 {
+				t.Fatalf("BuildGoRunCommand(%q) length = %d, want at least 2", tt.packageName, len(got))
 			}
 
-			if got[0] != "run" {
-				t.Errorf("BuildGoRunCommand(%q)[0] = %q, want %q", tt.packageName, got[0], "run")
+			// Find the "run" argument (could be at index 0 or after -C flag)
+			runIndex := -1
+			for i, arg := range got {
+				if arg == "run" {
+					runIndex = i
+					break
+				}
 			}
 
-			// The path should contain the package name
-			if !strings.Contains(got[1], tt.packageName) {
-				t.Errorf("BuildGoRunCommand(%q)[1] = %q, should contain %q", tt.packageName, got[1], tt.packageName)
+			if runIndex == -1 {
+				t.Errorf("BuildGoRunCommand(%q) = %v, want 'run' argument", tt.packageName, got)
+			}
+
+			// The path after "run" should contain the package name
+			if runIndex >= 0 && runIndex+1 < len(got) {
+				if !strings.Contains(got[runIndex+1], tt.packageName) {
+					t.Errorf("BuildGoRunCommand(%q) path = %q, should contain %q", tt.packageName, got[runIndex+1], tt.packageName)
+				}
 			}
 		})
 	}
@@ -188,7 +199,7 @@ func TestBuildGoRunCommand_Success(t *testing.T) {
 func TestBuildGoRunCommand_EmptyPackageName(t *testing.T) {
 	t.Parallel()
 
-	_, err := BuildGoRunCommand("")
+	_, err := BuildGoRunCommand("", "v0.9.0")
 	if err == nil {
 		t.Error("BuildGoRunCommand(\"\") error = nil, want error")
 	}

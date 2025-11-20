@@ -1030,7 +1030,7 @@ forge build
 1. Read forge.yaml
 2. For each BuildSpec:
    a. Parse engine URI
-   b. Locate engine binary
+   b. Resolve engine to executable command (see Engine Resolution and Execution)
    c. Start MCP server (--mcp flag)
    d. Send JSON-RPC build request
    e. Capture build output
@@ -1086,6 +1086,64 @@ forge integration delete <id-or-name>
 - Teardown kind cluster
 - Teardown local container registry
 - Remove from environment store
+
+### Engine Resolution and Execution
+
+**Location:** `internal/forgepath/` and `cmd/forge/engine.go`
+
+**Purpose:** Resolves engine URIs (like `go://go-build`) to executable commands that run MCP servers.
+
+#### Engine URI Formats
+
+- `go://package-name` - Built-in forge engine (e.g., `go://go-build`, `go://testenv-kind`)
+- `alias://name` - User-defined alias from `forge.yaml` engines section
+
+#### Execution Modes
+
+Forge supports two execution modes for MCP servers:
+
+**1. Local Development Mode**
+
+Activated when:
+- `FORGE_RUN_LOCAL_ENABLED=true` environment variable is set
+
+Executes engines using:
+```bash
+go run -C /path/to/forge ./cmd/<package-name>
+```
+
+Environment variables:
+- `FORGE_RUN_LOCAL_ENABLED` - Set to "true" to enable local mode (required)
+- `FORGE_RUN_LOCAL_BASEDIR` - Forge repository location (optional, auto-detected if running from forge repo)
+- `FORGE_REPO_PATH` - Legacy variable for forge repo location (optional)
+
+**2. Production Mode (Default)**
+
+Activated when:
+- `FORGE_RUN_LOCAL_ENABLED` is not set
+
+Executes engines using versioned module syntax:
+```bash
+go run github.com/alexandremahdhaoui/forge/cmd/<package-name>@v0.9.0
+```
+
+**Why versioned syntax?** The `@version` suffix ensures `go run` uses the engine's own dependencies from its `go.mod`/`go.sum`, not the consuming project's dependencies. This prevents dependency conflicts when forge is used as a library in other projects.
+
+**Note:** If forge version is "dev" (built without ldflags), production mode will fail with "invalid version: unknown revision dev". Use `FORGE_RUN_LOCAL_ENABLED=true` for development.
+
+#### Resolution Flow
+
+```
+1. Parse engine URI (e.g., "go://go-build")
+2. Extract package name ("go-build")
+3. Determine execution mode:
+   - If FORGE_RUN_LOCAL_ENABLED=true:
+     → Build command: ["go", "-C", "/path/to/forge", "run", "./cmd/go-build"]
+   - Else:
+     → Build command: ["go", "run", "github.com/alexandremahdhaoui/forge/cmd/go-build@v0.9.0"]
+4. Execute command with --mcp flag
+5. Establish JSON-RPC communication via stdio
+```
 
 ### MCP Server Protocol
 

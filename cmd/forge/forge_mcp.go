@@ -258,7 +258,7 @@ func handleBuildTool(
 
 	for engineURI, specs := range engineSpecs {
 		// Parse engine URI
-		_, command, args, err := parseEngine(engineURI)
+		_, command, args, err := parseEngine(engineURI, Version)
 		if err != nil {
 			buildErrors = append(buildErrors, fmt.Sprintf("Failed to parse engine %s: %v", engineURI, err))
 			continue

@@ -3,3 +3,4 @@ export CONTAINER_ENGINE="$(which docker)"
 export CONTAINER_BUILD_ENGINE=docker
 export ELEVATED_PREPEND_CMD="sudo -E"
 export OAPI_CODEGEN_VERSION=v2.5.0
+export FORGE_RUN_LOCAL_ENABLED=true

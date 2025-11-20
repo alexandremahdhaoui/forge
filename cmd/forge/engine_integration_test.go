@@ -105,7 +105,7 @@ test:
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Parse the engine URI
-			gotType, gotCmd, gotArgs, err := parseEngine(tc.engineURI)
+			gotType, gotCmd, gotArgs, err := parseEngine(tc.engineURI, "v0.9.0")
 			if err != nil {
 				t.Fatalf("parseEngine(%q) error = %v, want nil", tc.engineURI, err)
 			}
@@ -196,7 +196,7 @@ test:
 	}
 
 	// Test parsing an alias URI
-	gotType, gotCmd, gotArgs, err := parseEngine("alias://my-builder")
+	gotType, gotCmd, gotArgs, err := parseEngine("alias://my-builder", "v0.9.0")
 	if err != nil {
 		t.Fatalf("parseEngine('alias://my-builder') error = %v, want nil", err)
 	}
@@ -243,7 +243,7 @@ func TestEngineResolution_ErrorCases(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, _, _, err := parseEngine(tc.engineURI)
+			_, _, _, err := parseEngine(tc.engineURI, "v0.9.0")
 			if (err != nil) != tc.wantErr {
 				t.Errorf("parseEngine(%q) error = %v, wantErr = %v", tc.engineURI, err, tc.wantErr)
 			}
