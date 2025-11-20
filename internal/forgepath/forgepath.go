@@ -148,8 +148,12 @@ func BuildGoRunCommand(packageName, forgeVersion string) ([]string, error) {
 		return nil, fmt.Errorf("forge version cannot be empty")
 	}
 
-	// Check if local development mode is explicitly enabled
-	if os.Getenv("FORGE_RUN_LOCAL_ENABLED") == "true" {
+	// Check if local development mode should be used
+	// ONLY enabled when FORGE_RUN_LOCAL_ENABLED=true
+	localEnabled := os.Getenv("FORGE_RUN_LOCAL_ENABLED")
+	useLocalMode := localEnabled == "true"
+
+	if useLocalMode {
 		// Check for base directory in order of preference:
 		// 1. FORGE_RUN_LOCAL_BASEDIR (explicit override)
 		// 2. FORGE_REPO_PATH (legacy, used by tests)
@@ -177,5 +181,10 @@ func BuildGoRunCommand(packageName, forgeVersion string) ([]string, error) {
 
 	// Production mode: use versioned module syntax
 	// This ensures the tool runs with its own dependencies
-	return []string{"run", fmt.Sprintf("%s/cmd/%s@%s", forgeModule, packageName, forgeVersion)}, nil
+	// Strip dirty suffixes for module resolution
+	// git describe uses "-dirty", build info uses "+dirty"
+	moduleVersion := forgeVersion
+	moduleVersion = strings.TrimSuffix(moduleVersion, "-dirty")
+	moduleVersion = strings.TrimSuffix(moduleVersion, "+dirty")
+	return []string{"run", fmt.Sprintf("%s/cmd/%s@%s", forgeModule, packageName, moduleVersion)}, nil
 }

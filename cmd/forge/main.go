@@ -28,6 +28,12 @@ func init() {
 	versionInfo.BuildTimestamp = BuildTimestamp
 }
 
+// getVersion returns the actual forge version, using build info if available
+func getVersion() string {
+	v, _, _ := versionInfo.Get()
+	return v
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()

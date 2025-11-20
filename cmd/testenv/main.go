@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/alexandremahdhaoui/forge/internal/cli"
+	"github.com/alexandremahdhaoui/forge/internal/version"
 )
 
 // Version information (set via ldflags during build)
@@ -13,6 +14,22 @@ var (
 	CommitSHA      = "unknown"
 	BuildTimestamp = "unknown"
 )
+
+// versionInfo holds testenv's version information
+var versionInfo *version.Info
+
+func init() {
+	versionInfo = version.New("testenv")
+	versionInfo.Version = Version
+	versionInfo.CommitSHA = CommitSHA
+	versionInfo.BuildTimestamp = BuildTimestamp
+}
+
+// getVersion returns the actual testenv version, using build info if available
+func getVersion() string {
+	v, _, _ := versionInfo.Get()
+	return v
+}
 
 func main() {
 	// Check if running in direct CLI mode (testenv <command>)

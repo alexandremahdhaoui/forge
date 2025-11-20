@@ -69,7 +69,7 @@ func resolveEngineAlias(alias string, spec *forge.Spec) (string, error) {
 // This is a wrapper around parseEngine that handles alias resolution.
 // Returns command, args, and error.
 func resolveEngine(engineURI string, spec *forge.Spec) (string, []string, error) {
-	engineType, cmdOrAlias, args, err := parseEngine(engineURI, Version)
+	engineType, cmdOrAlias, args, err := parseEngine(engineURI, getVersion())
 	if err != nil {
 		return "", nil, err
 	}
@@ -91,7 +91,7 @@ func resolveEngine(engineURI string, spec *forge.Spec) (string, []string, error)
 		}
 
 		// Recursively parse the resolved URI (it should be go://)
-		engineType, command, args, err := parseEngine(resolvedURI, Version)
+		engineType, command, args, err := parseEngine(resolvedURI, getVersion())
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to parse resolved engine URI %s for alias %s: %w", resolvedURI, aliasName, err)
 		}

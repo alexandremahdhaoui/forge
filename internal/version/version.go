@@ -2,8 +2,10 @@ package version
 
 import (
 	"fmt"
+	"os/exec"
 	"runtime"
 	"runtime/debug"
+	"strings"
 )
 
 // Info holds version information for a tool.
@@ -32,9 +34,11 @@ func (i *Info) Get() (version, commit, timestamp string) {
 		}
 
 		// Extract VCS information from build settings (requires Go 1.18+)
+		var vcsRevision string
 		for _, setting := range info.Settings {
 			switch setting.Key {
 			case "vcs.revision":
+				vcsRevision = setting.Value
 				if commit == "unknown" && len(setting.Value) >= 7 {
 					commit = setting.Value[:7] // Short commit hash
 				}
@@ -44,9 +48,54 @@ func (i *Info) Get() (version, commit, timestamp string) {
 				}
 			}
 		}
+
+		// If version is still "dev" but we have VCS revision, use that as version
+		// This handles cases where go run is used but we have git info
+		if version == "dev" && vcsRevision != "" {
+			if len(vcsRevision) >= 7 {
+				version = vcsRevision[:7] // Use short commit hash as version
+			} else {
+				version = vcsRevision
+			}
+		}
+	}
+
+	// If version is still "dev", try to get it from git directly
+	// This handles cases where go run is used without VCS build info
+	if version == "dev" {
+		if gitVersion := getGitVersion(); gitVersion != "" {
+			version = gitVersion
+		}
+	}
+
+	// If commit is still "unknown", try git
+	if commit == "unknown" {
+		if gitCommit := getGitCommit(); gitCommit != "" {
+			commit = gitCommit
+		}
 	}
 
 	return version, commit, timestamp
+}
+
+// getGitVersion attempts to get the version from git describe
+func getGitVersion() string {
+	cmd := exec.Command("git", "describe", "--tags", "--always", "--dirty")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(output))
+}
+
+// getGitCommit attempts to get the short commit hash from git
+func getGitCommit() string {
+	cmd := exec.Command("git", "rev-parse", "--short", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(output))
 }
 
 // Print outputs formatted version information to stdout.
