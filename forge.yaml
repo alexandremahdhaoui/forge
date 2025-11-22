@@ -53,11 +53,27 @@ engines:
         engine: "go://testenv-helm-install"
         spec:
           charts:
-            # Using a lightweight chart that actually exists
-            - name: podinfo/podinfo
-              repo: https://stefanprodan.github.io/podinfo
+            # FluxCD-inspired comprehensive spec
+            - name: podinfo-release
+              sourceType: helm-repo
+              url: https://stefanprodan.github.io/podinfo
+              chartName: podinfo
+              # version: "6.0.0"  # Optional: specify exact version
               namespace: test-podinfo
               releaseName: test-podinfo
+              createNamespace: true
+              timeout: "5m"
+              disableWait: false
+              # Optional lifecycle fields:
+              # forceUpgrade: false
+              # disableHooks: false
+              # testEnable: false
+              # values:
+              #   replicaCount: 2
+              #   service:
+              #     type: ClusterIP
+              # valuesFiles:
+              #   - ./custom-values.yaml
 
 # -- test defines the test stages and their configuration
 test:

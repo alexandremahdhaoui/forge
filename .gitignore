@@ -32,3 +32,4 @@ tmp/
 /build-container
 /container-build
 /go-gen-openapi
+/testenv-helm-install

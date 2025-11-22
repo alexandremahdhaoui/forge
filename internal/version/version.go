@@ -108,10 +108,9 @@ func (i *Info) Print() {
 	fmt.Printf("  platform:  %s/%s\n", runtime.GOOS, runtime.GOARCH)
 }
 
-// String returns a one-line version string.
+// String returns a one-line version string using the explicitly set Version field.
 func (i *Info) String() string {
-	version, _, _ := i.Get()
-	return fmt.Sprintf("%s version %s", i.ToolName, version)
+	return fmt.Sprintf("%s version %s", i.ToolName, i.Version)
 }
 
 // New creates a new Info with default values.

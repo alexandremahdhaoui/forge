@@ -632,34 +632,51 @@ engines:
 
 ### testenv-helm-install
 
-**Purpose:** Install Helm charts into test environments
-
-**URI:** `go://testenv-helm-install`
-
-**Features:**
-- Installs Helm charts from repos or local paths
-- Waits for deployments to be ready
-- Supports multiple charts
-- Namespace creation
-- Stores chart metadata
+The `testenv-helm-install` engine installs Helm charts into a Kubernetes test environment (typically a Kind cluster).
 
 **Configuration:**
+
 ```yaml
-engines:
-  - alias: my-testenv
-    type: testenv
-    testenv:
-      - engine: "go://testenv-kind"
-      - engine: "go://testenv-helm-install"
-        spec:
-          charts:
-            - name: podinfo/podinfo
-              repo: https://stefanprodan.github.io/podinfo
-              namespace: test-app
-              releaseName: test-podinfo
+- engine: "go://testenv-helm-install"
+  spec:
+    charts:
+      - name: podinfo-release           # Internal identifier
+        sourceType: helm-repo            # Required: "helm-repo", "git", "oci", "s3"
+        url: https://stefanprodan.github.io/podinfo  # Repository URL
+        chartName: podinfo               # Chart name in the repository
+        version: "6.0.0"                # Optional: version constraint
+        namespace: test-podinfo          # Kubernetes namespace
+        releaseName: test-podinfo        # Helm release name
+        createNamespace: true            # Create namespace if missing
+        timeout: "5m"                    # Helm operation timeout
+        disableWait: false               # Wait for resources to be ready
+        values:                          # Inline Helm values
+          replicaCount: 2
+          service:
+            type: ClusterIP
 ```
 
-**When to use:** When tests require specific applications/services in the cluster.
+**Key Fields:**
+
+- `name`: Internal identifier for the chart configuration
+- `sourceType`: Must be `"helm-repo"` (currently only supported type)
+- `url`: Helm repository URL
+- `chartName`: Name of the chart in the repository
+- `releaseName`: Helm release name (defaults to `name`)
+- `namespace`: Target namespace (defaults to "default")
+- `createNamespace`: Create namespace if it doesn't exist
+- `timeout`: Helm operation timeout (default: "5m")
+- `values`: Inline Helm values (flat key-value pairs supported)
+- `valuesFiles`: List of values file paths
+
+**Lifecycle Options:**
+
+- `disableWait`: Skip waiting for resources (default: false)
+- `forceUpgrade`: Use helm upgrade --force (default: false)
+- `disableHooks`: Disable Helm hooks (default: false)
+- `testEnable`: Run helm tests after install (default: false)
+
+**Note:** Only `sourceType: helm-repo` is currently implemented. Git, OCI, and S3 sources are planned for future releases.
 
 ---
 
