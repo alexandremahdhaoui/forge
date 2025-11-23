@@ -45,7 +45,7 @@ type ChartSpec struct {
 	// -------------------------------------------------------------------------
 
 	// SourceType determines the strategy for artifact acquisition.
-	// Valid values: "helm-repo", "git", "oci", "s3".
+	// Valid values: "helm-repo", "git", "oci", "s3", "local".
 	// Required.
 	SourceType string `json:"sourceType" yaml:"sourceType"`
 
@@ -55,6 +55,10 @@ type ChartSpec struct {
 	// - 'oci': Registry URL starting with 'oci://'.
 	// - 's3': The generic S3-compatible endpoint.
 	URL string `json:"url" yaml:"url"`
+
+	// Path is the filesystem path to a local chart directory.
+	// Required when SourceType is "local".
+	Path string `json:"path,omitempty" yaml:"path,omitempty"`
 
 	// Interval is the frequency at which the source is reconciled.
 	// Must be a valid Go duration string (e.g., "10m", "1h").
@@ -278,6 +282,11 @@ func installHelmCharts(ctx context.Context, input engineframework.CreateInput) (
 			}
 			if chart.ChartName == "" {
 				return nil, fmt.Errorf("chart %s: chartName is required for helm-repo source", chart.Name)
+			}
+		}
+		if chart.SourceType == "local" {
+			if chart.Path == "" {
+				return nil, fmt.Errorf("chart %s: path is required for local source", chart.Name)
 			}
 		}
 
@@ -910,6 +919,13 @@ func installChart(chart ChartSpec, kubeconfigPath string) error {
 		// Extract repo name from URL for chart reference
 		repoName := extractRepoNameFromURL(chart.URL)
 		chartRef = fmt.Sprintf("%s/%s", repoName, chart.ChartName)
+
+	case "local":
+		if chart.Path == "" {
+			return fmt.Errorf("path is required when sourceType is local")
+		}
+		// For local charts, use the path directly
+		chartRef = chart.Path
 
 	case "git":
 		// Validate Git source

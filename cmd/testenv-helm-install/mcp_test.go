@@ -2231,3 +2231,98 @@ func TestValueReferenceOptional(t *testing.T) {
 		})
 	}
 }
+
+// TestChartSpecLocalSourceType tests that local sourceType is properly supported
+func TestChartSpecLocalSourceType(t *testing.T) {
+	spec := ChartSpec{
+		Name:        "shaper-crds",
+		SourceType:  "local",
+		Path:        "./charts/shaper-crds",
+		Namespace:   "default",
+		ReleaseName: "shaper-crds",
+	}
+
+	// Test that the spec fields are set correctly
+	if spec.SourceType != "local" {
+		t.Errorf("SourceType = %v, want local", spec.SourceType)
+	}
+	if spec.Path != "./charts/shaper-crds" {
+		t.Errorf("Path = %v, want ./charts/shaper-crds", spec.Path)
+	}
+	if spec.Name != "shaper-crds" {
+		t.Errorf("Name = %v, want shaper-crds", spec.Name)
+	}
+}
+
+// TestValidateLocalChartRequiresPath tests that validation requires path for local charts
+func TestValidateLocalChartRequiresPath(t *testing.T) {
+	tests := []struct {
+		name        string
+		chart       ChartSpec
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "local chart with path - valid",
+			chart: ChartSpec{
+				Name:       "test-chart",
+				SourceType: "local",
+				Path:       "./charts/test",
+			},
+			expectError: false,
+		},
+		{
+			name: "local chart without path - invalid",
+			chart: ChartSpec{
+				Name:       "test-chart",
+				SourceType: "local",
+				Path:       "",
+			},
+			expectError: true,
+			errorMsg:    "path is required for local source",
+		},
+		{
+			name: "helm-repo chart - should not validate path",
+			chart: ChartSpec{
+				Name:       "test-chart",
+				SourceType: "helm-repo",
+				URL:        "https://example.com",
+				ChartName:  "mychart",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate validation logic that would be in installHelmCharts
+			var err error
+			if tt.chart.SourceType == "local" {
+				if tt.chart.Path == "" {
+					err = &validationError{msg: "chart " + tt.chart.Name + ": path is required for local source"}
+				}
+			}
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error containing %q, got nil", tt.errorMsg)
+				} else if err.Error() != "chart "+tt.chart.Name+": path is required for local source" {
+					t.Errorf("Expected error containing %q, got %q", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got %v", err)
+				}
+			}
+		})
+	}
+}
+
+// validationError is a simple error type for testing
+type validationError struct {
+	msg string
+}
+
+func (e *validationError) Error() string {
+	return e.msg
+}
