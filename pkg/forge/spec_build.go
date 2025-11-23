@@ -1,5 +1,7 @@
 package forge
 
+import "fmt"
+
 // Build holds the list of artifacts to build
 type Build []BuildSpec
 
@@ -21,7 +23,18 @@ type BuildSpec struct {
 	Engine string `json:"engine"`
 	// Spec contains engine-specific configuration (free-form)
 	// Supports fields like: command, args, env, envFile, workDir
+	// For container-build engine, also supports:
+	//   - dependsOn: []DependsOnSpec - list of dependency detectors to run
 	// The exact fields supported depend on the engine being used
+	Spec map[string]interface{} `json:"spec,omitempty"`
+}
+
+// DependsOnSpec defines a dependency detector configuration
+type DependsOnSpec struct {
+	// Engine is the URI of the dependency-detector engine (e.g., "go://go-dependency-detector")
+	Engine string `json:"engine"`
+
+	// Spec contains engine-specific configuration for the dependency detector
 	Spec map[string]interface{} `json:"spec,omitempty"`
 }
 
@@ -43,4 +56,41 @@ func (bs *BuildSpec) Validate() error {
 	}
 
 	return errs.ErrorOrNil()
+}
+
+// ParseDependsOn extracts and validates dependsOn field from BuildSpec.Spec
+// Returns nil slice if dependsOn not present (no error)
+// Returns error if dependsOn present but invalid structure
+func ParseDependsOn(spec map[string]interface{}) ([]DependsOnSpec, error) {
+	dependsOnRaw, ok := spec["dependsOn"]
+	if !ok {
+		return nil, nil // not present, not an error
+	}
+
+	dependsOnSlice, ok := dependsOnRaw.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("dependsOn must be an array, got %T", dependsOnRaw)
+	}
+
+	result := make([]DependsOnSpec, 0, len(dependsOnSlice))
+	for i, item := range dependsOnSlice {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("dependsOn[%d] must be an object, got %T", i, item)
+		}
+
+		engine, ok := itemMap["engine"].(string)
+		if !ok || engine == "" {
+			return nil, fmt.Errorf("dependsOn[%d].engine is required and must be a string", i)
+		}
+
+		specMap, _ := itemMap["spec"].(map[string]interface{})
+
+		result = append(result, DependsOnSpec{
+			Engine: engine,
+			Spec:   specMap,
+		})
+	}
+
+	return result, nil
 }

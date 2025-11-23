@@ -44,12 +44,13 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 		return nil, err
 	}
 
-	// Create BuildSpec from input
+	// Create BuildSpec from input (include Spec for dependsOn support)
 	spec := forge.BuildSpec{
 		Name:   input.Name,
 		Src:    input.Src,
 		Dest:   input.Dest,
 		Engine: input.Engine,
+		Spec:   input.Spec,
 	}
 
 	// Get git version
@@ -59,12 +60,12 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 	}
 
 	// Build the container (isMCPMode=true)
-	var dummyStore forge.ArtifactStore
-	if err := buildContainer(envs, spec, version, "", &dummyStore, true); err != nil {
+	var store forge.ArtifactStore
+	if err := buildContainer(envs, spec, version, "", &store, true); err != nil {
 		return nil, err
 	}
 
-	// Create versioned artifact using custom version (container uses image:version format)
+	// Retrieve the artifact from store to get dependencies
 	location := fmt.Sprintf("%s:%s", input.Name, version)
 	artifact := engineframework.CreateCustomArtifact(
 		input.Name,
@@ -72,6 +73,16 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 		location,
 		version,
 	)
+
+	// Find artifact in store to get dependencies
+	for _, a := range store.Artifacts {
+		if a.Name == input.Name {
+			artifact.Dependencies = a.Dependencies
+			artifact.DependencyDetectorEngine = a.DependencyDetectorEngine
+			artifact.DependencyDetectorSpec = a.DependencyDetectorSpec
+			break
+		}
+	}
 
 	return artifact, nil
 }

@@ -146,14 +146,37 @@ func tagImage(containerEngine, imageID, tag string, isMCPMode bool) error {
 func addArtifactToStore(
 	store *forge.ArtifactStore,
 	name, version, timestamp string,
+	dependencies []forge.ArtifactDependency,
+	detectorEngines []string,
+	dependsOnSpec []forge.DependsOnSpec,
 ) {
 	artifact := forge.Artifact{
-		Name:      name,
-		Type:      "container",
-		Location:  fmt.Sprintf("%s:%s", name, version),
-		Timestamp: timestamp,
-		Version:   version,
+		Name:         name,
+		Type:         "container",
+		Location:     fmt.Sprintf("%s:%s", name, version),
+		Timestamp:    timestamp,
+		Version:      version,
+		Dependencies: dependencies,
 	}
+
+	// Store detector engines as comma-separated string
+	if len(detectorEngines) > 0 {
+		detectorEngineStr := ""
+		for i, engine := range detectorEngines {
+			if i > 0 {
+				detectorEngineStr += ","
+			}
+			detectorEngineStr += engine
+		}
+		artifact.DependencyDetectorEngine = detectorEngineStr
+	}
+
+	// Store dependsOn configuration as spec
+	if len(dependsOnSpec) > 0 {
+		artifact.DependencyDetectorSpec = make(map[string]interface{})
+		artifact.DependencyDetectorSpec["dependsOn"] = dependsOnSpec
+	}
+
 	forge.AddOrUpdateArtifact(store, artifact)
 }
 
@@ -208,8 +231,28 @@ func buildContainerDocker(
 		return flaterrors.Join(err, errBuildingContainer)
 	}
 
+	// Detect dependencies after successful build
+	var dependencies []forge.ArtifactDependency
+	var detectorEngines []string
+	var dependsOnSpec []forge.DependsOnSpec
+
+	dependsOn, err := forge.ParseDependsOn(spec.Spec)
+	if err != nil {
+		// ParseDependsOn error: log and skip detection (don't fail build)
+		_, _ = fmt.Fprintf(out, "⚠️  Warning: failed to parse dependsOn: %v\n", err)
+		_, _ = fmt.Fprintf(out, "   Skipping dependency detection\n")
+	} else if len(dependsOn) > 0 {
+		// Call dependency detection
+		dependencies, detectorEngines, err = detectDependenciesFromSpec(dependsOn, spec)
+		if err != nil {
+			// Detection failed - FAIL the build
+			return flaterrors.Join(err, errBuildingContainer)
+		}
+		dependsOnSpec = dependsOn
+	}
+
 	// Add to artifact store
-	addArtifactToStore(store, spec.Name, version, timestamp)
+	addArtifactToStore(store, spec.Name, version, timestamp, dependencies, detectorEngines, dependsOnSpec)
 
 	printBuildSuccess(out, spec.Name, version)
 	return nil
@@ -256,8 +299,28 @@ func buildContainerPodman(
 		return flaterrors.Join(err, errBuildingContainer)
 	}
 
+	// Detect dependencies after successful build
+	var dependencies []forge.ArtifactDependency
+	var detectorEngines []string
+	var dependsOnSpec []forge.DependsOnSpec
+
+	dependsOn, err := forge.ParseDependsOn(spec.Spec)
+	if err != nil {
+		// ParseDependsOn error: log and skip detection (don't fail build)
+		_, _ = fmt.Fprintf(out, "⚠️  Warning: failed to parse dependsOn: %v\n", err)
+		_, _ = fmt.Fprintf(out, "   Skipping dependency detection\n")
+	} else if len(dependsOn) > 0 {
+		// Call dependency detection
+		dependencies, detectorEngines, err = detectDependenciesFromSpec(dependsOn, spec)
+		if err != nil {
+			// Detection failed - FAIL the build
+			return flaterrors.Join(err, errBuildingContainer)
+		}
+		dependsOnSpec = dependsOn
+	}
+
 	// Add to artifact store
-	addArtifactToStore(store, spec.Name, version, timestamp)
+	addArtifactToStore(store, spec.Name, version, timestamp, dependencies, detectorEngines, dependsOnSpec)
 
 	printBuildSuccess(out, spec.Name, version)
 	return nil
@@ -348,8 +411,28 @@ func buildContainerKaniko(
 		_, _ = fmt.Fprintf(os.Stderr, "⚠️  Warning: failed to remove tar file: %s\n", err)
 	}
 
+	// Detect dependencies after successful build
+	var dependencies []forge.ArtifactDependency
+	var detectorEngines []string
+	var dependsOnSpec []forge.DependsOnSpec
+
+	dependsOn, err := forge.ParseDependsOn(spec.Spec)
+	if err != nil {
+		// ParseDependsOn error: log and skip detection (don't fail build)
+		_, _ = fmt.Fprintf(out, "⚠️  Warning: failed to parse dependsOn: %v\n", err)
+		_, _ = fmt.Fprintf(out, "   Skipping dependency detection\n")
+	} else if len(dependsOn) > 0 {
+		// Call dependency detection
+		dependencies, detectorEngines, err = detectDependenciesFromSpec(dependsOn, spec)
+		if err != nil {
+			// Detection failed - FAIL the build
+			return flaterrors.Join(err, errBuildingContainer)
+		}
+		dependsOnSpec = dependsOn
+	}
+
 	// Add to artifact store
-	addArtifactToStore(store, spec.Name, version, timestamp)
+	addArtifactToStore(store, spec.Name, version, timestamp, dependencies, detectorEngines, dependsOnSpec)
 
 	printBuildSuccess(out, spec.Name, version)
 

@@ -103,6 +103,11 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 		return nil, fmt.Errorf("failed to create artifact: %w", err)
 	}
 
+	// Detect dependencies if this is a main package
+	if err := detectDependenciesForArtifact(input.Src, artifact); err != nil {
+		return nil, fmt.Errorf("failed to detect dependencies: %w", err)
+	}
+
 	fmt.Fprintf(os.Stderr, "✅ Built binary: %s (version: %s)\n", input.Name, artifact.Version)
 
 	return artifact, nil

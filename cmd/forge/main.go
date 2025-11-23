@@ -60,7 +60,17 @@ func main() {
 			os.Exit(1)
 		}
 	case "build":
-		if err := runBuild(cmdArgs); err != nil {
+		// Parse force flag
+		forceRebuild := false
+		filteredArgs := make([]string, 0, len(cmdArgs))
+		for _, arg := range cmdArgs {
+			if arg == "-f" || arg == "--force" {
+				forceRebuild = true
+			} else {
+				filteredArgs = append(filteredArgs, arg)
+			}
+		}
+		if err := runBuild(filteredArgs, forceRebuild); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -141,8 +151,8 @@ Commands:
   version                            Show version information
 
 Build:
-  build                              Build all artifacts from forge.yaml
-  build <artifact-name>              Build specific artifact
+  build [-f|--force]                 Build all artifacts from forge.yaml
+  build [-f|--force] <artifact-name> Build specific artifact (force rebuild all)
 
 Test:
   test <stage> create                Create test environment for stage

@@ -191,6 +191,10 @@ func TestBuildWithFormatter(t *testing.T) {
 		t.Skip("forge binary not found, run full build test first")
 	}
 
+	// Clean up artifact store to ensure fresh build
+	artifactStorePath := ".forge/artifact-store.yaml"
+	_ = os.Remove(artifactStorePath)
+
 	// Run forge build and capture output
 	cmd := exec.Command(forgeBin, "build")
 	output, err := cmd.CombinedOutput()

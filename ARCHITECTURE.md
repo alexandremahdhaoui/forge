@@ -29,9 +29,9 @@ Go development tooling repository providing CLI tools for streamlined workflows 
 
 - **123 Go source files**
 - **21,829 lines of Go code**
-- **20 command-line tools**
+- **19 command-line tools**
 - **5 public packages**
-- **10 MCP servers**
+- **19 MCP servers**
 - Go version: 1.24.1
 - License: Apache 2.0
 
@@ -63,7 +63,7 @@ Go development tooling repository providing CLI tools for streamlined workflows 
 
 ### Directory Responsibilities
 
-#### `/cmd` - Command-Line Tools (20 tools)
+#### `/cmd` - Command-Line Tools (19 tools)
 
 Standalone CLI tools, each in its own subdirectory:
 - Environment-variable driven for CI/CD
@@ -179,14 +179,15 @@ type Config struct {
 
 ## Command-Line Tools
 
-All 20 tools are standalone binaries in `cmd/`. Tools marked with ⚡ provide MCP servers.
+All 19 tools are standalone binaries in `cmd/`. Tools marked with ⚡ provide MCP servers.
 
 ### Tool Categories
 
 ```
-Build Engines (3):
-  ⚡ go-build              - Go binary builder
+Build Engines (4):
+  ⚡ go-build              - Go binary builder with dependency tracking
   ⚡ container-build       - Multi-mode container image builder (docker/kaniko/podman)
+  ⚡ go-dependency-detector - Go dependency detector for lazy rebuild
   ⚡ generic-builder       - Generic command executor
 
 Test Engines (3):
@@ -294,6 +295,110 @@ GO_BUILD_LDFLAGS # Linker flags for build metadata
 - Parallel test execution
 - Self-referencing (uses own tools)
 
+### Lazy Rebuild
+
+Forge implements automatic dependency tracking and lazy rebuild optimization to skip rebuilding unchanged artifacts.
+
+**Architecture:**
+
+```
+┌─────────────┐
+│ forge build │
+└──────┬──────┘
+       │
+       ▼
+┌──────────────────────┐
+│ shouldRebuild check  │
+│ (build.go)           │
+└──────┬───────────────┘
+       │
+       ├─ Check artifact store for previous build
+       ├─ Compare file timestamps from stored dependencies
+       ├─ Check if artifact file exists
+       │
+       ▼
+   Changed? ──No──> Skip build
+       │
+      Yes
+       │
+       ▼
+┌──────────────────────┐
+│ Build with engine    │
+│ (go-build, etc.)     │
+└──────┬───────────────┘
+       │
+       ▼
+┌──────────────────────┐
+│ Dependency Detection │
+│ (go-dependency-      │
+│  detector)           │
+└──────┬───────────────┘
+       │
+       ▼
+┌──────────────────────┐
+│ Store artifact +     │
+│ dependencies in      │
+│ artifact store       │
+└──────────────────────┘
+```
+
+**Components:**
+
+1. **shouldRebuild** (`cmd/forge/build.go`):
+   - Checks artifact store for previous build
+   - Compares timestamps of tracked file dependencies
+   - Determines if rebuild needed based on:
+     - Force flag (`--force` / `-f`)
+     - No previous build
+     - Artifact file missing
+     - Dependencies not tracked (old artifacts)
+     - File dependency modified (timestamp changed)
+
+2. **go-dependency-detector** (`cmd/go-dependency-detector/`):
+   - Parses Go AST to find function dependencies
+   - Recursively follows local imports (transitive)
+   - Extracts versions from go.mod for external packages
+   - Returns list of file and package dependencies
+
+3. **Artifact Store** (`.forge/artifacts.yaml`):
+   - Stores artifact metadata including:
+     - Dependencies (file paths with timestamps, packages with semvers)
+     - DependencyDetectorEngine URI
+     - DependencyDetectorSpec configuration
+   - Used for rebuild decision logic
+
+**Dependency Types:**
+
+- **File Dependencies** (`type: "file"`):
+  - Local Go source files
+  - Absolute paths with RFC3339 timestamps
+  - Includes transitive dependencies (A imports B, B imports C)
+
+- **External Package Dependencies** (`type: "externalPackage"`):
+  - Third-party packages from go.mod
+  - Package identifier + semantic version
+  - Supports pseudo-versions
+
+**Integration:**
+
+- **go-build**: Automatically detects dependencies for main packages
+- **container-build**: Requires explicit `dependsOn` in spec:
+  ```yaml
+  spec:
+    dependsOn:
+      - engine: go://go-dependency-detector
+        spec:
+          filePath: ./cmd/api/main.go
+          funcName: main
+  ```
+
+**Performance:**
+
+- Rebuild check is fast (stat calls only, no AST parsing)
+- Dependency detection runs once during build (not during check)
+- Timestamp-only comparison for file dependencies
+- External packages assumed unchanged unless go.mod changed
+
 ## MCP Architecture
 
 Forge uses Model Context Protocol (MCP) for communication between the orchestrator and tool engines.
@@ -323,12 +428,15 @@ Forge uses Model Context Protocol (MCP) for communication between the orchestrat
 
 **Note:** The forge CLI itself is also an MCP server. When invoked with `--mcp`, it exposes its orchestration capabilities to AI coding agents, allowing them to build artifacts, run tests, and manage test environments directly.
 
-### MCP Servers (10 total)
+### MCP Servers (19 total)
 
 **Build Engines** (communicate via `build` tool):
-- `go-build --mcp` - Returns Artifact
-- `container-build --mcp` - Returns Artifact
+- `go-build --mcp` - Returns Artifact with dependencies
+- `container-build --mcp` - Returns Artifact with dependencies
 - `generic-builder --mcp` - Returns Artifact
+
+**Dependency Detection** (communicate via `detectDependencies` tool):
+- `go-dependency-detector --mcp` - Returns dependency list
 
 **Test Runners** (communicate via `run` tool):
 - `go-test --mcp` - Returns TestReport

@@ -14,6 +14,9 @@ const (
 
 	// TestenvEngineConfigType indicates this engine is for managing test environments
 	TestenvEngineConfigType EngineConfigType = "testenv"
+
+	// DependencyDetectorEngineConfigType indicates this engine is for detecting dependencies
+	DependencyDetectorEngineConfigType EngineConfigType = "dependency-detector"
 )
 
 // EngineConfig defines a custom engine configuration with an alias.
@@ -38,6 +41,10 @@ type EngineConfig struct {
 	// Testenv specification (only used when Type="testenv")
 	// List of testenv-subengines to compose
 	Testenv []TestenvEngineSpec `json:"testenv,omitempty"`
+
+	// DependencyDetector specification (only used when Type="dependency-detector")
+	// List of dependency-detectors to compose
+	DependencyDetector []DependencyDetectorEngineSpec `json:"dependencyDetector,omitempty"`
 }
 
 // EngineSpec contains the specification details for an engine.
@@ -89,6 +96,15 @@ type TestenvEngineSpec struct {
 	Spec map[string]interface{} `json:"spec,omitempty"`
 }
 
+// DependencyDetectorEngineSpec defines specification for dependency-detector-type engines
+type DependencyDetectorEngineSpec struct {
+	// Engine is the dependency detector engine URI (e.g., "go://go-dependency-detector")
+	Engine string `json:"engine"`
+
+	// Spec contains engine-specific configuration (free-form)
+	Spec map[string]interface{} `json:"spec,omitempty"`
+}
+
 // Validate validates the EngineConfig
 func (ec *EngineConfig) Validate() error {
 	errs := NewValidationErrors()
@@ -102,7 +118,7 @@ func (ec *EngineConfig) Validate() error {
 	if ec.Type == "" {
 		errs.AddErrorf("EngineConfig %q: type is required", ec.Alias)
 	} else {
-		validTypes := []EngineConfigType{BuilderEngineConfigType, TestRunnerEngineConfigType, TestenvEngineConfigType}
+		validTypes := []EngineConfigType{BuilderEngineConfigType, TestRunnerEngineConfigType, TestenvEngineConfigType, DependencyDetectorEngineConfigType}
 		valid := false
 		for _, vt := range validTypes {
 			if ec.Type == vt {
@@ -111,8 +127,8 @@ func (ec *EngineConfig) Validate() error {
 			}
 		}
 		if !valid {
-			errs.AddErrorf("EngineConfig %q: invalid type %q, must be one of: %q, %q, %q",
-				ec.Alias, ec.Type, BuilderEngineConfigType, TestRunnerEngineConfigType, TestenvEngineConfigType)
+			errs.AddErrorf("EngineConfig %q: invalid type %q, must be one of: %q, %q, %q, %q",
+				ec.Alias, ec.Type, BuilderEngineConfigType, TestRunnerEngineConfigType, TestenvEngineConfigType, DependencyDetectorEngineConfigType)
 		}
 	}
 
@@ -120,11 +136,12 @@ func (ec *EngineConfig) Validate() error {
 	builderCount := len(ec.Builder)
 	testRunnerCount := len(ec.TestRunner)
 	testenvCount := len(ec.Testenv)
+	dependencyDetectorCount := len(ec.DependencyDetector)
 
 	switch ec.Type {
 	case BuilderEngineConfigType:
-		if testRunnerCount > 0 || testenvCount > 0 {
-			errs.AddErrorf("EngineConfig %q: type=builder but contains testRunner or testenv configuration", ec.Alias)
+		if testRunnerCount > 0 || testenvCount > 0 || dependencyDetectorCount > 0 {
+			errs.AddErrorf("EngineConfig %q: type=builder but contains testRunner, testenv, or dependencyDetector configuration", ec.Alias)
 		}
 		if builderCount == 0 {
 			errs.AddErrorf("EngineConfig %q: type=builder requires at least one builder specification", ec.Alias)
@@ -137,8 +154,8 @@ func (ec *EngineConfig) Validate() error {
 		}
 
 	case TestRunnerEngineConfigType:
-		if builderCount > 0 || testenvCount > 0 {
-			errs.AddErrorf("EngineConfig %q: type=test-runner but contains builder or testenv configuration", ec.Alias)
+		if builderCount > 0 || testenvCount > 0 || dependencyDetectorCount > 0 {
+			errs.AddErrorf("EngineConfig %q: type=test-runner but contains builder, testenv, or dependencyDetector configuration", ec.Alias)
 		}
 		if testRunnerCount == 0 {
 			errs.AddErrorf("EngineConfig %q: type=test-runner requires at least one testRunner specification", ec.Alias)
@@ -151,8 +168,8 @@ func (ec *EngineConfig) Validate() error {
 		}
 
 	case TestenvEngineConfigType:
-		if builderCount > 0 || testRunnerCount > 0 {
-			errs.AddErrorf("EngineConfig %q: type=testenv but contains builder or testRunner configuration", ec.Alias)
+		if builderCount > 0 || testRunnerCount > 0 || dependencyDetectorCount > 0 {
+			errs.AddErrorf("EngineConfig %q: type=testenv but contains builder, testRunner, or dependencyDetector configuration", ec.Alias)
 		}
 		if testenvCount == 0 {
 			errs.AddErrorf("EngineConfig %q: type=testenv requires at least one testenv specification", ec.Alias)
@@ -160,6 +177,20 @@ func (ec *EngineConfig) Validate() error {
 		// Validate each testenv spec
 		for i, te := range ec.Testenv {
 			if err := te.Validate(ec.Alias, i); err != nil {
+				errs.Add(err)
+			}
+		}
+
+	case DependencyDetectorEngineConfigType:
+		if builderCount > 0 || testRunnerCount > 0 || testenvCount > 0 {
+			errs.AddErrorf("EngineConfig %q: type=dependency-detector but contains builder, testRunner, or testenv configuration", ec.Alias)
+		}
+		if dependencyDetectorCount == 0 {
+			errs.AddErrorf("EngineConfig %q: type=dependency-detector requires at least one dependencyDetector specification", ec.Alias)
+		}
+		// Validate each dependency detector spec
+		for i, dd := range ec.DependencyDetector {
+			if err := dd.Validate(ec.Alias, i); err != nil {
 				errs.Add(err)
 			}
 		}
@@ -198,6 +229,18 @@ func (tes *TestenvEngineSpec) Validate(alias string, index int) error {
 
 	context := fmt.Sprintf("EngineConfig %q testenv[%d]", alias, index)
 	if err := ValidateURI(tes.Engine, context); err != nil {
+		errs.Add(err)
+	}
+
+	return errs.ErrorOrNil()
+}
+
+// Validate validates the DependencyDetectorEngineSpec
+func (ddes *DependencyDetectorEngineSpec) Validate(alias string, index int) error {
+	errs := NewValidationErrors()
+
+	context := fmt.Sprintf("EngineConfig %q dependencyDetector[%d]", alias, index)
+	if err := ValidateURI(ddes.Engine, context); err != nil {
 		errs.Add(err)
 	}
 

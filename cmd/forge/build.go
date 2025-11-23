@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/alexandremahdhaoui/forge/internal/orchestrate"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
@@ -24,7 +25,103 @@ func normalizeEngineURI(uri string) (string, bool) {
 	return uri, false // not deprecated
 }
 
-func runBuild(args []string) error {
+// shouldRebuild determines if an artifact needs to be rebuilt based on its dependencies.
+// Returns (needsRebuild bool, reason string, error).
+// If forceRebuild is true, always returns (true, "force flag set", nil).
+// Otherwise, checks if dependencies have changed since last build.
+func shouldRebuild(artifactName string, store forge.ArtifactStore, forceRebuild bool) (bool, string, error) {
+	// Step 1: If forceRebuild is true, always rebuild
+	if forceRebuild {
+		return true, "force flag set", nil
+	}
+
+	// Step 2: Look up latest artifact for artifactName in store
+	artifact, err := forge.GetLatestArtifact(store, artifactName)
+	if err != nil {
+		// Step 3: If no artifact found, rebuild
+		return true, "no previous build", nil
+	}
+
+	// Step 4: Check if artifact location still exists on filesystem
+	if _, err := os.Stat(artifact.Location); os.IsNotExist(err) {
+		return true, "artifact file missing", nil
+	} else if err != nil {
+		// If stat fails for other reason, assume rebuild needed
+		return true, fmt.Sprintf("cannot access artifact file: %v", err), nil
+	}
+
+	// Step 5: If artifact has no Dependencies field (nil or empty)
+	if len(artifact.Dependencies) == 0 {
+		return true, "dependencies not tracked", nil
+	}
+
+	// Step 7: If artifact has no DependencyDetectorEngine, rebuild
+	if artifact.DependencyDetectorEngine == "" {
+		return true, "dependency detector not configured", nil
+	}
+
+	// Step 6: Compare using STORED dependencies ONLY (DO NOT re-detect)
+	goModTracked := false
+	for _, dep := range artifact.Dependencies {
+		if dep.Type == forge.DependencyTypeFile {
+			// Check if go.mod is tracked
+			if strings.HasSuffix(dep.FilePath, "go.mod") {
+				goModTracked = true
+			}
+
+			// Check if file still exists
+			fileInfo, err := os.Stat(dep.FilePath)
+			if os.IsNotExist(err) {
+				return true, fmt.Sprintf("dependency file %s missing", dep.FilePath), nil
+			} else if err != nil {
+				// If stat fails for other reason, assume changed (safe default)
+				return true, fmt.Sprintf("cannot access dependency file %s: %v", dep.FilePath, err), nil
+			}
+
+			// Get current timestamp and format as RFC3339 UTC
+			currentTimestamp := fileInfo.ModTime().UTC().Format(time.RFC3339)
+
+			// Parse stored timestamp
+			storedTime, err := time.Parse(time.RFC3339, dep.Timestamp)
+			if err != nil {
+				// Parse error - assume changed (safe default)
+				return true, fmt.Sprintf("dependency %s timestamp parse error", dep.FilePath), nil
+			}
+
+			// Parse current timestamp
+			currentTime, err := time.Parse(time.RFC3339, currentTimestamp)
+			if err != nil {
+				// Parse error - assume changed (safe default)
+				return true, fmt.Sprintf("dependency %s current timestamp parse error", dep.FilePath), nil
+			}
+
+			// Compare timestamps using .Equal()
+			if !currentTime.Equal(storedTime) {
+				return true, fmt.Sprintf("dependency %s modified", dep.FilePath), nil
+			}
+		}
+		// External package dependencies: DO NOT re-parse go.mod
+		// External packages are considered unchanged (semver only changes if go.mod changes)
+	}
+
+	// If go.mod is NOT in file dependencies and we have external package dependencies
+	hasExternalDeps := false
+	for _, dep := range artifact.Dependencies {
+		if dep.Type == forge.DependencyTypeExternalPackage {
+			hasExternalDeps = true
+			break
+		}
+	}
+	if hasExternalDeps && !goModTracked {
+		// Log warning once (don't fail build)
+		fmt.Fprintf(os.Stderr, "⚠️  Warning: go.mod not tracked as dependency for %s, external package changes may not trigger rebuild\n", artifactName)
+	}
+
+	// If all dependencies unchanged, no rebuild needed
+	return false, "", nil
+}
+
+func runBuild(args []string, forceRebuild bool) error {
 	// Load forge.yaml configuration
 	config, err := loadConfig()
 	if err != nil {
@@ -45,11 +142,33 @@ func runBuild(args []string) error {
 
 	// Group specs by engine
 	engineSpecs := make(map[string][]map[string]any)
+	skippedCount := 0
 
 	for _, spec := range config.Build {
 		// Filter by artifact name if provided
 		if artifactName != "" && spec.Name != artifactName {
 			continue
+		}
+
+		// Check if rebuild is needed (lazy rebuild logic)
+		needsRebuild, reason, err := shouldRebuild(spec.Name, store, forceRebuild)
+		if err != nil {
+			// If error checking rebuild status, log warning and rebuild (safe default)
+			fmt.Fprintf(os.Stderr, "⚠️  Warning: failed to check rebuild status for %s: %v (will rebuild)\n", spec.Name, err)
+			needsRebuild = true
+			reason = "rebuild check failed"
+		}
+
+		if !needsRebuild {
+			// Skip this artifact - it's up to date
+			fmt.Printf("⏭  Skipping %s (unchanged)\n", spec.Name)
+			skippedCount++
+			continue
+		}
+
+		// Log reason for rebuild if provided
+		if reason != "" {
+			fmt.Printf("🔨 Building %s (%s)\n", spec.Name, reason)
 		}
 
 		// Normalize engine URI and warn if deprecated
@@ -80,7 +199,16 @@ func runBuild(args []string) error {
 
 	if len(engineSpecs) == 0 {
 		if artifactName != "" {
+			// Check if we found but skipped the artifact
+			if skippedCount > 0 {
+				fmt.Printf("✅ Artifact %s is up to date\n", artifactName)
+				return nil
+			}
 			return fmt.Errorf("no artifact found with name: %s", artifactName)
+		}
+		if skippedCount > 0 {
+			fmt.Printf("✅ All %d artifact(s) up to date\n", skippedCount)
+			return nil
 		}
 		fmt.Println("No artifacts to build")
 		return nil
@@ -143,7 +271,7 @@ func runBuild(args []string) error {
 					return fmt.Errorf("failed to resolve engine %s: %w", engineURI, err)
 				}
 
-				artifacts, err = buildWithSingleEngine(command, args, specs, dirs, engineConfig)
+				artifacts, err = buildWithSingleEngine(command, args, specs, dirs, engineConfig, forceRebuild)
 				if err != nil {
 					return fmt.Errorf("build failed: %w", err)
 				}
@@ -155,7 +283,7 @@ func runBuild(args []string) error {
 				return fmt.Errorf("failed to resolve engine %s: %w", engineURI, err)
 			}
 
-			artifacts, err = buildWithSingleEngine(command, args, specs, dirs, nil)
+			artifacts, err = buildWithSingleEngine(command, args, specs, dirs, nil, forceRebuild)
 			if err != nil {
 				return fmt.Errorf("build failed: %w", err)
 			}
@@ -173,7 +301,14 @@ func runBuild(args []string) error {
 		return fmt.Errorf("failed to write artifact store: %w", err)
 	}
 
-	fmt.Printf("✅ Successfully built %d artifact(s)\n", totalBuilt)
+	// Report results
+	if totalBuilt > 0 && skippedCount > 0 {
+		fmt.Printf("✅ Successfully built %d artifact(s), skipped %d unchanged\n", totalBuilt, skippedCount)
+	} else if totalBuilt > 0 {
+		fmt.Printf("✅ Successfully built %d artifact(s)\n", totalBuilt)
+	} else if skippedCount > 0 {
+		fmt.Printf("✅ All %d artifact(s) up to date\n", skippedCount)
+	}
 	return nil
 }
 
@@ -184,6 +319,7 @@ func buildWithSingleEngine(
 	specs []map[string]any,
 	dirs *ForgeDirs,
 	engineConfig *forge.EngineConfig,
+	forceRebuild bool,
 ) ([]forge.Artifact, error) {
 	// Prepare specs with injected directories and config
 	specsWithConfig := make([]map[string]any, len(specs))
@@ -257,7 +393,12 @@ func buildWithSingleEngine(
 	}
 
 	// Parse and return artifacts
-	return parseArtifacts(result)
+	artifacts, err := parseArtifacts(result)
+	if err != nil {
+		return nil, err
+	}
+
+	return artifacts, nil
 }
 
 // parseArtifacts converts MCP result to forge.Artifact slice.

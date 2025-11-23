@@ -33,3 +33,4 @@ tmp/
 /container-build
 /go-gen-openapi
 /testenv-helm-install
+/go-dependency-detector

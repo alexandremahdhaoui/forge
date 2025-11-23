@@ -82,8 +82,9 @@ This matrix maps code locations to documentation that must be updated.
 | New binary in `cmd/` | 1. `README.md` (Available Tools)<br>2. `ARCHITECTURE.md` (Command-Line Tools)<br>3. `component-inventory.md`<br>4. This document | High | Add tool count, update categories |
 | Binary renamed | 1. All mentions in all docs<br>2. All prompts<br>3. All examples in `forge.yaml`<br>4. `ARCHITECTURE.md` | Critical | Use global search/replace, verify examples |
 | Binary deleted | 1. Remove from `README.md`<br>2. Remove from `ARCHITECTURE.md`<br>3. Archive related docs<br>4. Update tool count | High | Mark as deprecated first if used |
-| Binary flags changed | 1. `cmd/*/README.md`<br>2. Prompts that reference it<br>3. Examples in guides | Medium | Update all command examples |
+| Binary flags changed | 1. `cmd/*/README.md`<br>2. Prompts that reference it<br>3. Examples in guides<br>4. `docs/forge-schema.md` if build/test commands | Medium | Update all command examples |
 | Binary dependencies changed | 1. `ARCHITECTURE.md` (Dependencies)<br>2. `cmd/*/README.md` | Low | Document major dependency changes |
+| go-dependency-detector changes | 1. `cmd/go-dependency-detector/MCP.md`<br>2. `docs/forge-schema.md` (lazy rebuild)<br>3. `ARCHITECTURE.md` (lazy rebuild)<br>4. `README.md` (tools list) | High | Core feature for lazy rebuild |
 
 ### MCP Server Changes
 
@@ -104,6 +105,8 @@ This matrix maps code locations to documentation that must be updated.
 | Package API changed | 1. `ARCHITECTURE.md` examples<br>2. Related prompts<br>3. Code examples in guides | High | Update all code examples |
 | Package deprecated | 1. Mark in `ARCHITECTURE.md`<br>2. Add migration guide<br>3. Update prompts | Medium | Provide alternatives |
 | New struct/type added | 1. `ARCHITECTURE.md` if central<br>2. Related MCP.md if used in schemas<br>3. GoDoc comments | Medium | Document if part of public API |
+| Artifact schema changed | 1. `docs/forge-schema.md` (Artifact Store)<br>2. `ARCHITECTURE.md` (lazy rebuild)<br>3. Related MCP.md files | High | Breaking change to artifact store |
+| mcptypes changes | 1. All `cmd/*/MCP.md` using those types<br>2. `ARCHITECTURE.md` MCP section<br>3. Related prompts | High | Affects MCP tool schemas |
 
 ### forge.yaml Schema Changes
 
@@ -131,6 +134,8 @@ This matrix maps code locations to documentation that must be updated.
 | Makefile targets changed | 1. `ARCHITECTURE.md` (Build System)<br>2. `README.md` if affects users<br>3. Development guides | Medium | Document new workflows |
 | Build dependencies changed | 1. `README.md` (Prerequisites)<br>2. `ARCHITECTURE.md` (Dependencies)<br>3. Installation guides | High | Update version numbers |
 | CI/CD pipeline changed | 1. Relevant workflow docs<br>2. `docs/forge-usage.md` if affects users | Medium | Document new processes |
+| Lazy rebuild logic changed | 1. `docs/forge-schema.md` (Lazy Rebuild)<br>2. `ARCHITECTURE.md` (Lazy Rebuild)<br>3. `README.md` (Core Features)<br>4. `docs/prompts/use-lazy-rebuild.md` | High | Core optimization feature |
+| forge build flags changed | 1. `docs/forge-schema.md`<br>2. `docs/forge-usage.md`<br>3. `README.md` examples<br>4. All prompts using forge build | Critical | Breaking change for users |
 
 ### Build Engine Changes (container-build specific)
 

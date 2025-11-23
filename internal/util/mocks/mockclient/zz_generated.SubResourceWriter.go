@@ -218,7 +218,7 @@ func NewMockSubResourceWriter(t interface {
 	Cleanup(func())
 }) *MockSubResourceWriter {
 	mock := &MockSubResourceWriter{}
-	mock.Mock.Test(t)
+	mock.Test(t)
 
 	t.Cleanup(func() { mock.AssertExpectations(t) })
 

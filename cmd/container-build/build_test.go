@@ -1,0 +1,129 @@
+//go:build unit
+
+package main
+
+import (
+	"testing"
+
+	"github.com/alexandremahdhaoui/forge/pkg/forge"
+)
+
+func TestDeduplicateDependencies(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []forge.ArtifactDependency
+		expected int // expected number of unique dependencies
+	}{
+		{
+			name:     "empty slice",
+			input:    []forge.ArtifactDependency{},
+			expected: 0,
+		},
+		{
+			name: "no duplicates",
+			input: []forge.ArtifactDependency{
+				{Type: "file", FilePath: "/path/to/file1.go"},
+				{Type: "file", FilePath: "/path/to/file2.go"},
+				{Type: "externalPackage", ExternalPackage: "github.com/foo/bar"},
+			},
+			expected: 3,
+		},
+		{
+			name: "duplicate files",
+			input: []forge.ArtifactDependency{
+				{Type: "file", FilePath: "/path/to/file1.go", Timestamp: "2025-11-23T10:00:00Z"},
+				{Type: "file", FilePath: "/path/to/file1.go", Timestamp: "2025-11-23T11:00:00Z"}, // duplicate
+				{Type: "file", FilePath: "/path/to/file2.go"},
+			},
+			expected: 2,
+		},
+		{
+			name: "duplicate external packages",
+			input: []forge.ArtifactDependency{
+				{Type: "externalPackage", ExternalPackage: "github.com/foo/bar", Semver: "v1.0.0"},
+				{Type: "externalPackage", ExternalPackage: "github.com/foo/bar", Semver: "v1.1.0"}, // duplicate
+				{Type: "externalPackage", ExternalPackage: "github.com/baz/qux"},
+			},
+			expected: 2,
+		},
+		{
+			name: "mixed duplicates",
+			input: []forge.ArtifactDependency{
+				{Type: "file", FilePath: "/path/to/file1.go"},
+				{Type: "file", FilePath: "/path/to/file1.go"}, // duplicate
+				{Type: "externalPackage", ExternalPackage: "github.com/foo/bar"},
+				{Type: "externalPackage", ExternalPackage: "github.com/foo/bar"}, // duplicate
+				{Type: "file", FilePath: "/path/to/file2.go"},
+			},
+			expected: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := deduplicateDependencies(tt.input)
+			if len(result) != tt.expected {
+				t.Errorf("deduplicateDependencies() returned %d dependencies, expected %d", len(result), tt.expected)
+			}
+
+			// Verify no duplicates in result
+			seen := make(map[string]bool)
+			for _, dep := range result {
+				var key string
+				if dep.Type == "file" {
+					key = "file:" + dep.FilePath
+				} else {
+					key = "external:" + dep.ExternalPackage
+				}
+
+				if seen[key] {
+					t.Errorf("duplicate dependency found in result: %s", key)
+				}
+				seen[key] = true
+			}
+		})
+	}
+}
+
+func TestExtractBinaryNameFromURI(t *testing.T) {
+	tests := []struct {
+		name     string
+		uri      string
+		expected string
+	}{
+		{
+			name:     "simple go:// URI",
+			uri:      "go://go-dependency-detector",
+			expected: "go-dependency-detector",
+		},
+		{
+			name:     "full path URI",
+			uri:      "go://github.com/alexandremahdhaoui/forge/cmd/go-dependency-detector",
+			expected: "go-dependency-detector",
+		},
+		{
+			name:     "nested path URI",
+			uri:      "go://github.com/user/repo/tools/custom-detector",
+			expected: "custom-detector",
+		},
+		{
+			name:     "URI without go:// prefix",
+			uri:      "go-dependency-detector",
+			expected: "go-dependency-detector",
+		},
+		{
+			name:     "URI with trailing slash",
+			uri:      "go://github.com/user/repo/cmd/detector/",
+			expected: "detector",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractBinaryNameFromURI(tt.uri)
+			if result != tt.expected {
+				t.Errorf("extractBinaryNameFromURI(%q) = %q, expected %q", tt.uri, result, tt.expected)
+			}
+		})
+	}
+}

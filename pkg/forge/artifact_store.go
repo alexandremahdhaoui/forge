@@ -30,17 +30,43 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// Dependency type constants
+const (
+	DependencyTypeFile            = "file"
+	DependencyTypeExternalPackage = "externalPackage"
+)
+
+// ArtifactDependency represents a dependency tracked for an artifact
+type ArtifactDependency struct {
+	// Type is either "file" or "externalPackage"
+	Type string `json:"type" yaml:"type"`
+	// FilePath is the absolute path to file dependency (if Type=file)
+	FilePath string `json:"filePath,omitempty" yaml:"filePath,omitempty"`
+	// ExternalPackage is the package identifier (if Type=externalPackage, e.g., "github.com/foo/bar")
+	ExternalPackage string `json:"externalPackage,omitempty" yaml:"externalPackage,omitempty"`
+	// Timestamp is RFC3339 timestamp in UTC (if Type=file, e.g., "2025-11-23T10:00:00Z")
+	Timestamp string `json:"timestamp,omitempty" yaml:"timestamp,omitempty"`
+	// Semver is semantic version (if Type=externalPackage, supports pseudo-versions like "v0.0.0-20231010123456-abcdef123456")
+	Semver string `json:"semver,omitempty" yaml:"semver,omitempty"`
+}
+
 type Artifact struct {
 	// The name of the artifact
-	Name string `json:"name"`
+	Name string `json:"name" yaml:"name"`
 	// Type of artifact
-	Type string `json:"type"` // e.g.: "container" or "binary"
+	Type string `json:"type" yaml:"type"` // e.g.: "container" or "binary"
 	// Location of the artifact (can be a url or the path to a file, which must start as a url like file://)
-	Location string `json:"location"`
+	Location string `json:"location" yaml:"location"`
 	// Timestamp when the artifact was built
-	Timestamp string `json:"timestamp"`
+	Timestamp string `json:"timestamp" yaml:"timestamp"`
 	// Version is the hash/commit
-	Version string `json:"version"`
+	Version string `json:"version" yaml:"version"`
+	// Dependencies is the list of dependencies tracked for this artifact
+	Dependencies []ArtifactDependency `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
+	// DependencyDetectorEngine is the URI of the dependency detector used (optional)
+	DependencyDetectorEngine string `json:"dependencyDetectorEngine,omitempty" yaml:"dependencyDetectorEngine,omitempty"`
+	// DependencyDetectorSpec contains configuration for the dependency detector (optional)
+	DependencyDetectorSpec map[string]interface{} `json:"dependencyDetectorSpec,omitempty" yaml:"dependencyDetectorSpec,omitempty"`
 }
 
 // TestReport represents a test execution report stored in the artifact store.
@@ -114,6 +140,51 @@ type ArtifactStore struct {
 	TestReports      map[string]*TestReport      `json:"testReports,omitempty"`
 }
 
+// Validate validates the ArtifactDependency
+func (ad *ArtifactDependency) Validate() error {
+	errs := NewValidationErrors()
+
+	// Validate Type is either "file" or "externalPackage"
+	if ad.Type != DependencyTypeFile && ad.Type != DependencyTypeExternalPackage {
+		errs.AddErrorf("ArtifactDependency: type must be %q or %q, got %q", DependencyTypeFile, DependencyTypeExternalPackage, ad.Type)
+	}
+
+	// Validate file dependency fields
+	if ad.Type == DependencyTypeFile {
+		if ad.FilePath == "" {
+			errs.AddErrorf("ArtifactDependency: filePath is required when type=%q", DependencyTypeFile)
+		}
+		if ad.Timestamp == "" {
+			errs.AddErrorf("ArtifactDependency: timestamp is required when type=%q", DependencyTypeFile)
+		} else {
+			// Validate timestamp is RFC3339
+			if _, err := time.Parse(time.RFC3339, ad.Timestamp); err != nil {
+				errs.AddErrorf("ArtifactDependency: timestamp must be RFC3339 format, got %q: %v", ad.Timestamp, err)
+			}
+		}
+		// Validate no mixed fields
+		if ad.ExternalPackage != "" {
+			errs.AddErrorf("ArtifactDependency: file dependency cannot have externalPackage field set")
+		}
+	}
+
+	// Validate external package dependency fields
+	if ad.Type == DependencyTypeExternalPackage {
+		if ad.ExternalPackage == "" {
+			errs.AddErrorf("ArtifactDependency: externalPackage is required when type=%q", DependencyTypeExternalPackage)
+		}
+		// Validate no mixed fields
+		if ad.FilePath != "" {
+			errs.AddErrorf("ArtifactDependency: externalPackage dependency cannot have filePath field set")
+		}
+		if ad.Timestamp != "" {
+			errs.AddErrorf("ArtifactDependency: externalPackage dependency cannot have timestamp field set")
+		}
+	}
+
+	return errs.ErrorOrNil()
+}
+
 // Validate validates the Artifact
 func (a *Artifact) Validate() error {
 	errs := NewValidationErrors()
@@ -127,6 +198,13 @@ func (a *Artifact) Validate() error {
 	}
 	if err := ValidateRequired(a.Location, "location", "Artifact"); err != nil {
 		errs.Add(err)
+	}
+
+	// Validate dependencies
+	for i, dep := range a.Dependencies {
+		if err := dep.Validate(); err != nil {
+			errs.AddErrorf("dependencies[%d]: %v", i, err)
+		}
 	}
 
 	return errs.ErrorOrNil()

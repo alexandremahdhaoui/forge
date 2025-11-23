@@ -351,3 +351,197 @@ func TestDirectoryParamsEmbedding(t *testing.T) {
 		t.Errorf("RootDir: got %s, want /root2", buildInput.RootDir)
 	}
 }
+
+// TestDetectDependenciesInputJSONMarshaling tests DetectDependenciesInput JSON marshaling/unmarshaling
+func TestDetectDependenciesInputJSONMarshaling(t *testing.T) {
+	tests := []struct {
+		name  string
+		input DetectDependenciesInput
+	}{
+		{
+			name: "Basic input",
+			input: DetectDependenciesInput{
+				FilePath: "/workspace/cmd/app/main.go",
+				FuncName: "main",
+			},
+		},
+		{
+			name: "Input with spec",
+			input: DetectDependenciesInput{
+				FilePath: "/workspace/cmd/app/main.go",
+				FuncName: "main",
+				Spec: map[string]interface{}{
+					"maxDepth":     5,
+					"includeTests": false,
+				},
+			},
+		},
+		{
+			name: "Input with directory params",
+			input: DetectDependenciesInput{
+				FilePath: "/workspace/cmd/app/main.go",
+				FuncName: "main",
+				DirectoryParams: DirectoryParams{
+					TmpDir:   "/tmp/detect-123",
+					BuildDir: "/build",
+					RootDir:  "/workspace",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test marshaling
+			data, err := json.Marshal(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+
+			// Test unmarshaling
+			var unmarshaled DetectDependenciesInput
+			if err := json.Unmarshal(data, &unmarshaled); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+
+			// Compare required fields
+			if unmarshaled.FilePath != tt.input.FilePath {
+				t.Errorf("FilePath mismatch: got %s, want %s", unmarshaled.FilePath, tt.input.FilePath)
+			}
+			if unmarshaled.FuncName != tt.input.FuncName {
+				t.Errorf("FuncName mismatch: got %s, want %s", unmarshaled.FuncName, tt.input.FuncName)
+			}
+
+			// Compare directory params if set
+			if tt.input.TmpDir != "" && unmarshaled.TmpDir != tt.input.TmpDir {
+				t.Errorf("TmpDir mismatch: got %s, want %s", unmarshaled.TmpDir, tt.input.TmpDir)
+			}
+		})
+	}
+}
+
+// TestDependencyJSONMarshaling tests Dependency JSON marshaling/unmarshaling
+func TestDependencyJSONMarshaling(t *testing.T) {
+	tests := []struct {
+		name string
+		dep  Dependency
+	}{
+		{
+			name: "File dependency",
+			dep: Dependency{
+				Type:      "file",
+				FilePath:  "/workspace/pkg/util/helper.go",
+				Timestamp: "2025-11-23T10:00:00Z",
+			},
+		},
+		{
+			name: "External package dependency with standard semver",
+			dep: Dependency{
+				Type:            "externalPackage",
+				ExternalPackage: "github.com/foo/bar",
+				Semver:          "v1.2.3",
+			},
+		},
+		{
+			name: "External package dependency with pseudo-version",
+			dep: Dependency{
+				Type:            "externalPackage",
+				ExternalPackage: "github.com/foo/bar",
+				Semver:          "v0.0.0-20231010123456-abcdef123456",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test marshaling
+			data, err := json.Marshal(tt.dep)
+			if err != nil {
+				t.Fatalf("Failed to marshal: %v", err)
+			}
+
+			// Test unmarshaling
+			var unmarshaled Dependency
+			if err := json.Unmarshal(data, &unmarshaled); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+
+			// Compare all fields
+			if unmarshaled.Type != tt.dep.Type {
+				t.Errorf("Type mismatch: got %s, want %s", unmarshaled.Type, tt.dep.Type)
+			}
+			if unmarshaled.FilePath != tt.dep.FilePath {
+				t.Errorf("FilePath mismatch: got %s, want %s", unmarshaled.FilePath, tt.dep.FilePath)
+			}
+			if unmarshaled.ExternalPackage != tt.dep.ExternalPackage {
+				t.Errorf("ExternalPackage mismatch: got %s, want %s", unmarshaled.ExternalPackage, tt.dep.ExternalPackage)
+			}
+			if unmarshaled.Timestamp != tt.dep.Timestamp {
+				t.Errorf("Timestamp mismatch: got %s, want %s", unmarshaled.Timestamp, tt.dep.Timestamp)
+			}
+			if unmarshaled.Semver != tt.dep.Semver {
+				t.Errorf("Semver mismatch: got %s, want %s", unmarshaled.Semver, tt.dep.Semver)
+			}
+		})
+	}
+}
+
+// TestDetectDependenciesOutputJSONMarshaling tests DetectDependenciesOutput JSON marshaling/unmarshaling
+func TestDetectDependenciesOutputJSONMarshaling(t *testing.T) {
+	output := DetectDependenciesOutput{
+		Dependencies: []Dependency{
+			{
+				Type:      "file",
+				FilePath:  "/workspace/pkg/util/helper.go",
+				Timestamp: "2025-11-23T10:00:00Z",
+			},
+			{
+				Type:            "externalPackage",
+				ExternalPackage: "github.com/foo/bar",
+				Semver:          "v1.2.3",
+			},
+		},
+	}
+
+	// Test marshaling
+	data, err := json.Marshal(output)
+	if err != nil {
+		t.Fatalf("Failed to marshal: %v", err)
+	}
+
+	// Test unmarshaling
+	var unmarshaled DetectDependenciesOutput
+	if err := json.Unmarshal(data, &unmarshaled); err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	// Verify dependencies count
+	if len(unmarshaled.Dependencies) != len(output.Dependencies) {
+		t.Errorf("Dependencies count mismatch: got %d, want %d", len(unmarshaled.Dependencies), len(output.Dependencies))
+	}
+
+	// Verify first dependency
+	if len(unmarshaled.Dependencies) > 0 {
+		if unmarshaled.Dependencies[0].Type != output.Dependencies[0].Type {
+			t.Errorf("First dependency type mismatch: got %s, want %s", unmarshaled.Dependencies[0].Type, output.Dependencies[0].Type)
+		}
+		if unmarshaled.Dependencies[0].FilePath != output.Dependencies[0].FilePath {
+			t.Errorf("First dependency filepath mismatch: got %s, want %s", unmarshaled.Dependencies[0].FilePath, output.Dependencies[0].FilePath)
+		}
+	}
+}
+
+// TestDetectDependenciesInputRequiredFields tests that required fields are present
+func TestDetectDependenciesInputRequiredFields(t *testing.T) {
+	input := DetectDependenciesInput{
+		FilePath: "/workspace/cmd/app/main.go",
+		FuncName: "main",
+	}
+
+	if input.FilePath == "" {
+		t.Error("FilePath should not be empty")
+	}
+	if input.FuncName == "" {
+		t.Error("FuncName should not be empty")
+	}
+}

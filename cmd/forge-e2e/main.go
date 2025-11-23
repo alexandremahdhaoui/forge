@@ -606,8 +606,20 @@ func main() {
 		Version:        Version,
 		CommitSHA:      CommitSHA,
 		BuildTimestamp: BuildTimestamp,
+		RunCLI:         runAllTests,
 		RunMCP:         runMCPServer,
 	})
+}
+
+// runAllTests runs all e2e tests (used when running without arguments)
+func runAllTests() error {
+	report := runTests("", "")
+
+	if report.Status == "failed" {
+		return fmt.Errorf("tests failed: %s", report.ErrorMessage)
+	}
+
+	return nil
 }
 
 func runTests(stage, name string) *DetailedTestReport {
@@ -911,9 +923,10 @@ func testForgeBuild(ts *TestSuite) error {
 		return fmt.Errorf("command failed: %w\nOutput: %s", err, string(output))
 	}
 
-	// Verify output contains success message
-	if !strings.Contains(string(output), "Successfully built") {
-		return fmt.Errorf("expected success message in output, got: %s", string(output))
+	// Verify output contains success message (either built or up-to-date)
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "Successfully built") && !strings.Contains(outputStr, "is up to date") {
+		return fmt.Errorf("expected success message in output, got: %s", outputStr)
 	}
 
 	// Verify binary exists
@@ -931,9 +944,10 @@ func testForgeBuildSpecific(ts *TestSuite) error {
 		return fmt.Errorf("command failed: %w\nOutput: %s", err, string(output))
 	}
 
-	// Verify output contains success message
-	if !strings.Contains(string(output), "Successfully built") {
-		return fmt.Errorf("expected success message in output, got: %s", string(output))
+	// Verify output contains success message (either built or up-to-date)
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "Successfully built") && !strings.Contains(outputStr, "is up to date") {
+		return fmt.Errorf("expected success message in output, got: %s", outputStr)
 	}
 
 	// Verify binary exists
@@ -1022,9 +1036,10 @@ func testForgeBuildContainer(ts *TestSuite) error {
 		return fmt.Errorf("command failed: %w\nOutput: %s", err, string(output))
 	}
 
-	// Verify output contains success message
-	if !strings.Contains(string(output), "Successfully built") {
-		return fmt.Errorf("expected success message in output, got: %s", string(output))
+	// Verify output contains success message (either built or up-to-date)
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "Successfully built") && !strings.Contains(outputStr, "is up to date") {
+		return fmt.Errorf("expected success message in output, got: %s", outputStr)
 	}
 
 	// Verify image exists

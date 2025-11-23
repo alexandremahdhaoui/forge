@@ -255,6 +255,11 @@ func buildBinary(
 		Version:   version,
 	}
 
+	// V. Detect dependencies if this is a main package
+	if err := detectDependenciesForArtifact(spec.Src, &artifact); err != nil {
+		return flaterrors.Join(err, errBuildingBinary)
+	}
+
 	forge.AddOrUpdateArtifact(store, artifact)
 
 	_, _ = fmt.Fprintf(out, "✅ Built binary: %s (version: %s)\n", spec.Name, version)

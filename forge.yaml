@@ -179,6 +179,10 @@ build:
     src: ./cmd/ci-orchestrator
     dest: ./build/bin
     engine: go://go-build
+  - name: go-dependency-detector
+    src: ./cmd/go-dependency-detector
+    dest: ./build/bin
+    engine: go://go-build
 
   # Containers
   - name: for-testing-purposes

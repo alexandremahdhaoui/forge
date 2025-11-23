@@ -278,3 +278,179 @@ artifactStorePath: .test.yaml
 		})
 	}
 }
+
+func TestEngineConfigDependencyDetectorType(t *testing.T) {
+	tests := []struct {
+		name        string
+		yaml        string
+		shouldError bool
+		validate    func(t *testing.T, spec Spec, err error)
+	}{
+		{
+			name: "Valid dependency-detector type",
+			yaml: `
+name: test-project
+artifactStorePath: .test.yaml
+engines:
+  - alias: my-dep-detector
+    type: dependency-detector
+    dependencyDetector:
+      - engine: go://go-dependency-detector
+        spec:
+          someConfig: value
+`,
+			shouldError: false,
+			validate: func(t *testing.T, spec Spec, err error) {
+				if err != nil {
+					t.Fatalf("Unexpected validation error: %v", err)
+				}
+				if len(spec.Engines) != 1 {
+					t.Fatalf("Expected 1 engine, got %d", len(spec.Engines))
+				}
+				eng := spec.Engines[0]
+				if eng.Alias != "my-dep-detector" {
+					t.Errorf("Expected alias 'my-dep-detector', got '%s'", eng.Alias)
+				}
+				if eng.Type != DependencyDetectorEngineConfigType {
+					t.Errorf("Expected type 'dependency-detector', got '%s'", eng.Type)
+				}
+				if len(eng.DependencyDetector) != 1 {
+					t.Fatalf("Expected 1 dependency detector, got %d", len(eng.DependencyDetector))
+				}
+				if eng.DependencyDetector[0].Engine != "go://go-dependency-detector" {
+					t.Errorf("Expected engine 'go://go-dependency-detector', got '%s'", eng.DependencyDetector[0].Engine)
+				}
+			},
+		},
+		{
+			name: "Empty dependencyDetector array - should error",
+			yaml: `
+name: test-project
+artifactStorePath: .test.yaml
+engines:
+  - alias: my-dep-detector
+    type: dependency-detector
+    dependencyDetector: []
+`,
+			shouldError: true,
+			validate: func(t *testing.T, spec Spec, err error) {
+				if err == nil {
+					t.Fatal("Expected validation error for empty dependencyDetector array")
+				}
+				errMsg := err.Error()
+				if !containsSubstring(errMsg, "requires at least one dependencyDetector specification") {
+					t.Errorf("Expected error about missing dependencyDetector specification, got: %v", err)
+				}
+			},
+		},
+		{
+			name: "dependency-detector with builder config - should error",
+			yaml: `
+name: test-project
+artifactStorePath: .test.yaml
+engines:
+  - alias: my-dep-detector
+    type: dependency-detector
+    dependencyDetector:
+      - engine: go://go-dependency-detector
+    builder:
+      - engine: go://generic-builder
+`,
+			shouldError: true,
+			validate: func(t *testing.T, spec Spec, err error) {
+				if err == nil {
+					t.Fatal("Expected validation error for dependency-detector with builder config")
+				}
+				errMsg := err.Error()
+				if !containsSubstring(errMsg, "but contains builder") {
+					t.Errorf("Expected error about builder configuration, got: %v", err)
+				}
+			},
+		},
+		{
+			name: "dependency-detector with testRunner config - should error",
+			yaml: `
+name: test-project
+artifactStorePath: .test.yaml
+engines:
+  - alias: my-dep-detector
+    type: dependency-detector
+    dependencyDetector:
+      - engine: go://go-dependency-detector
+    testRunner:
+      - engine: go://generic-test-runner
+`,
+			shouldError: true,
+			validate: func(t *testing.T, spec Spec, err error) {
+				if err == nil {
+					t.Fatal("Expected validation error for dependency-detector with testRunner config")
+				}
+				errMsg := err.Error()
+				if !containsSubstring(errMsg, "but contains") || !containsSubstring(errMsg, "testRunner") {
+					t.Errorf("Expected error about testRunner configuration, got: %v", err)
+				}
+			},
+		},
+		{
+			name: "dependency-detector with testenv config - should error",
+			yaml: `
+name: test-project
+artifactStorePath: .test.yaml
+engines:
+  - alias: my-dep-detector
+    type: dependency-detector
+    dependencyDetector:
+      - engine: go://go-dependency-detector
+    testenv:
+      - engine: go://testenv-kind
+`,
+			shouldError: true,
+			validate: func(t *testing.T, spec Spec, err error) {
+				if err == nil {
+					t.Fatal("Expected validation error for dependency-detector with testenv config")
+				}
+				errMsg := err.Error()
+				if !containsSubstring(errMsg, "but contains") || !containsSubstring(errMsg, "testenv") {
+					t.Errorf("Expected error about testenv configuration, got: %v", err)
+				}
+			},
+		},
+		{
+			name: "dependency-detector with missing engine field - should error",
+			yaml: `
+name: test-project
+artifactStorePath: .test.yaml
+engines:
+  - alias: my-dep-detector
+    type: dependency-detector
+    dependencyDetector:
+      - spec:
+          someConfig: value
+`,
+			shouldError: true,
+			validate: func(t *testing.T, spec Spec, err error) {
+				if err == nil {
+					t.Fatal("Expected validation error for missing engine field")
+				}
+				errMsg := err.Error()
+				if !containsSubstring(errMsg, "engine") && !containsSubstring(errMsg, "URI") {
+					t.Errorf("Expected error about missing engine/URI, got: %v", err)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var spec Spec
+			err := yaml.Unmarshal([]byte(tt.yaml), &spec)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal YAML: %v", err)
+			}
+
+			// Validate the spec
+			err = spec.Validate()
+			tt.validate(t, spec, err)
+		})
+	}
+}

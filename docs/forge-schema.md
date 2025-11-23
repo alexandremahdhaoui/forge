@@ -9,6 +9,7 @@ This document provides comprehensive documentation for the `forge.yaml` configur
 - [Root Schema](#root-schema)
 - [Build Configuration](#build-configuration)
 - [BuildSpec Specification](#buildspec-specification)
+- [Lazy Rebuild](#lazy-rebuild)
 - [Engine Protocol](#engine-protocol)
 - [Test Configuration](#test-configuration)
 - [TestSpec Specification](#testspec-specification)
@@ -118,6 +119,7 @@ Custom engine configurations with aliases. Allows you to create reusable engine 
 - `builder` - Multi-step build orchestration
 - `test-runner` - Multi-suite test orchestration
 - `testenv` - Test environment setup
+- `dependency-detector` - Dependency detection for lazy rebuild
 
 **Multi-Engine Orchestration:**
 
@@ -363,8 +365,9 @@ Engine URI specifying which build engine to use.
 **Format:** `<protocol>://<engine-name>`
 
 **Supported Engines:**
-- `go://go-build` - Build Go binaries
+- `go://go-build` - Build Go binaries with automatic dependency tracking
 - `go://container-build` - Build container images
+- `go://go-dependency-detector` - Detect Go dependencies (used internally)
 - `go://generic-builder` - Execute any command as a build step
 - `alias://<alias-name>` - Custom engine alias defined in `engines` section
 
@@ -389,6 +392,9 @@ Engine-specific configuration that is passed to the build engine. The supported 
 **Common Fields for go-build:**
 - `args` ([]string) - Additional arguments to pass to `go build`
 - `env` (map[string]string) - Environment variables to set during build
+
+**Common Fields for container-build:**
+- `dependsOn` (array) - List of dependency detectors for lazy rebuild (see [Lazy Rebuild](#lazy-rebuild))
 
 **Example - Custom Build Flags:**
 ```yaml
@@ -421,8 +427,23 @@ build:
         CGO_ENABLED: "0"
 ```
 
+**Example - Container with Dependency Tracking:**
+```yaml
+build:
+  - name: api-server-image
+    src: ./containers/api-server/Containerfile
+    engine: go://container-build
+    spec:
+      dependsOn:
+        - engine: go://go-dependency-detector
+          spec:
+            filePath: ./cmd/api-server/main.go
+            funcName: main
+```
+
 **See also:**
 - [cmd/go-build/MCP.md](../cmd/go-build/MCP.md) for go-build specific configuration
+- [cmd/container-build/MCP.md](../cmd/container-build/MCP.md) for container-build specific configuration
 - [cmd/generic-builder/MCP.md](../cmd/generic-builder/MCP.md) for generic-builder configuration
 
 ### Complete BuildSpec Examples
@@ -454,6 +475,80 @@ build:
 - Artifact type: `container`
 - Tracked in artifact store
 - Available for push to registry
+
+## Lazy Rebuild
+
+Forge automatically tracks dependencies for build artifacts and skips rebuilding unchanged artifacts to improve build performance.
+
+### How It Works
+
+When you run `forge build`:
+
+1. **First Build**: All artifacts are built, and forge tracks their dependencies in the artifact store
+2. **Subsequent Builds**: Forge checks if dependencies have changed:
+   - **File dependencies**: Compares modification timestamps
+   - **External packages**: Checks if go.mod version changed
+   - **Skips** if no changes detected
+   - **Rebuilds** if any dependency changed
+
+### Dependency Tracking
+
+**Go Binaries (go-build):**
+- Automatically tracked when building main packages
+- Includes all local file dependencies (transitive)
+- Includes external package versions from go.mod
+- No configuration required
+
+**Container Images (container-build):**
+- Requires explicit `dependsOn` configuration in `spec`
+- Use `go://go-dependency-detector` for Go-based containers
+- Example:
+  ```yaml
+  - name: api-image
+    src: ./containers/api/Containerfile
+    engine: go://container-build
+    spec:
+      dependsOn:
+        - engine: go://go-dependency-detector
+          spec:
+            filePath: ./cmd/api/main.go
+            funcName: main
+  ```
+
+### Force Rebuild
+
+To force rebuild all artifacts regardless of dependency state:
+
+```bash
+forge build --force
+# or
+forge build -f
+```
+
+### Rebuild Reasons
+
+When an artifact is rebuilt, forge shows the reason:
+
+- `force flag set` - User requested force rebuild
+- `no previous build` - First time building this artifact
+- `artifact file missing` - Built artifact was deleted
+- `dependencies not tracked` - Artifact built before lazy rebuild feature
+- `dependency file /path/to/file modified` - Local file changed
+- `dependency detector not configured` - Container without dependsOn
+
+### Performance Benefits
+
+Lazy rebuild provides significant performance improvements:
+
+- **Skip unchanged binaries**: Rebuild only what changed
+- **Incremental builds**: Large projects rebuild faster
+- **CI/CD optimization**: Only rebuild affected artifacts in pull requests
+
+### Limitations
+
+- Only tracks dependencies for Go main packages (not libraries)
+- Container images require explicit `dependsOn` configuration
+- Artifacts built before lazy rebuild feature will always rebuild once
 
 ## Engine Protocol
 
@@ -490,13 +585,18 @@ When forge encounters an engine URI like `go://go-build@v1.0.0`:
 
 **URI:** `go://go-build`
 
-**Purpose:** Build Go binaries with version metadata injection
+**Purpose:** Build Go binaries with version metadata injection and automatic dependency tracking
 
 **Required BuildSpec Fields:**
 - `name` - Binary name
 - `src` - Go package path
 - `dest` - Output directory
 - `builder: go://go-build`
+
+**Features:**
+- Automatic dependency detection for Go main packages
+- Lazy rebuild based on dependency changes
+- Git version metadata injection
 
 **Environment Variables:**
 - `GO_BUILD_LDFLAGS` - Additional linker flags
@@ -513,6 +613,31 @@ When forge encounters an engine URI like `go://go-build@v1.0.0`:
 ```bash
 GO_BUILD_LDFLAGS="-X main.Version=v1.0.0" forge build
 ```
+
+**Lazy Rebuild:** Go binaries automatically track dependencies. Subsequent `forge build` commands will skip unchanged artifacts (use `--force` to rebuild all).
+
+#### go-dependency-detector
+
+**URI:** `go://go-dependency-detector`
+
+**Purpose:** Detect Go code dependencies for lazy rebuild optimization
+
+**Usage:** Primarily used internally by `go-build` and `container-build` engines. Can also be used explicitly in `spec.dependsOn` for containers.
+
+**Example (explicit usage in container):**
+```yaml
+- name: api-image
+  src: ./containers/api/Containerfile
+  engine: go://container-build
+  spec:
+    dependsOn:
+      - engine: go://go-dependency-detector
+        spec:
+          filePath: ./cmd/api/main.go
+          funcName: main
+```
+
+**See also:** [cmd/go-dependency-detector/MCP.md](../cmd/go-dependency-detector/MCP.md)
 
 #### container-build
 

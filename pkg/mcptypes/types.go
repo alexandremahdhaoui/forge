@@ -78,3 +78,37 @@ type BuildInput struct {
 type BatchBuildInput struct {
 	Specs []BuildInput `json:"specs"` // List of build specifications
 }
+
+// DetectDependenciesInput represents the standard input parameters for dependency-detector tools.
+// This is used across all dependency detectors (go-dependency-detector, etc.).
+type DetectDependenciesInput struct {
+	FilePath string `json:"filePath"` // Path to source file to analyze (absolute path)
+	FuncName string `json:"funcName"` // Name of function to analyze (e.g., "main")
+
+	// Spec contains engine-specific configuration (free-form)
+	// The exact fields supported depend on the engine being used
+	Spec map[string]interface{} `json:"spec,omitempty"`
+
+	// Directory parameters (injected by forge)
+	DirectoryParams
+}
+
+// Dependency represents a single dependency detected by a dependency-detector engine.
+// This is the MCP wire format, matching ArtifactDependency from pkg/forge/artifact_store.go.
+type Dependency struct {
+	// Type is either "file" or "externalPackage"
+	Type string `json:"type"`
+	// FilePath is the absolute path to file dependency (if Type=file)
+	FilePath string `json:"filePath,omitempty"`
+	// ExternalPackage is the package identifier (if Type=externalPackage, e.g., "github.com/foo/bar")
+	ExternalPackage string `json:"externalPackage,omitempty"`
+	// Timestamp is RFC3339 timestamp in UTC (if Type=file, e.g., "2025-11-23T10:00:00Z")
+	Timestamp string `json:"timestamp,omitempty"`
+	// Semver is semantic version (if Type=externalPackage, supports pseudo-versions like "v0.0.0-20231010123456-abcdef123456")
+	Semver string `json:"semver,omitempty"`
+}
+
+// DetectDependenciesOutput represents the output from dependency-detector tools.
+type DetectDependenciesOutput struct {
+	Dependencies []Dependency `json:"dependencies"` // List of detected dependencies
+}

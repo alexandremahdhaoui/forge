@@ -18,7 +18,7 @@ import (
 func runTestAll(args []string) error {
 	// Step 1: Build all artifacts
 	fmt.Println("🔨 Building all artifacts...")
-	if err := runBuild([]string{}); err != nil {
+	if err := runBuild([]string{}, false); err != nil {
 		fmt.Printf("❌ Build failed: %v\n", err)
 		return fmt.Errorf("build failed: %w", err)
 	}

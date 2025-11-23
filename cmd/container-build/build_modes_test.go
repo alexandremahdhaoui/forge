@@ -388,7 +388,7 @@ func TestAddArtifactToStore(t *testing.T) {
 	timestamp := "2024-01-01T00:00:00Z"
 
 	// Add artifact
-	addArtifactToStore(&store, name, version, timestamp)
+	addArtifactToStore(&store, name, version, timestamp, nil, nil, nil)
 
 	// Verify artifact was added
 	if len(store.Artifacts) != 1 {
@@ -422,7 +422,7 @@ func TestAddArtifactToStore(t *testing.T) {
 	// Add same artifact again with new version
 	newVersion := "xyz789abc"
 	newTimestamp := "2024-01-02T00:00:00Z"
-	addArtifactToStore(&store, name, newVersion, newTimestamp)
+	addArtifactToStore(&store, name, newVersion, newTimestamp, nil, nil, nil)
 
 	// Should have 2 artifacts (different versions)
 	if len(store.Artifacts) != 2 {
@@ -437,7 +437,7 @@ func TestAddArtifactToStore(t *testing.T) {
 
 	// Add same artifact again with same name and version (should update timestamp)
 	newerTimestamp := "2024-01-03T00:00:00Z"
-	addArtifactToStore(&store, name, newVersion, newerTimestamp)
+	addArtifactToStore(&store, name, newVersion, newerTimestamp, nil, nil, nil)
 
 	// Should still have 2 artifacts (updated timestamp on second one)
 	if len(store.Artifacts) != 2 {

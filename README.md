@@ -116,18 +116,20 @@ forge --help
 ## Core Features
 
 - **Unified Build System**: One `forge.yaml` for all artifacts (binaries, containers)
-- **MCP-First Architecture**: The forge CLI and all 17 engines are MCP servers, providing native AI agent integration
+- **MCP-First Architecture**: The forge CLI and all engines are MCP servers, providing native AI agent integration
+- **Lazy Rebuild**: Automatic dependency tracking skips rebuilding unchanged artifacts
 - **Test Environment Management**: Automated Kind clusters with TLS-enabled registries
 - **Artifact Tracking**: Automatic versioning with git commit SHAs
-- **18 CLI Tools**: From code generation to E2E testing
+- **19 CLI Tools**: From code generation to E2E testing
 
 ## Available Tools
 
-All 18 tools categorized by function. Tools marked ⚡ provide MCP servers.
+All 19 tools categorized by function. Tools marked ⚡ provide MCP servers.
 
-### Build Tools (3)
-- ⚡ `go-build` - Go binary builder with git versioning
+### Build Tools (4)
+- ⚡ `go-build` - Go binary builder with git versioning and automatic dependency tracking
 - ⚡ `container-build` - Container image builder using Kaniko
+- ⚡ `go-dependency-detector` - Detect Go code dependencies for lazy rebuild
 - ⚡ `generic-builder` - Execute any command as build step
 
 ### Test Tools (8)
@@ -206,9 +208,14 @@ forge build
 # Build specific artifact
 forge build my-app
 
-# Artifacts are tracked in artifact store
+# Force rebuild all (skip lazy rebuild optimization)
+forge build --force
+
+# Artifacts are tracked in artifact store with dependencies
 cat .forge/artifacts.yaml
 ```
+
+**Lazy Rebuild:** Subsequent builds automatically skip unchanged artifacts by tracking file and package dependencies. This significantly speeds up incremental builds.
 
 ### Managing Test Environments
 
@@ -336,8 +343,8 @@ go test ./...
 
 ### Project Statistics
 
-- **18 CLI tools** across build, test, and code generation
-- **18 MCP servers** (17 functional + 1 planned)
+- **19 CLI tools** across build, test, and code generation
+- **19 MCP servers** (18 functional + 1 planned)
 - **5 public packages** for reusable functionality
 - **123 Go source files** with comprehensive tests
 - **Go 1.24.1** with modern dependency management

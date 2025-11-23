@@ -802,3 +802,354 @@ func TestGetArtifactStorePath_NoForgeYaml(t *testing.T) {
 		t.Error("Expected error when forge.yaml doesn't exist, got nil")
 	}
 }
+
+// ===== Tests for Task 1: Dependency tracking =====
+
+func TestArtifactDependency_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		dep     ArtifactDependency
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "valid file dependency",
+			dep: ArtifactDependency{
+				Type:      DependencyTypeFile,
+				FilePath:  "/absolute/path/to/file.go",
+				Timestamp: "2025-11-23T10:00:00Z",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid external package dependency with semver",
+			dep: ArtifactDependency{
+				Type:            DependencyTypeExternalPackage,
+				ExternalPackage: "github.com/foo/bar",
+				Semver:          "v1.2.3",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid external package dependency with pseudo-version",
+			dep: ArtifactDependency{
+				Type:            DependencyTypeExternalPackage,
+				ExternalPackage: "github.com/foo/bar",
+				Semver:          "v0.0.0-20231010123456-abcdef123456",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid type",
+			dep: ArtifactDependency{
+				Type: "invalid",
+			},
+			wantErr: true,
+			errMsg:  "type must be",
+		},
+		{
+			name: "file dependency missing filePath",
+			dep: ArtifactDependency{
+				Type:      DependencyTypeFile,
+				Timestamp: "2025-11-23T10:00:00Z",
+			},
+			wantErr: true,
+			errMsg:  "filePath is required",
+		},
+		{
+			name: "file dependency missing timestamp",
+			dep: ArtifactDependency{
+				Type:     DependencyTypeFile,
+				FilePath: "/absolute/path/to/file.go",
+			},
+			wantErr: true,
+			errMsg:  "timestamp is required",
+		},
+		{
+			name: "file dependency with invalid timestamp",
+			dep: ArtifactDependency{
+				Type:      DependencyTypeFile,
+				FilePath:  "/absolute/path/to/file.go",
+				Timestamp: "not-a-timestamp",
+			},
+			wantErr: true,
+			errMsg:  "timestamp must be RFC3339",
+		},
+		{
+			name: "file dependency with mixed fields (externalPackage set)",
+			dep: ArtifactDependency{
+				Type:            DependencyTypeFile,
+				FilePath:        "/absolute/path/to/file.go",
+				Timestamp:       "2025-11-23T10:00:00Z",
+				ExternalPackage: "github.com/foo/bar",
+			},
+			wantErr: true,
+			errMsg:  "cannot have externalPackage field set",
+		},
+		{
+			name: "external package dependency missing externalPackage",
+			dep: ArtifactDependency{
+				Type: DependencyTypeExternalPackage,
+			},
+			wantErr: true,
+			errMsg:  "externalPackage is required",
+		},
+		{
+			name: "external package dependency with mixed fields (filePath set)",
+			dep: ArtifactDependency{
+				Type:            DependencyTypeExternalPackage,
+				ExternalPackage: "github.com/foo/bar",
+				FilePath:        "/absolute/path/to/file.go",
+			},
+			wantErr: true,
+			errMsg:  "cannot have filePath field set",
+		},
+		{
+			name: "external package dependency with mixed fields (timestamp set)",
+			dep: ArtifactDependency{
+				Type:            DependencyTypeExternalPackage,
+				ExternalPackage: "github.com/foo/bar",
+				Timestamp:       "2025-11-23T10:00:00Z",
+			},
+			wantErr: true,
+			errMsg:  "cannot have timestamp field set",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.dep.Validate()
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errMsg)
+					return
+				}
+				if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+					t.Errorf("expected error containing %q, got %q", tt.errMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("expected no error, got %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestArtifact_ValidateWithDependencies(t *testing.T) {
+	tests := []struct {
+		name     string
+		artifact Artifact
+		wantErr  bool
+		errMsg   string
+	}{
+		{
+			name: "valid artifact with file dependencies",
+			artifact: Artifact{
+				Name:      "my-app",
+				Type:      "binary",
+				Location:  "/build/bin/my-app",
+				Timestamp: "2025-11-23T10:00:00Z",
+				Version:   "v1.0.0",
+				Dependencies: []ArtifactDependency{
+					{
+						Type:      DependencyTypeFile,
+						FilePath:  "/absolute/path/to/file.go",
+						Timestamp: "2025-11-23T10:00:00Z",
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid artifact with external package dependencies",
+			artifact: Artifact{
+				Name:      "my-app",
+				Type:      "binary",
+				Location:  "/build/bin/my-app",
+				Timestamp: "2025-11-23T10:00:00Z",
+				Version:   "v1.0.0",
+				Dependencies: []ArtifactDependency{
+					{
+						Type:            DependencyTypeExternalPackage,
+						ExternalPackage: "github.com/foo/bar",
+						Semver:          "v1.2.3",
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid artifact with no dependencies",
+			artifact: Artifact{
+				Name:      "my-app",
+				Type:      "binary",
+				Location:  "/build/bin/my-app",
+				Timestamp: "2025-11-23T10:00:00Z",
+				Version:   "v1.0.0",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid artifact with invalid dependency",
+			artifact: Artifact{
+				Name:      "my-app",
+				Type:      "binary",
+				Location:  "/build/bin/my-app",
+				Timestamp: "2025-11-23T10:00:00Z",
+				Version:   "v1.0.0",
+				Dependencies: []ArtifactDependency{
+					{
+						Type: "invalid",
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  "dependencies[0]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.artifact.Validate()
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errMsg)
+					return
+				}
+				if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+					t.Errorf("expected error containing %q, got %q", tt.errMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("expected no error, got %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestArtifact_JSONMarshalWithDependencies(t *testing.T) {
+	t.Run("marshal artifact with dependencies", func(t *testing.T) {
+		artifact := Artifact{
+			Name:      "my-app",
+			Type:      "binary",
+			Location:  "/build/bin/my-app",
+			Timestamp: "2025-11-23T10:00:00Z",
+			Version:   "v1.0.0",
+			Dependencies: []ArtifactDependency{
+				{
+					Type:      DependencyTypeFile,
+					FilePath:  "/absolute/path/to/file.go",
+					Timestamp: "2025-11-23T10:00:00Z",
+				},
+				{
+					Type:            DependencyTypeExternalPackage,
+					ExternalPackage: "github.com/foo/bar",
+					Semver:          "v1.2.3",
+				},
+			},
+		}
+
+		data, err := yaml.Marshal(artifact)
+		if err != nil {
+			t.Fatalf("failed to marshal artifact: %v", err)
+		}
+
+		var unmarshaled Artifact
+		if err := yaml.Unmarshal(data, &unmarshaled); err != nil {
+			t.Fatalf("failed to unmarshal artifact: %v", err)
+		}
+
+		if unmarshaled.Name != artifact.Name {
+			t.Errorf("name mismatch: got %q, want %q", unmarshaled.Name, artifact.Name)
+		}
+		if len(unmarshaled.Dependencies) != len(artifact.Dependencies) {
+			t.Errorf("dependencies length mismatch: got %d, want %d", len(unmarshaled.Dependencies), len(artifact.Dependencies))
+		}
+		if unmarshaled.Dependencies[0].Type != DependencyTypeFile {
+			t.Errorf("dependency[0] type mismatch: got %q, want %q", unmarshaled.Dependencies[0].Type, DependencyTypeFile)
+		}
+		if unmarshaled.Dependencies[1].Type != DependencyTypeExternalPackage {
+			t.Errorf("dependency[1] type mismatch: got %q, want %q", unmarshaled.Dependencies[1].Type, DependencyTypeExternalPackage)
+		}
+	})
+
+	t.Run("marshal artifact without dependencies - omitempty", func(t *testing.T) {
+		artifact := Artifact{
+			Name:      "my-app",
+			Type:      "binary",
+			Location:  "/build/bin/my-app",
+			Timestamp: "2025-11-23T10:00:00Z",
+			Version:   "v1.0.0",
+		}
+
+		data, err := yaml.Marshal(artifact)
+		if err != nil {
+			t.Fatalf("failed to marshal artifact: %v", err)
+		}
+
+		dataStr := string(data)
+		// Verify dependencies field is omitted (not in YAML output)
+		if contains(dataStr, "dependencies:") {
+			t.Errorf("dependencies field should be omitted when empty, but found in YAML:\n%s", dataStr)
+		}
+	})
+}
+
+func TestArtifact_RFC3339Timestamps(t *testing.T) {
+	t.Run("valid RFC3339 UTC timestamp", func(t *testing.T) {
+		now := time.Now().UTC()
+		timestamp := now.Format(time.RFC3339)
+
+		dep := ArtifactDependency{
+			Type:      DependencyTypeFile,
+			FilePath:  "/absolute/path/to/file.go",
+			Timestamp: timestamp,
+		}
+
+		if err := dep.Validate(); err != nil {
+			t.Errorf("expected valid timestamp, got error: %v", err)
+		}
+
+		// Verify we can parse it back
+		parsed, err := time.Parse(time.RFC3339, dep.Timestamp)
+		if err != nil {
+			t.Errorf("failed to parse timestamp: %v", err)
+		}
+
+		// Verify it's in UTC (RFC3339 preserves timezone info)
+		if parsed.Location().String() != "UTC" && parsed.Location().String() != "Z" {
+			// Accept both UTC and Z as valid UTC indicators
+			_, offset := parsed.Zone()
+			if offset != 0 {
+				t.Errorf("expected UTC timezone (offset 0), got offset %d", offset)
+			}
+		}
+	})
+}
+
+func TestDependencyTypeConstants(t *testing.T) {
+	if DependencyTypeFile != "file" {
+		t.Errorf("Expected DependencyTypeFile to be 'file', got %s", DependencyTypeFile)
+	}
+	if DependencyTypeExternalPackage != "externalPackage" {
+		t.Errorf("Expected DependencyTypeExternalPackage to be 'externalPackage', got %s", DependencyTypeExternalPackage)
+	}
+}
+
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	if len(substr) == 0 {
+		return true
+	}
+	if len(s) < len(substr) {
+		return false
+	}
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
