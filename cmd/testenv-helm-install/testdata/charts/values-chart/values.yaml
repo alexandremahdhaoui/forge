@@ -1,0 +1,99 @@
+# Complex values for testing nested structures and different data types
+replicaCount: 2
+
+image:
+  repository: nginx
+  tag: "1.21.0"
+  pullPolicy: Always
+
+service:
+  type: LoadBalancer
+  port: 8080
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: example.com
+      paths:
+        - path: /
+          pathType: Prefix
+        - path: /api
+          pathType: Prefix
+    - host: www.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+env:
+  - name: APP_ENV
+    value: production
+  - name: LOG_LEVEL
+    value: info
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: db-credentials
+        key: url
+
+configData:
+  app.yaml: |
+    server:
+      port: 8080
+      host: 0.0.0.0
+    database:
+      pool:
+        min: 5
+        max: 20
+      timeout: 30s
+  features.json: |
+    {
+      "enableFeatureA": true,
+      "enableFeatureB": false,
+      "limits": {
+        "maxRequests": 1000,
+        "maxConnections": 100
+      }
+    }
+
+nodeSelector:
+  disktype: ssd
+  tier: frontend
+
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "frontend"
+    effect: "NoSchedule"
+
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app
+              operator: In
+              values:
+                - nginx
+        topologyKey: kubernetes.io/hostname

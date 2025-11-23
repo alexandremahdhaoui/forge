@@ -29,19 +29,75 @@ The `spec.charts` field accepts an array of ChartSpec objects with the following
 - `name` (string, required): Internal identifier for this chart configuration
 - `sourceType` (string, required): Artifact acquisition strategy. Valid values:
   - `"helm-repo"`: Helm repository (HTTP/S)
-  - `"git"`: Git repository (not yet implemented)
-  - `"oci"`: OCI registry (not yet implemented)
-  - `"s3"`: S3 bucket (not yet implemented)
+  - `"git"`: Git repository
+  - `"oci"`: OCI registry (requires Helm 3.8+)
+  - `"s3"`: S3-compatible storage (AWS S3, MinIO, GCS)
 - `url` (string, required): Primary locator for the source
   - For `helm-repo`: HTTP/S URL of the Helm repository
   - For `git`: HTTP/S or SSH URL of the git repo
-  - For `oci`: Registry URL starting with `oci://`
-  - For `s3`: S3-compatible endpoint
+  - For `oci`: Registry URL starting with `oci://` (e.g., `oci://ghcr.io/org/charts/mychart`)
+  - For `s3`: HTTP/S URL of the S3-compatible endpoint (e.g., `http://localhost:9000` for MinIO, `https://s3.amazonaws.com` for AWS)
 
 #### Helm Repository Fields (for sourceType="helm-repo")
 
 - `chartName` (string, required): Name of the chart to fetch from the Helm repository
 - `version` (string, optional): Chart version constraint (e.g., "6.0.0", "^1.0.0"). Defaults to "*" (latest)
+
+#### Git Repository Fields (for sourceType="git")
+
+- `chartPath` (string, required): Relative path to the chart directory within the repository (e.g., "charts/app")
+- Git reference (at least one required, precedence: Commit > Tag > SemVer > Branch):
+  - `gitCommit` (string, optional): Exact Git commit SHA to checkout (minimum 7 characters)
+  - `gitTag` (string, optional): Git tag to checkout (e.g., "v1.0.0")
+  - `gitSemVer` (string, optional): SemVer constraint to resolve against Git tags (e.g., "^1.0.0", ">=1.0.0 <2.0.0")
+  - `gitBranch` (string, optional): Git branch to checkout (e.g., "main", "develop")
+- `ignorePaths` ([]string, optional): .gitignore-style patterns to exclude (optimization placeholder, logs warning if used)
+
+#### OCI Registry Fields (for sourceType="oci")
+
+- `url` (string, required): OCI registry URL in format `oci://REGISTRY/REPOSITORY/CHART`
+  - Examples:
+    - `oci://ghcr.io/stefanprodan/charts/podinfo` (uses latest tag)
+    - `oci://ghcr.io/stefanprodan/charts/podinfo:6.0.0` (specific version)
+    - `oci://ghcr.io/stefanprodan/charts/podinfo@sha256:abc123...` (specific digest)
+- `version` (string, optional): Chart version (alternative to specifying version in URL with `:tag`)
+- `authSecretName` (string, optional): Name of Kubernetes Secret (type: `kubernetes.io/dockerconfigjson`) containing registry credentials
+  - For private OCI registries, create a Secret with Docker config JSON format
+  - Example: `kubectl create secret docker-registry oci-creds --docker-server=ghcr.io --docker-username=user --docker-password=token`
+- `ociProvider` (string, optional): Signature verification provider. Values: `"cosign"`, `"notation"`
+  - Currently logs a warning when set; actual cryptographic verification is reserved for future implementation
+
+**Note**: Requires Helm 3.8 or later for OCI support. The chart name is embedded in the OCI URL, so `chartName` field should not be set.
+
+#### S3 Bucket Fields (for sourceType="s3")
+
+- `url` (string, required): S3-compatible endpoint URL (e.g., `http://localhost:9000` for MinIO, `https://s3.amazonaws.com` for AWS S3)
+- `s3BucketName` (string, required): Name of the S3 bucket containing the chart
+- `chartPath` (string, required): Path to the chart tarball within the bucket (e.g., `charts/myapp-1.0.0.tgz`)
+  - Must end with `.tgz` or `.tar.gz`
+  - Relative path from bucket root
+- `s3BucketRegion` (string, optional): AWS region for the bucket. Defaults to `"us-east-1"`
+- `authSecretName` (string, optional): Name of Kubernetes Secret containing S3 credentials
+  - Secret must contain keys: `accessKeyID` (required), `secretAccessKey` (required), `sessionToken` (optional)
+  - If not set, uses default AWS credentials (IAM role, environment variables)
+  - Example: `kubectl create secret generic s3-creds --from-literal=accessKeyID=AKIAIOSFODNN7EXAMPLE --from-literal=secretAccessKey=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`
+
+**Example S3 Chart Configuration:**
+```yaml
+spec:
+  charts:
+    - name: myapp
+      sourceType: s3
+      url: http://localhost:9000
+      s3BucketName: helm-charts
+      chartPath: production/myapp-1.2.3.tgz
+      s3BucketRegion: us-east-1
+      authSecretName: s3-creds
+      namespace: myapp
+      createNamespace: true
+```
+
+**Note**: The chart tarball is downloaded from S3 before installation. Git, OCI, and `chartName` fields should not be set for S3 sources.
 
 #### Core Configuration
 
@@ -59,9 +115,162 @@ The `spec.charts` field accepts an array of ChartSpec objects with the following
 
 #### Values Configuration
 
-- `values` (map[string]interface{}, optional): Inline Helm values to apply
-- `valuesFiles` ([]string, optional): Paths to values files within the source artifact
-- `valueReferences` ([]ValueReference, optional): References to ConfigMaps/Secrets (not yet implemented)
+Values are composed from multiple sources with the following precedence (lowest to highest):
+1. `valuesFiles` - Helm values files within the source artifact (lowest precedence)
+2. `valueReferences` - Values from Kubernetes ConfigMaps/Secrets
+3. `values` - Inline values (highest precedence)
+
+- `values` (map[string]interface{}, optional): Inline Helm values to apply (highest precedence)
+  - Supports nested maps, arrays, and all YAML types (strings, numbers, booleans, null)
+  - Values are serialized to YAML and passed to Helm via `--values` flag
+  - Type preservation: numbers remain numbers, booleans remain booleans, etc.
+- `valuesFiles` ([]string, optional): Paths to values files within the source artifact (lowest precedence)
+- `valueReferences` ([]ValueReference, optional): References to ConfigMaps/Secrets containing values
+
+##### Nested Values Support
+
+The `values` field supports arbitrary YAML structures including:
+
+- **Nested maps**: Create hierarchical configuration structures
+- **Arrays**: Define lists of items or environment variables
+- **Mixed types**: Combine strings, numbers, booleans, and null values
+- **Type preservation**: Values maintain their types (integers stay integers, not strings)
+
+**Example: Nested Values**
+```yaml
+values:
+  server:
+    replicas: 3  # Number type preserved
+    config:
+      database:
+        host: "db.example.com"
+        port: 5432  # Number type preserved
+      cache:
+        enabled: true  # Boolean type preserved
+        ttl: 300
+    env:
+      - name: "ENV"
+        value: "production"
+      - name: "DEBUG"
+        value: "false"
+```
+
+This is equivalent to the following YAML values file:
+```yaml
+server:
+  replicas: 3
+  config:
+    database:
+      host: db.example.com
+      port: 5432
+    cache:
+      enabled: true
+      ttl: 300
+  env:
+    - name: ENV
+      value: production
+    - name: DEBUG
+      value: "false"
+```
+
+#### ValueReferences
+
+ValueReferences allow sourcing Helm values from existing Kubernetes ConfigMaps and Secrets. Each ValueReference has the following fields:
+
+- `kind` (string, required): Resource type. Valid values: `"ConfigMap"`, `"Secret"`
+- `name` (string, required): Name of the ConfigMap or Secret
+- `valuesKey` (string, optional): Specific key to extract from the resource's data
+  - If empty, all keys are merged into the values
+  - If specified, only that key's value is used (parsed as YAML if applicable)
+- `targetPath` (string, optional): Dot-notation path where values should be merged (e.g., `"server.config"`)
+  - If empty, values are merged at the root level
+  - Creates intermediate keys as needed
+- `optional` (bool, optional): Whether the reference is optional. Defaults to `false`
+  - If `true` and resource is not found, silently skips without error
+  - If `false` and resource is not found, installation fails
+
+**ValueReference Examples:**
+
+Example 1: Simple ConfigMap reference (merge all keys at root):
+```yaml
+spec:
+  charts:
+    - name: myapp
+      sourceType: helm-repo
+      url: https://charts.example.com
+      chartName: myapp
+      namespace: production
+      valueReferences:
+        - kind: ConfigMap
+          name: myapp-config
+          # All keys from myapp-config merged at root level
+```
+
+Example 2: Extract specific key from Secret:
+```yaml
+spec:
+  charts:
+    - name: myapp
+      sourceType: helm-repo
+      url: https://charts.example.com
+      chartName: myapp
+      namespace: production
+      valueReferences:
+        - kind: Secret
+          name: database-credentials
+          valuesKey: connection-string
+          targetPath: database.connectionString
+          # Merges the 'connection-string' value to database.connectionString
+```
+
+Example 3: Optional reference with TargetPath:
+```yaml
+spec:
+  charts:
+    - name: myapp
+      sourceType: helm-repo
+      url: https://charts.example.com
+      chartName: myapp
+      namespace: production
+      valueReferences:
+        - kind: ConfigMap
+          name: feature-flags
+          optional: true
+          targetPath: features
+          # If feature-flags ConfigMap exists, merge to features.*
+          # If not found, continue without error
+```
+
+Example 4: Multiple ValueReferences with precedence:
+```yaml
+spec:
+  charts:
+    - name: myapp
+      sourceType: helm-repo
+      url: https://charts.example.com
+      chartName: myapp
+      namespace: production
+      valueReferences:
+        - kind: ConfigMap
+          name: base-config
+          # First: merge all keys from base-config
+        - kind: ConfigMap
+          name: environment-overrides
+          # Second: merge all keys from environment-overrides (overrides base-config)
+        - kind: Secret
+          name: secrets
+          targetPath: secure
+          # Third: merge secrets to secure.* path
+      values:
+        # Inline values have highest precedence and override everything above
+        replicaCount: 3
+```
+
+**Important Notes:**
+- ConfigMap and Secret must exist in the same namespace as the chart (specified by `namespace` field, defaults to `"default"`)
+- Secret values are automatically base64-decoded
+- Values are parsed as YAML if they contain YAML structures
+- For value composition order, see the precedence list above
 
 #### Authentication & Security
 
@@ -69,13 +278,13 @@ The `spec.charts` field accepts an array of ChartSpec objects with the following
 - `passCredentials` (bool, optional): Pass credentials to chart download. Defaults to false
 - `insecureSkipVerify` (bool, optional): Skip TLS verification (development only). Defaults to false
 
-#### Advanced Fields (Future Implementation)
+#### Advanced Fields
 
-The following fields are defined but not yet implemented:
-- Git repository fields: `chartPath`, `gitBranch`, `gitTag`, `gitCommit`, `gitSemVer`, `ignorePaths`
-- OCI repository fields: `ociProvider`, `ociLayerMediaType`
-- S3 bucket fields: `s3BucketName`, `s3BucketRegion`
-- `interval` (string): Reconciliation frequency
+The following fields are defined for future enhancement:
+- `interval` (string): Reconciliation frequency (reserved for future use)
+- `ociProvider` (string): OCI signature verification provider (`"cosign"` or `"notation"`)
+  - Currently logs a warning when set but does not perform actual verification
+  - Reserved for future implementation of cryptographic signature validation
 
 **Output:**
 ```json
@@ -157,6 +366,168 @@ The following fields are defined but not yet implemented:
         }
       },
       "valuesFiles": ["custom-values.yaml"]
+    }
+  ]
+}
+```
+
+#### Git Source with Branch
+
+```json
+{
+  "charts": [
+    {
+      "name": "podinfo-from-git",
+      "sourceType": "git",
+      "url": "https://github.com/stefanprodan/podinfo",
+      "gitBranch": "master",
+      "chartPath": "charts/podinfo",
+      "namespace": "test-git",
+      "releaseName": "podinfo-git",
+      "createNamespace": true,
+      "timeout": "5m"
+    }
+  ]
+}
+```
+
+#### Git Source with Tag
+
+```json
+{
+  "charts": [
+    {
+      "name": "podinfo-v6",
+      "sourceType": "git",
+      "url": "https://github.com/stefanprodan/podinfo",
+      "gitTag": "6.0.0",
+      "chartPath": "charts/podinfo",
+      "namespace": "test-git-tag",
+      "createNamespace": true
+    }
+  ]
+}
+```
+
+#### Git Source with Commit
+
+```json
+{
+  "charts": [
+    {
+      "name": "podinfo-commit",
+      "sourceType": "git",
+      "url": "https://github.com/stefanprodan/podinfo",
+      "gitCommit": "abc1234def5678",
+      "chartPath": "charts/podinfo",
+      "namespace": "test-git-commit",
+      "createNamespace": true
+    }
+  ]
+}
+```
+
+#### OCI Registry (Public)
+
+```json
+{
+  "charts": [
+    {
+      "name": "podinfo-oci",
+      "sourceType": "oci",
+      "url": "oci://ghcr.io/stefanprodan/charts/podinfo",
+      "version": "6.0.0",
+      "namespace": "test-oci",
+      "releaseName": "podinfo-oci",
+      "createNamespace": true,
+      "timeout": "5m"
+    }
+  ]
+}
+```
+
+#### OCI Registry (Private with Authentication)
+
+```json
+{
+  "charts": [
+    {
+      "name": "private-chart",
+      "sourceType": "oci",
+      "url": "oci://ghcr.io/myorg/charts/myapp:1.2.3",
+      "authSecretName": "oci-registry-creds",
+      "namespace": "production",
+      "createNamespace": true,
+      "values": {
+        "replicas": 3,
+        "image": {
+          "tag": "v1.2.3"
+        }
+      }
+    }
+  ]
+}
+```
+
+**Note**: Create the auth secret beforehand:
+```bash
+kubectl create secret docker-registry oci-registry-creds \
+  --docker-server=ghcr.io \
+  --docker-username=myusername \
+  --docker-password=mytoken \
+  --namespace=production
+```
+
+#### OCI Registry with Digest
+
+```json
+{
+  "charts": [
+    {
+      "name": "pinned-chart",
+      "sourceType": "oci",
+      "url": "oci://ghcr.io/stefanprodan/charts/podinfo@sha256:abc123def456789...",
+      "namespace": "test-oci-digest",
+      "createNamespace": true
+    }
+  ]
+}
+```
+
+#### Git Source with SemVer Constraint
+
+```json
+{
+  "charts": [
+    {
+      "name": "podinfo-semver",
+      "sourceType": "git",
+      "url": "https://github.com/stefanprodan/podinfo",
+      "gitSemVer": "^6.0.0",
+      "chartPath": "charts/podinfo",
+      "namespace": "test-git-semver",
+      "createNamespace": true,
+      "values": {
+        "replicaCount": 2
+      }
+    }
+  ]
+}
+```
+
+#### Git Source with SSH URL
+
+```json
+{
+  "charts": [
+    {
+      "name": "private-chart",
+      "sourceType": "git",
+      "url": "git@github.com:organization/private-repo.git",
+      "gitBranch": "main",
+      "chartPath": "deploy/charts/myapp",
+      "namespace": "production",
+      "createNamespace": true
     }
   ]
 }
@@ -248,6 +619,9 @@ engines:
 
 ## See Also
 
+- [ChartSpec Reference](../../docs/testenv-helm-install-chartspec.md) - Complete field documentation
+- [Migration Guide](../../docs/testenv-helm-install-migration.md) - Upgrade from old format
+- [Testing Guide](../../docs/testenv-helm-install-testing.md) - Test infrastructure setup
 - [testenv MCP Server](../testenv/MCP.md)
 - [testenv-kind MCP Server](../testenv-kind/MCP.md)
 - [testenv-lcr MCP Server](../testenv-lcr/MCP.md)

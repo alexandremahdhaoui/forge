@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: simple-values
+  namespace: default
+data:
+  replicaCount: "3"
+  serviceType: "LoadBalancer"
+  imageTag: "1.21.0"
+  enableDebug: "true"
