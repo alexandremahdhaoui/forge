@@ -71,8 +71,9 @@ func callMCPEngine(command string, args []string, toolName string, params interf
 	}
 
 	// Call the tool with a timeout context
-	// Use 6 minutes to allow for helm's internal 3-4 minute timeout + buffer
-	toolCtx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
+	// Use 15 minutes to allow for testenv-lcr's full setup time  (~7-12 minutes depending on system load)
+	// including cert-manager deployment, pod readiness, image pushes, and image pull secret creation
+	toolCtx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
 	result, err := session.CallTool(toolCtx, &mcp.CallToolParams{
@@ -81,7 +82,7 @@ func callMCPEngine(command string, args []string, toolName string, params interf
 	})
 	if err != nil {
 		if toolCtx.Err() == context.DeadlineExceeded {
-			return nil, fmt.Errorf("MCP tool call timed out after 6 minutes: %w", err)
+			return nil, fmt.Errorf("MCP tool call timed out after 15 minutes: %w", err)
 		}
 		return nil, fmt.Errorf("MCP tool call failed: %w", err)
 	}

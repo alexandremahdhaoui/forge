@@ -259,13 +259,21 @@ func installHelmCharts(ctx context.Context, input engineframework.CreateInput) (
 		}, nil
 	}
 
-	// Find kubeconfig from tmpDir or metadata
-	kubeconfigPath, err := findKubeconfig(input.TmpDir, input.Metadata)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find kubeconfig: %w", err)
+	// Get kubeconfig path from environment (primary source, from testenv-kind)
+	// Fallback to findKubeconfig for backward compatibility
+	kubeconfigPath := ""
+	if envKubeconfig, ok := input.Env["KUBECONFIG"]; ok && envKubeconfig != "" {
+		kubeconfigPath = envKubeconfig
+		log.Printf("Using KUBECONFIG from environment: %s", kubeconfigPath)
+	} else {
+		// Fallback to legacy behavior (search tmpDir and metadata)
+		var err error
+		kubeconfigPath, err = findKubeconfig(input.TmpDir, input.Metadata)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find kubeconfig: %w", err)
+		}
+		log.Printf("Using kubeconfig from legacy sources (tmpDir/metadata): %s", kubeconfigPath)
 	}
-
-	log.Printf("Using kubeconfig: %s", kubeconfigPath)
 
 	// Install each chart
 	installedCharts := []string{}

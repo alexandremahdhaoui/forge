@@ -21,6 +21,11 @@ type TestSpec struct {
 	// Supports fields like: command, args, env, envFile, workDir
 	// The exact fields supported depend on the runner being used
 	Spec map[string]interface{} `json:"spec,omitempty"`
+
+	// EnvPropagation controls how testenv environment variables are filtered before passing to test runner
+	// Optional filtering applied at test runner level (whitelist/blacklist)
+	// Note: This is for test runner filtering only - testenv sub-engine EnvPropagation is separate
+	EnvPropagation *EnvPropagation `json:"envPropagation,omitempty"`
 }
 
 // Validate validates the TestSpec
@@ -81,6 +86,11 @@ type TestEnvironment struct {
 	// Metadata holds engine-specific data, namespaced by engine name
 	// Keys are in format "engineName.key" (e.g., "testenv-kind.clusterName")
 	Metadata map[string]string `json:"metadata,omitempty"`
+
+	// Env holds merged environment variables from all testenv sub-engines
+	// This is accumulated during testenv creation with priority-based resolution
+	// Keys are environment variable names (e.g., "KUBECONFIG", "REGISTRY_URL")
+	Env map[string]string `json:"env,omitempty"`
 }
 
 // Status constants for test environments

@@ -540,6 +540,11 @@ func GetTestEnvironment(store *ArtifactStore, id string) (*TestEnvironment, erro
 		)
 	}
 
+	// Backward compatibility: initialize Env map if nil (old artifact store entries)
+	if env.Env == nil {
+		env.Env = make(map[string]string)
+	}
+
 	return env, nil
 }
 

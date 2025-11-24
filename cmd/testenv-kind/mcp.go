@@ -80,6 +80,9 @@ func createKindCluster(ctx context.Context, input engineframework.CreateInput) (
 		Files:            files,
 		Metadata:         metadata,
 		ManagedResources: managedResources,
+		Env: map[string]string{
+			"KUBECONFIG": kubeconfigPath,
+		},
 	}, nil
 }
 

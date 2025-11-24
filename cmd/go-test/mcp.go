@@ -40,6 +40,37 @@ func runTestsWrapper(ctx context.Context, input mcptypes.RunInput) (*forge.TestR
 
 	// Pass testenv information to tests via environment variables
 	testEnv := make(map[string]string)
+
+	// First, merge testenv environment variables (e.g., KUBECONFIG)
+	// These are propagated from testenv sub-engines (testenv-kind, testenv-lcr, etc.)
+	// Apply EnvPropagation filtering if configured
+	if len(input.TestenvEnv) > 0 {
+		if input.EnvPropagation != nil && input.EnvPropagation.Disabled {
+			// Propagation disabled - skip all testenv env vars
+			log.Println("EnvPropagation disabled - skipping testenv environment variables")
+		} else if input.EnvPropagation != nil && len(input.EnvPropagation.Whitelist) > 0 {
+			// Whitelist mode - only propagate whitelisted vars
+			for _, key := range input.EnvPropagation.Whitelist {
+				if value, ok := input.TestenvEnv[key]; ok {
+					testEnv[key] = value
+				}
+			}
+		} else if input.EnvPropagation != nil && len(input.EnvPropagation.Blacklist) > 0 {
+			// Blacklist mode - propagate all except blacklisted vars
+			for key, value := range input.TestenvEnv {
+				if !contains(input.EnvPropagation.Blacklist, key) {
+					testEnv[key] = value
+				}
+			}
+		} else {
+			// No filtering - propagate all testenv vars
+			for key, value := range input.TestenvEnv {
+				testEnv[key] = value
+			}
+		}
+	}
+
+	// Legacy support: Pass testenv metadata via FORGE_* prefixed env vars
 	if input.TestenvTmpDir != "" {
 		testEnv["FORGE_TESTENV_TMPDIR"] = input.TestenvTmpDir
 	}
@@ -63,6 +94,13 @@ func runTestsWrapper(ctx context.Context, input mcptypes.RunInput) (*forge.TestR
 		for key, value := range input.TestenvMetadata {
 			envKey := fmt.Sprintf("FORGE_METADATA_%s", normalizeEnvKey(key))
 			testEnv[envKey] = value
+		}
+	}
+
+	// Override with runner-specific environment variables (if provided)
+	if len(input.Env) > 0 {
+		for key, value := range input.Env {
+			testEnv[key] = value
 		}
 	}
 
@@ -116,4 +154,14 @@ func normalizeEnvKey(key string) string {
 		}
 	}
 	return result
+}
+
+// contains checks if a string slice contains a specific item
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }

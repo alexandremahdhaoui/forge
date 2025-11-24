@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -21,6 +22,8 @@ import (
 //   - TmpDir: Temporary directory allocated for this test environment (required)
 //   - Metadata: Metadata from previous subengines in the chain (optional)
 //   - Spec: Optional spec for configuration override from forge.yaml
+//   - Env: Accumulated environment variables from previous sub-engines (optional)
+//   - EnvPropagation: Optional EnvPropagation configuration from spec (optional)
 //
 // Example:
 //
@@ -30,13 +33,16 @@ import (
 //	    TmpDir:   "/tmp/forge-test-abc123",
 //	    Metadata: map[string]string{"testenv-lcr.registryURL": "localhost:5000"},
 //	    Spec:     map[string]any{"kindVersion": "v1.27.0"},
+//	    Env:      map[string]string{"REGISTRY_URL": "localhost:5000"},
 //	}
 type CreateInput struct {
-	TestID   string            `json:"testID"`         // Test environment ID (required)
-	Stage    string            `json:"stage"`          // Test stage name (required)
-	TmpDir   string            `json:"tmpDir"`         // Temporary directory for this test environment (required)
-	Metadata map[string]string `json:"metadata"`       // Metadata from previous testenv-subengines (optional)
-	Spec     map[string]any    `json:"spec,omitempty"` // Optional spec for configuration override
+	TestID         string                `json:"testID"`                   // Test environment ID (required)
+	Stage          string                `json:"stage"`                    // Test stage name (required)
+	TmpDir         string                `json:"tmpDir"`                   // Temporary directory for this test environment (required)
+	Metadata       map[string]string     `json:"metadata"`                 // Metadata from previous testenv-subengines (optional)
+	Spec           map[string]any        `json:"spec,omitempty"`           // Optional spec for configuration override
+	Env            map[string]string     `json:"env,omitempty"`            // Accumulated environment variables from previous sub-engines (optional)
+	EnvPropagation *forge.EnvPropagation `json:"envPropagation,omitempty"` // Optional EnvPropagation configuration from spec
 }
 
 // DeleteInput represents the input for testenv subengine delete operations.
@@ -69,6 +75,7 @@ type DeleteInput struct {
 //   - Files: Map of logical names to relative file paths (relative to TmpDir)
 //   - Metadata: Key-value metadata for downstream consumers
 //   - ManagedResources: List of resources to clean up (file paths, cluster names, etc.)
+//   - Env: Environment variables exported by this sub-engine (optional)
 //
 // Example:
 //
@@ -82,12 +89,16 @@ type DeleteInput struct {
 //	        "testenv-kind.kubeconfigPath": "/tmp/forge-test-abc123/kubeconfig",
 //	    },
 //	    ManagedResources: []string{"/tmp/forge-test-abc123/kubeconfig"},
+//	    Env: map[string]string{
+//	        "KUBECONFIG": "/tmp/forge-test-abc123/kubeconfig",
+//	    },
 //	}
 type TestEnvArtifact struct {
 	TestID           string            `json:"testID"`           // Test environment ID
 	Files            map[string]string `json:"files"`            // Map of logical names to relative file paths
 	Metadata         map[string]string `json:"metadata"`         // Metadata for downstream consumers
 	ManagedResources []string          `json:"managedResources"` // Resources to clean up
+	Env              map[string]string `json:"env,omitempty"`    // Environment variables exported by this sub-engine
 }
 
 // CreateFunc is the signature for testenv subengine create operations.
@@ -278,6 +289,7 @@ func makeCreateHandler(config TestEnvSubengineConfig) func(context.Context, *mcp
 			"files":            artifact.Files,
 			"metadata":         artifact.Metadata,
 			"managedResources": artifact.ManagedResources,
+			"env":              artifact.Env,
 		}
 
 		// Return success with artifact

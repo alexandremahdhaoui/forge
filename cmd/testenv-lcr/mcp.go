@@ -111,8 +111,18 @@ func createLocalContainerRegistry(ctx context.Context, input engineframework.Cre
 		}, nil
 	}
 
-	// Override kubeconfig path from metadata (if provided by testenv-kind)
-	if kubeconfigPath, ok := input.Metadata["testenv-kind.kubeconfigPath"]; ok {
+	// Override kubeconfig path from environment (primary source, from testenv-kind)
+	// Fallback to metadata for backward compatibility
+	kubeconfigPath := ""
+	if envKubeconfig, ok := input.Env["KUBECONFIG"]; ok && envKubeconfig != "" {
+		kubeconfigPath = envKubeconfig
+		log.Printf("Using KUBECONFIG from environment: %s", kubeconfigPath)
+	} else if metadataKubeconfig, ok := input.Metadata["testenv-kind.kubeconfigPath"]; ok && metadataKubeconfig != "" {
+		kubeconfigPath = metadataKubeconfig
+		log.Printf("Using kubeconfig from metadata (backward compatibility): %s", kubeconfigPath)
+	}
+
+	if kubeconfigPath != "" {
 		config.Kindenv.KubeconfigPath = kubeconfigPath
 	}
 
@@ -176,11 +186,19 @@ func createLocalContainerRegistry(ctx context.Context, input engineframework.Cre
 		}
 	}
 
+	// Prepare environment variables to export
+	env := map[string]string{
+		"REGISTRY_FQDN":      registryFQDN,
+		"REGISTRY_NAMESPACE": config.LocalContainerRegistry.Namespace,
+		"REGISTRY_CA_CERT":   caCrtPath,
+	}
+
 	return &engineframework.TestEnvArtifact{
 		TestID:           input.TestID,
 		Files:            files,
 		Metadata:         metadata,
 		ManagedResources: managedResources,
+		Env:              env,
 	}, nil
 }
 
@@ -208,6 +226,7 @@ func deleteLocalContainerRegistry(ctx context.Context, input engineframework.Del
 	}
 
 	// Override kubeconfig path from metadata (if provided)
+	// Note: DeleteInput doesn't have Env field, so we only use metadata
 	if kubeconfigPath, ok := input.Metadata["testenv-kind.kubeconfigPath"]; ok {
 		config.Kindenv.KubeconfigPath = kubeconfigPath
 	}

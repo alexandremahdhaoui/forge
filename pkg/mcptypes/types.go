@@ -1,5 +1,9 @@
 package mcptypes
 
+import (
+	"github.com/alexandremahdhaoui/forge/pkg/forge"
+)
+
 // DirectoryParams contains standardized directory paths passed from forge to engines/runners.
 type DirectoryParams struct {
 	TmpDir   string `json:"tmpDir,omitempty"`   // Temporary directory for non-build artifacts (e.g., test reports)
@@ -27,6 +31,12 @@ type RunInput struct {
 
 	// Testenv metadata (e.g., cluster name, registry URL)
 	TestenvMetadata map[string]string `json:"testenvMetadata,omitempty"` // Map of metadata key to value
+
+	// Testenv environment variables (propagated from testenv chain)
+	TestenvEnv map[string]string `json:"testenvEnv,omitempty"` // Map of env var name to value
+
+	// EnvPropagation configuration for filtering testenv environment variables
+	EnvPropagation *forge.EnvPropagation `json:"envPropagation,omitempty"`
 
 	// Directory parameters (injected by forge)
 	DirectoryParams

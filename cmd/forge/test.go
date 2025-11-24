@@ -667,6 +667,14 @@ func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) error 
 		if len(env.Metadata) > 0 {
 			params["testenvMetadata"] = env.Metadata
 		}
+		// Pass testenv environment variables (e.g., KUBECONFIG)
+		if len(env.Env) > 0 {
+			params["testenvEnv"] = env.Env
+		}
+		// Pass EnvPropagation filtering config if present
+		if testSpec.EnvPropagation != nil {
+			params["envPropagation"] = testSpec.EnvPropagation
+		}
 	}
 
 	// Multi-engine test runner orchestration disabled for now (needs updating for command+args)

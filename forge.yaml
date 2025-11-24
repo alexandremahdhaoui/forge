@@ -27,6 +27,17 @@ engines:
       - engine: "go://testenv-kind"
       # spec:
       #   kubeconfigPath: .ignore.kindenv.kubeconfig.yaml
+      #
+      #   # -- envPropagation controls environment variable propagation (optional)
+      #   # Environment variables are propagated automatically by default
+      #   # envPropagation:
+      #     # disabled: false           # Default: false (propagation enabled)
+      #     # priority: 0               # Default: 65536 (lower number = higher priority)
+      #     # whitelist: []             # Default: [] (all vars pass, mutually exclusive with blacklist)
+      #     # blacklist: []             # Default: [] (all vars pass, mutually exclusive with whitelist)
+      #     # envs:                     # Per-environment variable priority overrides
+      #     #   KUBECONFIG:
+      #     #     priority: 0           # Override priority for specific variable
 
       - # -- localContainerRegistry will create if enabled a container registry in the kindenv using the kubeconfig which path
         #    is defined by {.kindenv.kubeconfigPath}.
@@ -48,6 +59,12 @@ engines:
             - test-podinfo
             # -- imagePullSecretName is the name of the image pull secret to create (defaults to "local-container-registry-credentials").
             # imagePullSecretName: local-container-registry-credentials
+          #
+          # -- Example: Environment propagation with security filtering
+          # envPropagation:
+          #   blacklist:
+          #     - REGISTRY_PASSWORD    # Don't propagate sensitive credentials
+          #     - SECRET_TOKEN
 
       - # -- testenv-helm-install installs Helm charts into the Kind cluster
         engine: "go://testenv-helm-install"
@@ -75,6 +92,13 @@ engines:
               # valuesFiles:
               #   - ./custom-values.yaml
 
+          # -- Example: Template expansion using environment variables from previous sub-engines
+          # kubeconfigPath: "{{.Env.KUBECONFIG}}"  # Reference KUBECONFIG from testenv-kind
+          # charts:
+          #   - name: my-app
+          #     values:
+          #       registry: "{{.Env.REGISTRY_URL}}"  # Reference registry URL from testenv-lcr
+
 # -- test defines the test stages and their configuration
 test:
   # -- verify-tags - verify all test files have build tags
@@ -94,6 +118,17 @@ test:
   - name: integration
     runner: "go://go-test"
     testenv: "alias://setup-integration"
+    # spec:
+    #   # -- Example: Test runner environment filtering (optional)
+    #   # Control which environment variables from testenv are passed to tests
+    #   # envPropagation:
+    #     # whitelist:                # Only propagate these variables
+    #     #   - KUBECONFIG
+    #     #   - REGISTRY_URL
+    #     # blacklist:                # Propagate all except these (mutually exclusive with whitelist)
+    #     #   - REGISTRY_PASSWORD
+    #     #   - SECRET_TOKEN
+    #     # disabled: false           # Set to true to disable all environment propagation to tests
 
   # -- e2e tests - comprehensive forge integration tests (no environment needed)
   - name: e2e
@@ -189,34 +224,34 @@ build:
     src: ./containers/for-testing-purposes/Containerfile
     engine: go://container-build
 
-  # Example: OpenAPI code generation
-  # Generates client and/or server code from OpenAPI specifications
-  # NOTE: Uncomment and customize for your API specs
-  #
-  # - name: example-api-v1
-  #   src: ./api/example-api.v1.yaml      # Required by BuildSpec (source file)
-  #   dest: ./pkg/generated                # Required by BuildSpec (destination directory)
-  #   engine: go://go-gen-openapi
-  #   spec:
-  #     # Option 1: Explicit source file (RECOMMENDED)
-  #     sourceFile: ./api/example-api.v1.yaml
-  #
-  #     # Option 2: Templated source file (uncomment if not using sourceFile)
-  #     # sourceDir: ./api
-  #     # name: example-api
-  #     # version: v1
-  #     # Results in: ./api/example-api.v1.yaml
-  #
-  #     # Output directory (defaults to ./pkg/generated if not specified)
-  #     destinationDir: ./pkg/generated
-  #
-  #     # Client generation
-  #     client:
-  #       enabled: true
-  #       packageName: exampleclient
-  #
-  #     # Server generation (optional, can generate both client and server in one BuildSpec)
-  #     server:
-  #       enabled: false
-  #       packageName: exampleserver
+# Example: OpenAPI code generation
+# Generates client and/or server code from OpenAPI specifications
+# NOTE: Uncomment and customize for your API specs
+#
+# - name: example-api-v1
+#   src: ./api/example-api.v1.yaml      # Required by BuildSpec (source file)
+#   dest: ./pkg/generated                # Required by BuildSpec (destination directory)
+#   engine: go://go-gen-openapi
+#   spec:
+#     # Option 1: Explicit source file (RECOMMENDED)
+#     sourceFile: ./api/example-api.v1.yaml
+#
+#     # Option 2: Templated source file (uncomment if not using sourceFile)
+#     # sourceDir: ./api
+#     # name: example-api
+#     # version: v1
+#     # Results in: ./api/example-api.v1.yaml
+#
+#     # Output directory (defaults to ./pkg/generated if not specified)
+#     destinationDir: ./pkg/generated
+#
+#     # Client generation
+#     client:
+#       enabled: true
+#       packageName: exampleclient
+#
+#     # Server generation (optional, can generate both client and server in one BuildSpec)
+#     server:
+#       enabled: false
+#       packageName: exampleserver
 

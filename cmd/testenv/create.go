@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,8 @@ import (
 	"time"
 
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
+	"github.com/alexandremahdhaoui/forge/pkg/templateutil"
+	"github.com/alexandremahdhaoui/forge/pkg/testenvutil"
 )
 
 // cmdCreate creates a new test environment for the given stage.
@@ -206,9 +209,12 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 		return fmt.Errorf("no testenv-subengines configured for %s", setupAlias)
 	}
 
-	// Call each subengine in order
+	// Initialize environment accumulation
 	accumulatedMetadata := make(map[string]string)
-	for _, subengine := range subengines {
+	envTracker := testenvutil.NewEnvSourceTracker()
+
+	// Call each subengine in order
+	for subengineIndex, subengine := range subengines {
 		fmt.Fprintf(os.Stderr, "Setting up %s...\n", subengine.Engine)
 
 		// Resolve engine URI to binary path
@@ -217,17 +223,48 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 			return fmt.Errorf("failed to resolve engine %s: %w", subengine.Engine, err)
 		}
 
+		// Extract EnvPropagation from spec if present
+		var envPropagation *forge.EnvPropagation
+		if envPropSpec, exists := subengine.Spec["envPropagation"]; exists {
+			// Convert map[string]interface{} to *EnvPropagation via JSON marshal/unmarshal
+			envPropagation, err = extractEnvPropagation(envPropSpec)
+			if err != nil {
+				return fmt.Errorf("failed to parse envPropagation for %s: %w", subengine.Engine, err)
+			}
+
+			// Validate EnvPropagation
+			if err := envPropagation.Validate(); err != nil {
+				return fmt.Errorf("invalid envPropagation for %s: %w", subengine.Engine, err)
+			}
+		}
+
+		// Expand templates in spec using accumulated environment
+		expandedSpec := subengine.Spec
+		if len(subengine.Spec) > 0 {
+			accumulatedEnv := envTracker.ToMap()
+			expandedSpec, err = templateutil.ExpandTemplates(subengine.Spec, accumulatedEnv)
+			if err != nil {
+				return fmt.Errorf("failed to expand templates for %s: %w", subengine.Engine, err)
+			}
+		}
+
 		// Prepare parameters for MCP call
 		params := map[string]any{
 			"testID":   env.ID,
 			"stage":    env.Name,
 			"tmpDir":   env.TmpDir,
 			"metadata": accumulatedMetadata, // Pass accumulated metadata from previous subengines
+			"env":      envTracker.ToMap(),  // Pass accumulated environment from previous subengines
 		}
 
-		// Add spec if provided
-		if len(subengine.Spec) > 0 {
-			params["spec"] = subengine.Spec
+		// Add expanded spec if provided
+		if len(expandedSpec) > 0 {
+			params["spec"] = expandedSpec
+		}
+
+		// Add envPropagation if present
+		if envPropagation != nil {
+			params["envPropagation"] = envPropagation
 		}
 
 		// Call subengine's create tool via MCP
@@ -265,10 +302,42 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 					}
 				}
 			}
+
+			// Merge environment variables from subengine response
+			if envMap, ok := resultMap["env"].(map[string]interface{}); ok {
+				newEnv := make(map[string]string)
+				for key, value := range envMap {
+					if strValue, ok := value.(string); ok {
+						newEnv[key] = strValue
+					}
+				}
+				// Merge with priority-based resolution
+				envTracker.Merge(newEnv, envPropagation, subengineIndex)
+			}
 		}
 
 		fmt.Fprintf(os.Stderr, "  ✓ %s setup complete\n", subengine.Engine)
 	}
 
+	// Store final merged environment in TestEnvironment
+	env.Env = envTracker.ToMap()
+
 	return nil
+}
+
+// extractEnvPropagation converts map[string]interface{} to *EnvPropagation via JSON marshal/unmarshal.
+func extractEnvPropagation(envPropSpec interface{}) (*forge.EnvPropagation, error) {
+	// Marshal to JSON
+	jsonData, err := json.Marshal(envPropSpec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal envPropagation: %w", err)
+	}
+
+	// Unmarshal to EnvPropagation struct
+	var envProp forge.EnvPropagation
+	if err := json.Unmarshal(jsonData, &envProp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal envPropagation: %w", err)
+	}
+
+	return &envProp, nil
 }
