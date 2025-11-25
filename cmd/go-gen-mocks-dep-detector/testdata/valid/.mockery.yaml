@@ -1,0 +1,5 @@
+with-expecter: true
+packages:
+  github.com/test/project/pkg/store:
+    interfaces:
+      Repository:

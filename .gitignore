@@ -35,3 +35,7 @@ tmp/
 /testenv-helm-install
 /go-dependency-detector
 /testenv
+/go-gen-mocks
+/go-gen-mocks-dep-detector
+/go-gen-openapi-dep-detector
+

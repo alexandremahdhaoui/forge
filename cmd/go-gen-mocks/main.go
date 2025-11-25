@@ -58,12 +58,50 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 		return nil, fmt.Errorf("mock generation failed: %w", err)
 	}
 
-	// Return artifact using CreateArtifact (generated code has no version)
-	return engineframework.CreateArtifact(
-		"mocks",
+	// Detect dependencies for lazy rebuild
+	deps, err := detectMockDependencies(ctx, input.RootDir)
+	if err != nil {
+		// Log warning but don't fail - lazy build is optional optimization
+		log.Printf("WARNING: dependency detection failed: %v", err)
+		// Return artifact without dependencies (will always rebuild)
+		return engineframework.CreateArtifact(
+			input.Name,
+			"generated",
+			getMocksDir(mocksDir),
+		), nil
+	}
+
+	// Return artifact WITH dependencies for lazy rebuild
+	artifact := engineframework.CreateArtifact(
+		input.Name,
 		"generated",
 		getMocksDir(mocksDir),
-	), nil
+	)
+	artifact.Dependencies = deps
+	artifact.DependencyDetectorEngine = "go://go-gen-mocks-dep-detector"
+	return artifact, nil
+}
+
+// detectMockDependencies calls the go-gen-mocks-dep-detector MCP server
+// to discover which files the mock generation depends on.
+func detectMockDependencies(ctx context.Context, rootDir string) ([]forge.ArtifactDependency, error) {
+	// Find the detector binary
+	detectorPath, err := engineframework.FindDetector("go-gen-mocks-dep-detector")
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle empty RootDir (use current working directory)
+	workDir := rootDir
+	if workDir == "" {
+		workDir, _ = os.Getwd()
+	}
+
+	input := map[string]any{
+		"workDir": workDir,
+	}
+
+	return engineframework.CallDetector(ctx, detectorPath, "detectDependencies", input)
 }
 
 func getMocksDir(mocksDir string) string {

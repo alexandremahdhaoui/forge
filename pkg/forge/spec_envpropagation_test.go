@@ -3,6 +3,7 @@
 package forge
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -267,7 +268,7 @@ func TestEnvPropagation_Validate(t *testing.T) {
 			if tt.shouldError {
 				if err == nil {
 					t.Errorf("Validate() should return error containing '%s', but got nil", tt.errorMsg)
-				} else if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
+				} else if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
 					t.Errorf("Validate() error = '%v', should contain '%s'", err, tt.errorMsg)
 				}
 			} else {
@@ -327,18 +328,4 @@ func TestEnvPropagationOverride_PriorityPointer(t *testing.T) {
 // Helper function to create int pointer
 func intPtr(i int) *int {
 	return &i
-}
-
-// Helper function to check if string contains substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || containsHelper(s, substr))
-}
-
-func containsHelper(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

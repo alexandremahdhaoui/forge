@@ -103,6 +103,18 @@ type DetectDependenciesInput struct {
 	DirectoryParams
 }
 
+// DetectMockDependenciesInput is the input for go-gen-mocks-dep-detector.
+type DetectMockDependenciesInput struct {
+	WorkDir string `json:"workDir"` // Directory to search for .mockery.yaml
+}
+
+// DetectOpenAPIDependenciesInput is the input for go-gen-openapi-dep-detector.
+type DetectOpenAPIDependenciesInput struct {
+	SpecSources []string `json:"specSources"` // Absolute paths to OpenAPI spec files
+	RootDir     string   `json:"rootDir"`     // Project root directory
+	ResolveRefs bool     `json:"resolveRefs"` // Whether to resolve $ref (v1: always false)
+}
+
 // Dependency represents a single dependency detected by a dependency-detector engine.
 // This is the MCP wire format, matching ArtifactDependency from pkg/forge/artifact_store.go.
 type Dependency struct {

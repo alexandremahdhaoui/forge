@@ -1,0 +1,5 @@
+this is not valid yaml: [
+  unclosed bracket
+  missing colon value
+packages
+  - invalid indentation

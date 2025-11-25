@@ -1,12 +1,22 @@
-filename: "zz_generated.{{ .InterfaceName }}.go"
-with-expecter: true
+all: false
+template: testify
+filename: "zz_generated.{{.InterfaceName}}.go"
+formatter: goimports
 
 packages:
   # controller-runtime/
   sigs.k8s.io/controller-runtime/pkg/client:
     config:
       dir: internal/util/mocks/mockclient
-      outpkg: mockclient
+      pkgname: mockclient
     interfaces:
       Client:
       SubResourceWriter:
+
+  # internal interfaces for testing lazy build
+  github.com/alexandremahdhaoui/forge/pkg/eventualconfig:
+    config:
+      dir: internal/util/mocks/mockeventualconfig
+      pkgname: mockeventualconfig
+    interfaces:
+      EventualConfig:

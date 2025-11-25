@@ -29,9 +29,9 @@ Go development tooling repository providing CLI tools for streamlined workflows 
 
 - **123 Go source files**
 - **21,829 lines of Go code**
-- **19 command-line tools**
+- **21 command-line tools**
 - **5 public packages**
-- **19 MCP servers**
+- **21 MCP servers**
 - Go version: 1.24.1
 - License: Apache 2.0
 
@@ -428,7 +428,7 @@ Forge uses Model Context Protocol (MCP) for communication between the orchestrat
 
 **Note:** The forge CLI itself is also an MCP server. When invoked with `--mcp`, it exposes its orchestration capabilities to AI coding agents, allowing them to build artifacts, run tests, and manage test environments directly.
 
-### MCP Servers (19 total)
+### MCP Servers (21 total)
 
 **Build Engines** (communicate via `build` tool):
 - `go-build --mcp` - Returns Artifact with dependencies
@@ -436,7 +436,9 @@ Forge uses Model Context Protocol (MCP) for communication between the orchestrat
 - `generic-builder --mcp` - Returns Artifact
 
 **Dependency Detection** (communicate via `detectDependencies` tool):
-- `go-dependency-detector --mcp` - Returns dependency list
+- `go-dependency-detector --mcp` - Returns dependency list for Go binaries
+- `go-gen-mocks-dep-detector --mcp` - Returns dependency list for mock generation
+- `go-gen-openapi-dep-detector --mcp` - Returns dependency list for OpenAPI code generation
 
 **Test Runners** (communicate via `run` tool):
 - `go-test --mcp` - Returns TestReport

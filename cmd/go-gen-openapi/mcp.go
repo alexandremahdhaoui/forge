@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
@@ -52,10 +53,54 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 		return nil, fmt.Errorf("generation failed: %w", err)
 	}
 
-	// Create artifact using CreateArtifact (generated code has no version)
-	return engineframework.CreateArtifact(
+	// Extract spec paths from config for dependency detection
+	var specPaths []string
+	for _, spec := range config.Specs {
+		sourcePath := spec.Source
+		if input.RootDir != "" && !filepath.IsAbs(sourcePath) {
+			sourcePath = filepath.Join(input.RootDir, sourcePath)
+		}
+		specPaths = append(specPaths, sourcePath)
+	}
+
+	// Detect dependencies for lazy rebuild
+	deps, err := detectOpenAPIDependencies(ctx, specPaths, input.RootDir)
+	if err != nil {
+		// Log warning but don't fail - lazy build is optional optimization
+		log.Printf("WARNING: dependency detection failed: %v", err)
+		// Return artifact without dependencies (will always rebuild)
+		return engineframework.CreateArtifact(
+			input.Name,
+			"generated",
+			config.Specs[0].DestinationDir,
+		), nil
+	}
+
+	// Return artifact WITH dependencies for lazy rebuild
+	artifact := engineframework.CreateArtifact(
 		input.Name,
 		"generated",
 		config.Specs[0].DestinationDir,
-	), nil
+	)
+	artifact.Dependencies = deps
+	artifact.DependencyDetectorEngine = "go://go-gen-openapi-dep-detector"
+	return artifact, nil
+}
+
+// detectOpenAPIDependencies calls the go-gen-openapi-dep-detector MCP server
+// to discover which files the OpenAPI generation depends on.
+func detectOpenAPIDependencies(ctx context.Context, specPaths []string, rootDir string) ([]forge.ArtifactDependency, error) {
+	// Find the detector binary
+	detectorPath, err := engineframework.FindDetector("go-gen-openapi-dep-detector")
+	if err != nil {
+		return nil, err
+	}
+
+	input := map[string]any{
+		"specSources": specPaths,
+		"rootDir":     rootDir,
+		"resolveRefs": false, // v1: no $ref resolution
+	}
+
+	return engineframework.CallDetector(ctx, detectorPath, "detectDependencies", input)
 }
