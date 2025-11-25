@@ -120,11 +120,11 @@ forge --help
 - **Lazy Rebuild**: Automatic dependency tracking skips rebuilding unchanged artifacts
 - **Test Environment Management**: Automated Kind clusters with TLS-enabled registries
 - **Artifact Tracking**: Automatic versioning with git commit SHAs
-- **19 CLI Tools**: From code generation to E2E testing
+- **20 CLI Tools**: From code generation to E2E testing
 
 ## Available Tools
 
-All 19 tools categorized by function. Tools marked ⚡ provide MCP servers.
+All 20 tools categorized by function. Tools marked ⚡ provide MCP servers.
 
 ### Build Tools (4)
 - ⚡ `go-build` - Go binary builder with git versioning and automatic dependency tracking
@@ -146,9 +146,10 @@ All 19 tools categorized by function. Tools marked ⚡ provide MCP servers.
 - ⚡ `go-format` - Go code formatter (gofumpt)
 - ⚡ `go-lint` - Go linter (golangci-lint)
 
-### Code Generation (2)
+### Code Generation (3)
 - ⚡ `go-gen-mocks` - Mock generator (mockery)
 - ⚡ `go-gen-openapi` - OpenAPI code generator
+- ⚡ `go-gen-protobuf` - Protocol Buffer compiler for Go (protoc)
 
 ### Orchestration (3)
 - ⚡ `forge` - Main CLI orchestrator (also an MCP server)
@@ -343,8 +344,8 @@ go test ./...
 
 ### Project Statistics
 
-- **19 CLI tools** across build, test, and code generation
-- **19 MCP servers** (18 functional + 1 planned)
+- **20 CLI tools** across build, test, and code generation
+- **20 MCP servers** (19 functional + 1 planned)
 - **5 public packages** for reusable functionality
 - **123 Go source files** with comprehensive tests
 - **Go 1.24.1** with modern dependency management

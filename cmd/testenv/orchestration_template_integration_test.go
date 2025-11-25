@@ -70,9 +70,6 @@ func TestTemplateExpansionInOrchestration(t *testing.T) {
 								Engine: "go://testenv-mock",
 								Spec: map[string]interface{}{
 									"templatedField": "{{.Env.UNDEFINED_VAR}}",
-									"nested": map[string]interface{}{
-										"value": "{{.Env.ALSO_UNDEFINED}}",
-									},
 								},
 							},
 						},

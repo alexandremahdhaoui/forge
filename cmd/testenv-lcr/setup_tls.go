@@ -72,7 +72,7 @@ func (t *TLS) Setup(ctx context.Context) error {
 			"--version v1.15.1 "+
 			"--set crds.enabled=true "+
 			"--wait "+
-			"--timeout 5m", " ")...)
+			"--timeout 8m", " ")...)
 	if err := util.RunCmdWithStdPipes(helmInstall); err != nil {
 		return flaterrors.Join(err, errSettingUpTLS)
 	}

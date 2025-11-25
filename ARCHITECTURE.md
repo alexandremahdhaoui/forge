@@ -63,9 +63,10 @@ Go development tooling repository providing CLI tools for streamlined workflows 
 
 ### Directory Responsibilities
 
-#### `/cmd` - Command-Line Tools (19 tools)
+#### `/cmd` - Command-Line Tools (20 tools)
 
 Standalone CLI tools, each in its own subdirectory:
+
 - Environment-variable driven for CI/CD
 - Self-contained with minimal dependencies
 - Composable via MCP protocol
@@ -179,7 +180,7 @@ type Config struct {
 
 ## Command-Line Tools
 
-All 19 tools are standalone binaries in `cmd/`. Tools marked with ⚡ provide MCP servers.
+All 20 tools are standalone binaries in `cmd/`. Tools marked with ⚡ provide MCP servers.
 
 ### Tool Categories
 
@@ -207,9 +208,10 @@ Code Quality (2):
   go-format              - Go code formatter
   go-lint                - Go linter wrapper
 
-Code Generation (2):
+Code Generation (3):
   go-gen-mocks         - Mock generator
-  go-gen-openapi    - OpenAPI code generator
+  go-gen-openapi       - OpenAPI code generator
+  go-gen-protobuf      - Protocol Buffer compiler (protoc with --go_out and --go-grpc_out)
 
 Orchestration (2):
   forge                  - Main CLI orchestrator
@@ -222,22 +224,26 @@ Planning (1):
 ### Core Tools
 
 **forge** (`cmd/forge/`)
+
 - Main CLI orchestrator (also an MCP server)
 - Both a standalone CLI tool AND an MCP server for AI agent integration
 - Manages builds, tests, and test environments using MCP protocol
 - See [Forge Architecture](#forge-architecture) section
 
 **testenv** (`cmd/testenv/`)
+
 - Orchestrates test environment creation/deletion
 - Coordinates testenv-kind and testenv-lcr via MCP
 - Manages TestEnvironment lifecycle in artifact store
 
 **testenv-kind** (`cmd/testenv-kind/`)
+
 - Creates/deletes Kind clusters for test environments
 - Generates kubeconfig files per test
 - MCP server for forge integration
 
 **testenv-lcr** (`cmd/testenv-lcr/`)
+
 - Deploys TLS-enabled container registry in Kind clusters
 - Generates certificates and credentials
 - Manages host file entries and registry access
@@ -383,6 +389,7 @@ Forge implements automatic dependency tracking and lazy rebuild optimization to 
 
 - **go-build**: Automatically detects dependencies for main packages
 - **container-build**: Requires explicit `dependsOn` in spec:
+
   ```yaml
   spec:
     dependsOn:
@@ -431,26 +438,31 @@ Forge uses Model Context Protocol (MCP) for communication between the orchestrat
 ### MCP Servers (21 total)
 
 **Build Engines** (communicate via `build` tool):
+
 - `go-build --mcp` - Returns Artifact with dependencies
 - `container-build --mcp` - Returns Artifact with dependencies
 - `generic-builder --mcp` - Returns Artifact
 
 **Dependency Detection** (communicate via `detectDependencies` tool):
+
 - `go-dependency-detector --mcp` - Returns dependency list for Go binaries
 - `go-gen-mocks-dep-detector --mcp` - Returns dependency list for mock generation
 - `go-gen-openapi-dep-detector --mcp` - Returns dependency list for OpenAPI code generation
 
 **Test Runners** (communicate via `run` tool):
+
 - `go-test --mcp` - Returns TestReport
 - `go-lint-tags --mcp` - Returns TestReport
 - `generic-test-runner --mcp` - Returns TestReport
 
 **Test Engines** (complex orchestration):
+
 - `testenv --mcp` - Orchestrates testenv-kind + testenv-lcr
 - `testenv-kind --mcp` - Manages Kind clusters
 - `testenv-lcr --mcp` - Manages container registry
 
 **Test Management**:
+
 - `test-report --mcp` - Manages test reports (get/list/delete)
 
 ### Tool Registration in forge.yaml
@@ -857,18 +869,21 @@ Forge is a make-like build orchestrator that provides a unified interface for bu
 ### Overview
 
 **Design Philosophy:**
+
 - Unified build specification across all artifact types
 - Engine-based architecture using MCP servers
 - Artifact tracking and versioning
 - Integration environment lifecycle management
 
 **MCP-First Design:**
+
 - Forge itself is both a CLI tool and an MCP server
 - All engines are MCP servers, creating a uniform, composable architecture
 - AI agents can interact with any component using the same protocol
 - This enables true AI-driven development workflows
 
 **Key Features:**
+
 - Build Go binaries and container images through a single interface
 - Track built artifacts with metadata (version, timestamp, type)
 - Manage integration environments (kind clusters with optional components)
@@ -892,6 +907,7 @@ type BuildSpec struct {
 **Engine URI Format:** `<protocol>://<engine-name>`
 
 Supported engines:
+
 - `go://go-build` - Go binary builder
 - `container://container-build` - Container image builder
 
@@ -938,6 +954,7 @@ func buildContainer(
 **Shared Utilities:**
 
 The implementation extracts common functionality into shared utility functions:
+
 - `tagImage()` - Tags container images
 - `addArtifactToStore()` - Records build artifacts
 - `printBuildStart()` / `printBuildSuccess()` - User feedback
@@ -1025,10 +1042,12 @@ artifacts:
 ```
 
 **Artifact Types:**
+
 - `go-binary` - Go executable binaries
 - `container` - Container images
 
 **Metadata Fields:**
+
 - `name` - Artifact identifier
 - `type` - Artifact type
 - `version` - Semantic version with git metadata
@@ -1060,6 +1079,7 @@ type Component struct {
 ```
 
 **Supported Components:**
+
 - `testenv-kind` - Kind cluster
 - `testenv-lcr` - Local registry with TLS
 
@@ -1110,6 +1130,7 @@ build:
 ```
 
 **Configuration Fields:**
+
 - `build` - Array of BuildSpec objects
 - Each BuildSpec defines one buildable artifact
 
@@ -1124,6 +1145,7 @@ forge build
 ```
 
 **Environment Variables:**
+
 - `CONTAINER_BUILD_ENGINE` - Container build mode (docker/kaniko/podman)
 - `GO_BUILD_LDFLAGS` - Go linker flags
 - `PREPEND_CMD` - Command prefix (e.g., sudo)
@@ -1131,6 +1153,7 @@ forge build
 - `KANIKO_CACHE_DIR` - Cache directory for kaniko mode (default: ~/.kaniko-cache)
 
 **Outputs:**
+
 - Built artifacts in specified destinations
 - Updated artifact store (`.ignore.artifact-store.yaml`)
 
@@ -1157,6 +1180,7 @@ forge integration create <name>
 ```
 
 **Outputs:**
+
 - Kind cluster
 - Optional: local container registry
 - Environment record in `.ignore.integration-envs.yaml`
@@ -1169,6 +1193,7 @@ forge integration list
 ```
 
 **Output Format:**
+
 ```
 Test Environments:
 - test-unit-20250106-abc123
@@ -1193,6 +1218,7 @@ forge integration delete <id-or-name>
 ```
 
 **Operations:**
+
 - Teardown kind cluster
 - Teardown local container registry
 - Remove from environment store
@@ -1215,14 +1241,17 @@ Forge supports two execution modes for MCP servers:
 **1. Local Development Mode**
 
 Activated when:
+
 - `FORGE_RUN_LOCAL_ENABLED=true` environment variable is set
 
 Executes engines using:
+
 ```bash
 go run -C /path/to/forge ./cmd/<package-name>
 ```
 
 Environment variables:
+
 - `FORGE_RUN_LOCAL_ENABLED` - Set to "true" to enable local mode (required)
 - `FORGE_RUN_LOCAL_BASEDIR` - Forge repository location (optional, auto-detected if running from forge repo)
 - `FORGE_REPO_PATH` - Legacy variable for forge repo location (optional)
@@ -1230,9 +1259,11 @@ Environment variables:
 **2. Production Mode (Default)**
 
 Activated when:
+
 - `FORGE_RUN_LOCAL_ENABLED` is not set
 
 Executes engines using versioned module syntax:
+
 ```bash
 go run github.com/alexandremahdhaoui/forge/cmd/<package-name>@v0.9.0
 ```
@@ -1320,6 +1351,7 @@ go run github.com/alexandremahdhaoui/forge/cmd/<package-name>@v0.9.0
 #### Engine Interface
 
 Each build engine must:
+
 1. Accept `--mcp` flag to enable MCP mode
 2. Implement stdio-based JSON-RPC 2.0 protocol
 3. Provide `build` tool with BuildSpec parameters
@@ -1403,15 +1435,15 @@ BUILD_CONTAINER := $(FORGE) build
 ```makefile
 .PHONY: build
 build: ## Build all artifacts using forge
-	$(FORGE) build
+ $(FORGE) build
 
 .PHONY: go-build
 go-build: ## Build Go binaries using forge
-	$(BUILD_GO)
+ $(BUILD_GO)
 
 .PHONY: container-build
 container-build: ## Build container images using forge
-	$(BUILD_CONTAINER)
+ $(BUILD_CONTAINER)
 ```
 
 ### Testing
@@ -1421,6 +1453,7 @@ container-build: ## Build container images using forge
 **Location:** `cmd/forge/build_test.go`, `cmd/forge/integration_test.go`
 
 **Test Coverage:**
+
 - Build lifecycle (all artifacts)
 - Single artifact builds
 - Error handling (nonexistent artifacts)
@@ -1454,6 +1487,7 @@ func TestBuildIntegration(t *testing.T) {
 **Purpose:** Direct MCP server invocation testing
 
 **Test Flow:**
+
 1. Build MCP server binaries
 2. Send JSON-RPC requests via stdin
 3. Capture JSON-RPC responses via stdout
@@ -2027,6 +2061,7 @@ This tooling repository represents a well-architected, production-grade Go devel
 - **Unified build orchestration** via forge and MCP servers
 
 The **forge CLI** is particularly noteworthy as a modern build orchestrator that demonstrates:
+
 - Protocol-based extensibility (MCP)
 - Unified artifact specification (BuildSpec)
 - Comprehensive artifact tracking

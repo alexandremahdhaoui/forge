@@ -38,4 +38,4 @@ tmp/
 /go-gen-mocks
 /go-gen-mocks-dep-detector
 /go-gen-openapi-dep-detector
-
+/go-gen-protobuf

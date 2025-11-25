@@ -217,6 +217,18 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 	for subengineIndex, subengine := range subengines {
 		fmt.Fprintf(os.Stderr, "Setting up %s...\n", subengine.Engine)
 
+		// Expand templates in spec using accumulated environment FIRST
+		// This catches template errors early before any engine resolution
+		expandedSpec := subengine.Spec
+		if len(subengine.Spec) > 0 {
+			accumulatedEnv := envTracker.ToMap()
+			var err error
+			expandedSpec, err = templateutil.ExpandTemplates(subengine.Spec, accumulatedEnv)
+			if err != nil {
+				return fmt.Errorf("failed to expand templates for %s: %w", subengine.Engine, err)
+			}
+		}
+
 		// Resolve engine URI to binary path
 		command, args, err := resolveEngineURI(subengine.Engine)
 		if err != nil {
@@ -235,16 +247,6 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 			// Validate EnvPropagation
 			if err := envPropagation.Validate(); err != nil {
 				return fmt.Errorf("invalid envPropagation for %s: %w", subengine.Engine, err)
-			}
-		}
-
-		// Expand templates in spec using accumulated environment
-		expandedSpec := subengine.Spec
-		if len(subengine.Spec) > 0 {
-			accumulatedEnv := envTracker.ToMap()
-			expandedSpec, err = templateutil.ExpandTemplates(subengine.Spec, accumulatedEnv)
-			if err != nil {
-				return fmt.Errorf("failed to expand templates for %s: %w", subengine.Engine, err)
 			}
 		}
 

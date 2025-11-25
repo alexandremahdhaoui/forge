@@ -194,6 +194,10 @@ build:
     src: ./cmd/go-gen-openapi
     dest: ./build/bin
     engine: go://go-build
+  - name: go-gen-protobuf
+    src: ./cmd/go-gen-protobuf
+    dest: ./build/bin
+    engine: go://go-build
   - name: forge-e2e
     src: ./cmd/forge-e2e
     dest: ./build/bin
