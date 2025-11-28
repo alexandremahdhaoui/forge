@@ -64,6 +64,11 @@ func runMCPServer() error {
 func createLocalContainerRegistry(ctx context.Context, input engineframework.CreateInput) (*engineframework.TestEnvArtifact, error) {
 	log.Printf("Creating local container registry: testID=%s, stage=%s", input.TestID, input.Stage)
 
+	// RootDir is available via input.RootDir for resolving relative paths
+	// Currently unused, but available for future features that may need path resolution
+	// (e.g., relative image build contexts, local Dockerfile paths)
+	_ = input.RootDir // Acknowledge availability for consistency
+
 	// Redirect stdout to stderr (setup() writes to stdout, but MCP uses stdout for JSON-RPC)
 	oldStdout := os.Stdout
 	os.Stdout = os.Stderr

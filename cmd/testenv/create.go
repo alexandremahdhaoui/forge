@@ -145,8 +145,8 @@ func cmdCreate(stageName string) (string, error) {
 		}
 	}
 
-	// Get artifact store path
-	artifactStorePath, err := forge.GetArtifactStorePath(".forge/artifacts.json")
+	// Get artifact store path from config
+	artifactStorePath, err := forge.GetArtifactStorePath(config.ArtifactStorePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to get artifact store path: %w", err)
 	}
@@ -209,6 +209,12 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 		return fmt.Errorf("no testenv-subengines configured for %s", setupAlias)
 	}
 
+	// Get project root directory for path resolution in subengines
+	rootDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
 	// Initialize environment accumulation
 	accumulatedMetadata := make(map[string]string)
 	envTracker := testenvutil.NewEnvSourceTracker()
@@ -255,6 +261,7 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 			"testID":   env.ID,
 			"stage":    env.Name,
 			"tmpDir":   env.TmpDir,
+			"rootDir":  rootDir,
 			"metadata": accumulatedMetadata, // Pass accumulated metadata from previous subengines
 			"env":      envTracker.ToMap(),  // Pass accumulated environment from previous subengines
 		}

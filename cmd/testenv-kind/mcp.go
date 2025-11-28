@@ -33,6 +33,11 @@ func runMCPServer() error {
 func createKindCluster(ctx context.Context, input engineframework.CreateInput) (*engineframework.TestEnvArtifact, error) {
 	log.Printf("Creating kind cluster: testID=%s, stage=%s", input.TestID, input.Stage)
 
+	// RootDir is available via input.RootDir for resolving relative paths
+	// Currently unused, but available for future features that may need path resolution
+	// (e.g., custom kind config files with relative paths)
+	_ = input.RootDir // Acknowledge availability for consistency
+
 	// Read forge.yaml configuration
 	config, err := forge.ReadSpec()
 	if err != nil {
@@ -102,15 +107,32 @@ func deleteKindCluster(ctx context.Context, input engineframework.DeleteInput) e
 		return fmt.Errorf("failed to read environment variables: %w", err)
 	}
 
-	// Reconstruct cluster name from testID
-	clusterName := fmt.Sprintf("%s-%s", config.Name, input.TestID)
+	// Get cluster name from metadata (preferred) or reconstruct from testID (fallback)
+	// Using metadata ensures we delete the exact cluster that was created,
+	// preventing accidental deletion of clusters from other forge instances
+	var clusterName string
+	var kubeconfigPath string
+	if input.Metadata != nil {
+		if name, ok := input.Metadata["testenv-kind.clusterName"]; ok && name != "" {
+			clusterName = name
+			log.Printf("Using cluster name from metadata: %s", clusterName)
+		}
+		if path, ok := input.Metadata["testenv-kind.kubeconfigPath"]; ok && path != "" {
+			kubeconfigPath = path
+			log.Printf("Using kubeconfig path from metadata: %s", kubeconfigPath)
+		}
+	}
+	if clusterName == "" {
+		// Fallback: reconstruct cluster name (for backward compatibility)
+		clusterName = fmt.Sprintf("%s-%s", config.Name, input.TestID)
+		log.Printf("Reconstructing cluster name from testID: %s", clusterName)
+	}
 	config.Name = clusterName
+	config.Kindenv.KubeconfigPath = kubeconfigPath
 
-	// Delete the kind cluster (best-effort)
+	// Delete the kind cluster - return error on failure to prevent silent leaks
 	if err := doTeardown(config, envs); err != nil {
-		// Log warning but don't fail - best effort cleanup
-		log.Printf("Warning: failed to delete kind cluster: %v", err)
-		return nil
+		return fmt.Errorf("failed to delete kind cluster %s: %w", clusterName, err)
 	}
 
 	return nil

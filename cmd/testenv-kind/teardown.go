@@ -29,8 +29,16 @@ func doTeardown(config forge.Spec, envs Envs) error {
 		return err // TODO: wrap error
 	}
 
-	if err := os.Remove(config.Kindenv.KubeconfigPath); err != nil {
-		return err // TODO: wrap error
+	// Only remove kubeconfig file if path is set
+	// Path might be empty if cleanup is called without proper metadata
+	if config.Kindenv.KubeconfigPath != "" {
+		if err := os.Remove(config.Kindenv.KubeconfigPath); err != nil {
+			// Log warning but don't fail - file might already be deleted
+			// or cleanup might be called multiple times
+			if !os.IsNotExist(err) {
+				return err
+			}
+		}
 	}
 
 	return nil

@@ -20,6 +20,7 @@ import (
 //   - TestID: Unique identifier for this test environment instance (required)
 //   - Stage: Test stage name from forge.yaml (required)
 //   - TmpDir: Temporary directory allocated for this test environment (required)
+//   - RootDir: Project root directory for path resolution (optional)
 //   - Metadata: Metadata from previous subengines in the chain (optional)
 //   - Spec: Optional spec for configuration override from forge.yaml
 //   - Env: Accumulated environment variables from previous sub-engines (optional)
@@ -31,6 +32,7 @@ import (
 //	    TestID:   "test-abc123",
 //	    Stage:    "integration",
 //	    TmpDir:   "/tmp/forge-test-abc123",
+//	    RootDir:  "/home/user/project",
 //	    Metadata: map[string]string{"testenv-lcr.registryURL": "localhost:5000"},
 //	    Spec:     map[string]any{"kindVersion": "v1.27.0"},
 //	    Env:      map[string]string{"REGISTRY_URL": "localhost:5000"},
@@ -39,6 +41,7 @@ type CreateInput struct {
 	TestID         string                `json:"testID"`                   // Test environment ID (required)
 	Stage          string                `json:"stage"`                    // Test stage name (required)
 	TmpDir         string                `json:"tmpDir"`                   // Temporary directory for this test environment (required)
+	RootDir        string                `json:"rootDir,omitempty"`        // Project root directory (optional, for path resolution)
 	Metadata       map[string]string     `json:"metadata"`                 // Metadata from previous testenv-subengines (optional)
 	Spec           map[string]any        `json:"spec,omitempty"`           // Optional spec for configuration override
 	Env            map[string]string     `json:"env,omitempty"`            // Accumulated environment variables from previous sub-engines (optional)

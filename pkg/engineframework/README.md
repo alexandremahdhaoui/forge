@@ -263,6 +263,38 @@ func runMCPServer() error {
 
 ### Creating a TestEnv Subengine
 
+#### CreateInput Schema
+
+The `CreateInput` struct provides all necessary context for creating a test environment resource:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `TestID` | string | Yes | Unique identifier for the test environment |
+| `Stage` | string | Yes | Test stage name |
+| `TmpDir` | string | Yes | Temporary directory for test artifacts |
+| `RootDir` | string | No | Project root directory for resolving relative paths |
+| `Metadata` | map[string]string | No | Metadata from previous subengines in the chain |
+| `Spec` | map[string]any | No | Subengine-specific configuration |
+| `Env` | map[string]string | No | Accumulated environment variables |
+| `EnvPropagation` | EnvPropagation | No | Environment variable propagation settings |
+
+**RootDir Usage:**
+- Used to resolve relative paths to absolute paths based on the project root
+- Populated by the testenv orchestrator via `os.Getwd()`
+- Should be used with `filepath.Join()` for portable path resolution
+- Example pattern for path resolution:
+  ```go
+  if input.RootDir != "" && !filepath.IsAbs(relativePath) {
+      absolutePath = filepath.Join(input.RootDir, relativePath)
+  }
+  ```
+- Always add fail-fast validation after resolution:
+  ```go
+  if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
+      return nil, fmt.Errorf("path not found: %s", resolvedPath)
+  }
+  ```
+
 **Step 1: Define create and delete functions**
 
 ```go

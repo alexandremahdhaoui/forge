@@ -2326,3 +2326,168 @@ type validationError struct {
 func (e *validationError) Error() string {
 	return e.msg
 }
+
+// TestResolveChartPath tests the path resolution logic for local charts.
+// This is the ACTUAL production function extracted from installHelmCharts.
+func TestResolveChartPath(t *testing.T) {
+	// Create a temporary directory for test charts
+	tmpDir := t.TempDir()
+
+	// Create a test chart directory
+	testChartPath := filepath.Join(tmpDir, "charts", "my-chart")
+	if err := os.MkdirAll(testChartPath, 0o755); err != nil {
+		t.Fatalf("Failed to create test chart directory: %v", err)
+	}
+
+	tests := []struct {
+		name          string
+		chart         ChartSpec
+		rootDir       string
+		expectedPath  string
+		shouldError   bool
+		errorContains string
+	}{
+		{
+			name: "relative path with RootDir - should resolve",
+			chart: ChartSpec{
+				SourceType: "local",
+				Path:       "charts/my-chart",
+			},
+			rootDir:      tmpDir,
+			expectedPath: testChartPath,
+			shouldError:  false,
+		},
+		{
+			name: "absolute path with RootDir - should not resolve",
+			chart: ChartSpec{
+				SourceType: "local",
+				Path:       testChartPath,
+			},
+			rootDir:      tmpDir,
+			expectedPath: testChartPath,
+			shouldError:  false,
+		},
+		{
+			name: "relative path without RootDir - should not resolve",
+			chart: ChartSpec{
+				SourceType: "local",
+				Path:       testChartPath, // Use absolute path since no RootDir
+			},
+			rootDir:      "",
+			expectedPath: testChartPath,
+			shouldError:  false,
+		},
+		{
+			name: "non-existent chart - should error",
+			chart: ChartSpec{
+				SourceType: "local",
+				Path:       "charts/non-existent",
+			},
+			rootDir:       tmpDir,
+			shouldError:   true,
+			errorContains: "local chart not found",
+		},
+		{
+			name: "empty path - should return empty",
+			chart: ChartSpec{
+				SourceType: "local",
+				Path:       "",
+			},
+			rootDir:      tmpDir,
+			expectedPath: "",
+			shouldError:  false,
+		},
+		{
+			name: "non-local source type - should return unchanged",
+			chart: ChartSpec{
+				SourceType: "oci",
+				Path:       "oci://registry/chart",
+			},
+			rootDir:      tmpDir,
+			expectedPath: "oci://registry/chart",
+			shouldError:  false,
+		},
+		{
+			name: "helm-repo source type - path should not be resolved",
+			chart: ChartSpec{
+				SourceType: "helm-repo",
+				Path:       "./some/path",
+			},
+			rootDir:      tmpDir,
+			expectedPath: "./some/path",
+			shouldError:  false,
+		},
+		{
+			name: "git source type - path should not be resolved",
+			chart: ChartSpec{
+				SourceType: "git",
+				Path:       "./some/path",
+			},
+			rootDir:      tmpDir,
+			expectedPath: "./some/path",
+			shouldError:  false,
+		},
+		{
+			name: "s3 source type - path should not be resolved",
+			chart: ChartSpec{
+				SourceType: "s3",
+				Path:       "./some/path",
+			},
+			rootDir:      tmpDir,
+			expectedPath: "./some/path",
+			shouldError:  false,
+		},
+		{
+			name: "relative path with ./ prefix",
+			chart: ChartSpec{
+				SourceType: "local",
+				Path:       "./charts/my-chart",
+			},
+			rootDir:      tmpDir,
+			expectedPath: testChartPath,
+			shouldError:  false,
+		},
+		{
+			name: "relative path with ../ prefix - resolves correctly",
+			chart: ChartSpec{
+				SourceType: "local",
+				Path:       "../charts/my-chart",
+			},
+			rootDir:      filepath.Join(tmpDir, "subdir"),
+			expectedPath: testChartPath,
+			shouldError:  false,
+		},
+		{
+			name: "empty RootDir with relative path - path unchanged (backward compatibility)",
+			chart: ChartSpec{
+				SourceType: "local",
+				Path:       "./charts/test",
+			},
+			rootDir:       "",
+			expectedPath:  "./charts/test",
+			shouldError:   true, // Will fail because path doesn't exist, but it's not resolved
+			errorContains: "local chart not found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := resolveChartPath(tt.chart, tt.rootDir)
+
+			if tt.shouldError {
+				if err == nil {
+					t.Errorf("Expected error containing '%s', got nil", tt.errorContains)
+				} else if !strings.Contains(err.Error(), tt.errorContains) {
+					t.Errorf("Expected error containing '%s', got: %v", tt.errorContains, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %v", err)
+				}
+				if result != tt.expectedPath {
+					t.Errorf("Expected path %s, got %s", tt.expectedPath, result)
+				}
+			}
+		})
+	}
+}

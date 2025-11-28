@@ -14,8 +14,14 @@ func cmdDelete(testID string) error {
 		return fmt.Errorf("test ID is required")
 	}
 
-	// Get artifact store path
-	artifactStorePath, err := forge.GetArtifactStorePath(".forge/artifacts.json")
+	// Read forge.yaml to get artifact store path
+	config, err := forge.ReadSpec()
+	if err != nil {
+		return fmt.Errorf("failed to read forge.yaml: %w", err)
+	}
+
+	// Get artifact store path from config
+	artifactStorePath, err := forge.GetArtifactStorePath(config.ArtifactStorePath)
 	if err != nil {
 		return fmt.Errorf("failed to get artifact store path: %w", err)
 	}
@@ -33,11 +39,6 @@ func cmdDelete(testID string) error {
 
 	// Find the test stage configuration
 	var testSpec *forge.TestSpec
-	config, err := forge.ReadSpec()
-	if err != nil {
-		return fmt.Errorf("failed to read forge.yaml: %w", err)
-	}
-
 	for i := range config.Test {
 		if config.Test[i].Name == env.Name {
 			testSpec = &config.Test[i]
@@ -46,6 +47,7 @@ func cmdDelete(testID string) error {
 	}
 
 	// Orchestrate testenv-subengine cleanup in REVERSE order
+	var cleanupErr error
 	if testSpec != nil && testSpec.Testenv != "" {
 		if strings.HasPrefix(testSpec.Testenv, "go://") {
 			// Direct engine URI - call delete tool directly
@@ -53,19 +55,21 @@ func cmdDelete(testID string) error {
 
 			command, args, err := resolveEngineURI(testSpec.Testenv)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to resolve engine %s: %v\n", testSpec.Testenv, err)
+				cleanupErr = fmt.Errorf("failed to resolve engine %s: %w", testSpec.Testenv, err)
 			} else {
 				// Prepare parameters - test-report uses reportID, others use testID
+				// Include metadata for proper resource identification during cleanup
 				params := map[string]any{}
 				if testSpec.Testenv == "go://test-report" {
 					params["reportID"] = testID
 				} else {
 					params["testID"] = testID
+					params["metadata"] = env.Metadata // Pass metadata for proper cleanup
 				}
 
 				_, err = callMCPEngine(command, args, "delete", params)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to delete with %s: %v\n", testSpec.Testenv, err)
+					cleanupErr = fmt.Errorf("failed to delete with %s: %w", testSpec.Testenv, err)
 				} else {
 					fmt.Fprintf(os.Stderr, "  ✓ %s teardown complete\n", testSpec.Testenv)
 				}
@@ -75,10 +79,15 @@ func cmdDelete(testID string) error {
 			setupAlias := strings.TrimPrefix(testSpec.Testenv, "alias://")
 
 			if err := orchestrateDelete(config, setupAlias, env); err != nil {
-				// Log error but continue with cleanup (best effort)
-				fmt.Fprintf(os.Stderr, "Warning: failed to orchestrate cleanup: %v\n", err)
+				cleanupErr = fmt.Errorf("failed to orchestrate cleanup: %w", err)
 			}
 		}
+	}
+
+	// If cleanup failed, return error before removing from artifact store
+	// This prevents the cluster from being orphaned (removed from store but still running)
+	if cleanupErr != nil {
+		return cleanupErr
 	}
 
 	// Delete managed resources (including tmpDir)
@@ -130,6 +139,8 @@ func orchestrateDelete(config forge.Spec, setupAlias string, env *forge.TestEnvi
 	}
 
 	// Call each subengine in REVERSE order for cleanup
+	// Collect all errors - cleanup must not leak resources
+	var cleanupErrors []error
 	for i := len(subengines) - 1; i >= 0; i-- {
 		subengine := subengines[i]
 		fmt.Fprintf(os.Stderr, "Tearing down %s...\n", subengine.Engine)
@@ -137,8 +148,7 @@ func orchestrateDelete(config forge.Spec, setupAlias string, env *forge.TestEnvi
 		// Resolve engine URI to binary path
 		command, args, err := resolveEngineURI(subengine.Engine)
 		if err != nil {
-			// Log error but continue with other subengines (best effort)
-			fmt.Fprintf(os.Stderr, "  Warning: failed to resolve engine %s: %v\n", subengine.Engine, err)
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to resolve engine %s: %w", subengine.Engine, err))
 			continue
 		}
 
@@ -151,12 +161,16 @@ func orchestrateDelete(config forge.Spec, setupAlias string, env *forge.TestEnvi
 		// Call subengine's delete tool via MCP
 		_, err = callMCPEngine(command, args, "delete", params)
 		if err != nil {
-			// Log error but continue with other subengines (best effort)
-			fmt.Fprintf(os.Stderr, "  Warning: failed to delete with %s: %v\n", subengine.Engine, err)
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to delete with %s: %w", subengine.Engine, err))
 			continue
 		}
 
 		fmt.Fprintf(os.Stderr, "  ✓ %s teardown complete\n", subengine.Engine)
+	}
+
+	// Return error if any cleanup failed - prevents silent resource leaks
+	if len(cleanupErrors) > 0 {
+		return fmt.Errorf("cleanup errors (resources may be leaked): %v", cleanupErrors)
 	}
 
 	return nil

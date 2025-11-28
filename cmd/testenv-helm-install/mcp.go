@@ -228,6 +228,31 @@ func runMCPServer() error {
 	return server.RunDefault()
 }
 
+// resolveChartPath resolves a chart path relative to RootDir if applicable.
+// Returns the resolved absolute path, or the original path if no resolution is needed.
+// Returns an error if the resolved path does not exist.
+func resolveChartPath(chart ChartSpec, rootDir string) (string, error) {
+	// Only resolve local charts with non-empty paths
+	if chart.SourceType != "local" || chart.Path == "" {
+		return chart.Path, nil
+	}
+
+	resolvedPath := chart.Path
+
+	// Resolve relative paths using RootDir
+	if rootDir != "" && !filepath.IsAbs(chart.Path) {
+		resolvedPath = filepath.Join(rootDir, chart.Path)
+		log.Printf("Resolved local chart path: %s", resolvedPath)
+	}
+
+	// Validate resolved path exists (fail-fast)
+	if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("local chart not found: %s", resolvedPath)
+	}
+
+	return resolvedPath, nil
+}
+
 // installHelmCharts implements the CreateFunc for installing Helm charts.
 func installHelmCharts(ctx context.Context, input engineframework.CreateInput) (*engineframework.TestEnvArtifact, error) {
 	log.Printf("Installing Helm charts: testID=%s, stage=%s", input.TestID, input.Stage)
@@ -257,6 +282,18 @@ func installHelmCharts(ctx context.Context, input engineframework.CreateInput) (
 			Metadata:         map[string]string{"testenv-helm-install.chartCount": "0"},
 			ManagedResources: []string{},
 		}, nil
+	}
+
+	// Resolve relative paths for local charts using RootDir
+	// This MUST happen before installChart() since installChart has no access to CreateInput
+	for i := range charts {
+		if charts[i].SourceType == "local" && charts[i].Path != "" {
+			resolvedPath, err := resolveChartPath(charts[i], input.RootDir)
+			if err != nil {
+				return nil, err
+			}
+			charts[i].Path = resolvedPath
+		}
 	}
 
 	// Get kubeconfig path from environment (primary source, from testenv-kind)
@@ -373,7 +410,12 @@ func uninstallHelmCharts(ctx context.Context, input engineframework.DeleteInput)
 		return nil
 	}
 
-	// Uninstall each chart in reverse order (best effort)
+	// Check if kubeconfig file exists - if not, this is a bug in the cleanup order
+	if _, err := os.Stat(kubeconfigPath); os.IsNotExist(err) {
+		return fmt.Errorf("kubeconfig file does not exist at %s - cluster was deleted before helm uninstall (cleanup order bug)", kubeconfigPath)
+	}
+
+	// Uninstall each chart in reverse order
 	for i := chartCount - 1; i >= 0; i-- {
 		prefix := fmt.Sprintf("testenv-helm-install.chart.%d", i)
 		releaseName := input.Metadata[prefix+".releaseName"]
