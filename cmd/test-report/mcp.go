@@ -103,8 +103,11 @@ func handleGetTool(
 	// Get artifact store path (environment variable takes precedence)
 	artifactStorePath := os.Getenv("FORGE_ARTIFACT_STORE_PATH")
 	if artifactStorePath == "" {
-		var err error
-		artifactStorePath, err = forge.GetArtifactStorePath(".forge/artifacts.yaml")
+		config, err := forge.ReadSpec()
+		if err != nil {
+			return mcputil.ErrorResult(fmt.Sprintf("Get failed: %v", err)), nil, nil
+		}
+		artifactStorePath, err = forge.GetArtifactStorePath(config.ArtifactStorePath)
 		if err != nil {
 			return mcputil.ErrorResult(fmt.Sprintf("Get failed: %v", err)), nil, nil
 		}
@@ -165,8 +168,11 @@ func handleListTool(
 	// Get artifact store path (environment variable takes precedence)
 	artifactStorePath := os.Getenv("FORGE_ARTIFACT_STORE_PATH")
 	if artifactStorePath == "" {
-		var err error
-		artifactStorePath, err = forge.GetArtifactStorePath(".forge/artifacts.yaml")
+		config, err := forge.ReadSpec()
+		if err != nil {
+			return mcputil.ErrorResult(fmt.Sprintf("List failed: %v", err)), nil, nil
+		}
+		artifactStorePath, err = forge.GetArtifactStorePath(config.ArtifactStorePath)
 		if err != nil {
 			return mcputil.ErrorResult(fmt.Sprintf("List failed: %v", err)), nil, nil
 		}

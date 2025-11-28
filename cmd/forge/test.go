@@ -268,7 +268,11 @@ func testDeleteEnv(testSpec *forge.TestSpec, args []string) error {
 
 	// Handle noop engine (just remove from artifact store)
 	if testSpec.Testenv == "" || testSpec.Testenv == "noop" {
-		artifactStorePath, err := forge.GetArtifactStorePath(".forge/artifacts.json")
+		config, err := loadConfig()
+		if err != nil {
+			return fmt.Errorf("failed to read forge.yaml: %w", err)
+		}
+		artifactStorePath, err := forge.GetArtifactStorePath(config.ArtifactStorePath)
 		if err != nil {
 			return fmt.Errorf("failed to get artifact store path: %w", err)
 		}
@@ -861,10 +865,10 @@ func storeTestReportFromResult(result any, config *forge.Spec) error {
 		return fmt.Errorf("failed to unmarshal test report: %w", err)
 	}
 
-	// Get artifact store path
-	artifactStorePath := config.ArtifactStorePath
-	if artifactStorePath == "" {
-		artifactStorePath = ".forge/artifacts.yaml"
+	// Get artifact store path (use proper default if not set)
+	artifactStorePath, err := forge.GetArtifactStorePath(config.ArtifactStorePath)
+	if err != nil {
+		return fmt.Errorf("failed to get artifact store path: %w", err)
 	}
 
 	// Read or create artifact store
@@ -886,7 +890,11 @@ func storeTestReportFromResult(result any, config *forge.Spec) error {
 
 // updateTestStatus updates the status of a test environment in the artifact store.
 func updateTestStatus(testID, status string) {
-	artifactStorePath, err := forge.GetArtifactStorePath(".forge/artifacts.json")
+	config, err := loadConfig()
+	if err != nil {
+		return
+	}
+	artifactStorePath, err := forge.GetArtifactStorePath(config.ArtifactStorePath)
 	if err != nil {
 		return
 	}

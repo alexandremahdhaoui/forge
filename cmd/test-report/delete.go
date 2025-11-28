@@ -23,7 +23,14 @@ func cmdDelete(reportID string) error {
 	// Get artifact store path from environment variable
 	artifactStorePath := os.Getenv("FORGE_ARTIFACT_STORE_PATH")
 	if artifactStorePath == "" {
-		artifactStorePath = ".forge/artifacts.yaml"
+		config, err := forge.ReadSpec()
+		if err != nil {
+			return fmt.Errorf("failed to read forge.yaml: %w", err)
+		}
+		artifactStorePath, err = forge.GetArtifactStorePath(config.ArtifactStorePath)
+		if err != nil {
+			return fmt.Errorf("failed to get artifact store path: %w", err)
+		}
 	}
 
 	// Read artifact store

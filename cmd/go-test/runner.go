@@ -100,8 +100,12 @@ func storeTestReport(report *TestReport, junitFile, coverageFile string) error {
 	// Get artifact store path (environment variable takes precedence)
 	artifactStorePath := os.Getenv("FORGE_ARTIFACT_STORE_PATH")
 	if artifactStorePath == "" {
-		var err error
-		artifactStorePath, err = forge.GetArtifactStorePath(".forge/artifacts.yaml")
+		// Read forge.yaml to get the artifact store path
+		config, err := forge.ReadSpec()
+		if err != nil {
+			return fmt.Errorf("failed to read forge.yaml: %w", err)
+		}
+		artifactStorePath, err = forge.GetArtifactStorePath(config.ArtifactStorePath)
 		if err != nil {
 			return fmt.Errorf("failed to get artifact store path: %w", err)
 		}
