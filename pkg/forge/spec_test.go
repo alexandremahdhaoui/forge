@@ -116,7 +116,6 @@ name: test-project
 artifactStorePath: .forge/artifact-store.yaml
 localContainerRegistry:
   enabled: true
-  autoPushImages: true
   credentialPath: /custom/path/credentials.yaml
   caCrtPath: /custom/path/ca.crt
   imagePullSecretName: my-secret
@@ -161,9 +160,6 @@ localContainerRegistry:
 	}
 	if !lcr.Enabled {
 		t.Errorf("Enabled = %v, want true", lcr.Enabled)
-	}
-	if !lcr.AutoPushImages {
-		t.Errorf("AutoPushImages = %v, want true", lcr.AutoPushImages)
 	}
 	if lcr.CredentialPath != "/custom/path/credentials.yaml" {
 		t.Errorf("CredentialPath = %q, want %q", lcr.CredentialPath, "/custom/path/credentials.yaml")

@@ -32,9 +32,10 @@ tmp/
 /build-container
 /container-build
 /go-gen-openapi
-/testenv-helm-install
 /go-dependency-detector
 /testenv
+/testenv-helm-install
+/testenv-lcr
 /go-gen-mocks
 /go-gen-mocks-dep-detector
 /go-gen-openapi-dep-detector

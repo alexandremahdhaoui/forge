@@ -61,8 +61,9 @@ func cmdDelete(reportID string) error {
 		}
 	}
 
-	// Delete test report from store
-	if err := forge.DeleteTestReport(&store, reportID); err != nil {
+	// Delete test report from store atomically
+	// Use AtomicDeleteTestReport to avoid race conditions with concurrent writes
+	if err := forge.AtomicDeleteTestReport(artifactStorePath, reportID); err != nil {
 		// Report couldn't be deleted from store
 		result := DeleteResult{
 			ID:               reportID,
@@ -74,21 +75,6 @@ func cmdDelete(reportID string) error {
 		}
 		outputResult(result)
 		return fmt.Errorf("failed to delete test report: %w", err)
-	}
-
-	// Write updated artifact store
-	if err := forge.WriteArtifactStore(artifactStorePath, store); err != nil {
-		// Files deleted but store update failed
-		result := DeleteResult{
-			ID:               reportID,
-			Success:          false,
-			DeletedFiles:     deletedFiles,
-			FailedFiles:      failedFiles,
-			ErrorMessage:     fmt.Sprintf("failed to write artifact store: %v", err),
-			PartiallyDeleted: true,
-		}
-		outputResult(result)
-		return fmt.Errorf("failed to write artifact store: %w", err)
 	}
 
 	// Success

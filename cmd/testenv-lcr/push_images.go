@@ -17,7 +17,6 @@ import (
 var (
 	errLoggingInToRegistry    = errors.New("logging in to registry")
 	errPushingSingleImage     = errors.New("pushing image")
-	errPushingImages          = errors.New("pushing images from artifact store")
 	errReadingCredentials     = errors.New("reading credentials")
 	errSettingUpDockerCerts   = errors.New("setting up docker certificates")
 	errTearingDownDockerCerts = errors.New("tearing down docker certificates")
@@ -218,47 +217,4 @@ func withRegistryAccess(
 
 	// V. Execute the provided function
 	return fn(registryFQDNWithPort)
-}
-
-// pushImagesFromArtifactStore reads the artifact store and pushes all container images
-// defined in the project configuration to the local container registry.
-func pushImagesFromArtifactStore(ctx context.Context, config forge.Spec, envs Envs) error {
-	_, _ = fmt.Fprintln(os.Stdout, "⏳ Pushing images from artifact store")
-
-	return withRegistryAccess(ctx, config, envs, func(registryFQDNWithPort string) error {
-		// I. Read artifact store
-		store, err := forge.ReadOrCreateArtifactStore(config.ArtifactStorePath)
-		if err != nil {
-			return flaterrors.Join(err, errPushingImages)
-		}
-
-		// II. For each container spec in the config, find the latest artifact and push it
-		for _, spec := range config.Build {
-			// Skip if not a container spec (check engine field)
-			if spec.Engine != "go://container-build" {
-				continue
-			}
-
-			// Get latest artifact for this container
-			artifact, err := forge.GetLatestArtifact(store, spec.Name)
-			if err != nil {
-				// If no artifact found, skip with warning
-				_, _ = fmt.Fprintf(
-					os.Stderr,
-					"⚠️  Warning: %s - skipping %s\n",
-					err.Error(),
-					spec.Name,
-				)
-				continue
-			}
-
-			// Push the image using FQDN:PORT (Location contains "build-container:abc123")
-			if err := pushImage(envs.ContainerEngineExecutable, artifact.Location, registryFQDNWithPort); err != nil {
-				return flaterrors.Join(err, errPushingImages)
-			}
-		}
-
-		_, _ = fmt.Fprintln(os.Stdout, "✅ All images pushed successfully")
-		return nil
-	})
 }

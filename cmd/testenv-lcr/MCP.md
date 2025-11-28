@@ -68,7 +68,7 @@ Create local container registry in Kind cluster.
 7. Deploys registry:2 with TLS and auth
 8. Exports CA cert and credentials to tmpDir
 9. Updates /etc/hosts for registry FQDN
-10. Auto-pushes images from artifact store (if autoPushImages: true)
+10. Pushes images specified in spec.images (if configured)
 11. Creates image pull secrets in configured namespaces (if imagePullSecretNamespaces specified)
 
 **Example:**
@@ -244,7 +244,6 @@ localContainerRegistry:
   namespace: testenv-lcr                            # Optional: defaults to "testenv-lcr"
   credentialPath: .forge/registry-credentials.yaml  # Optional: overridden by tmpDir
   caCrtPath: .forge/ca.crt                          # Optional: overridden by tmpDir
-  autoPushImages: true                              # Optional: defaults to false
   imagePullSecretNamespaces:                        # Optional: list of namespaces for image pull secrets
     - default
     - my-app
@@ -257,7 +256,6 @@ localContainerRegistry:
 - `namespace` (string, optional, default: `"testenv-lcr"`): Kubernetes namespace for deployment
 - `credentialPath` (string, optional): Path to store registry credentials (overridden by tmpDir in MCP mode)
 - `caCrtPath` (string, optional): Path to store CA certificate (overridden by tmpDir in MCP mode)
-- `autoPushImages` (boolean, optional, default: `false`): Automatically push images from artifact store on setup
 - `imagePullSecretNamespaces` ([]string, optional): List of namespaces where image pull secrets should be created
 - `imagePullSecretName` (string, optional, default: `"local-container-registry-credentials"`): Name of the image pull secret
 
@@ -274,10 +272,68 @@ engines:
         spec:
           enabled: true
           namespace: custom-namespace  # Override default
-          autoPushImages: true
           imagePullSecretNamespaces:
             - default
             - my-app-namespace
+          images:  # Image configuration (see below)
+            - name: local://myapp:latest
+            - name: quay.io/example/img:v1.2.3
+```
+
+### Image Configuration
+
+The `images` field allows explicit declaration of container images to push to the local registry:
+
+#### Spec Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| images | []ImageSource | List of images to push to local registry |
+
+#### ImageSource
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| name | string | Yes | Image reference (local://name:tag or registry/path:tag) |
+| basicAuth | BasicAuth | No | Credentials for private registries |
+
+#### BasicAuth
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| username | ValueFrom | Yes | Username credential |
+| password | ValueFrom | Yes | Password credential |
+
+#### ValueFrom
+
+| Field | Type | Description |
+|-------|------|-------------|
+| envName | string | Environment variable name (mutually exclusive with literal) |
+| literal | string | Direct literal value (mutually exclusive with envName) |
+
+#### Image Name Formats
+
+- **Local images**: `local://name:tag` - Image already exists in local Docker daemon
+- **Remote images**: `registry/path:tag` - Will be pulled from remote registry
+- Tags are **mandatory** (no :latest inference)
+
+#### Example Configuration
+
+```yaml
+engines:
+  - alias: testenv-integration
+    type: testenv
+    testenv:
+      - engine: go://testenv-lcr
+        spec:
+          images:
+            - name: local://myapp:latest
+            - name: quay.io/example/img:v1.2.3
+              basicAuth:
+                username:
+                  envName: "QUAY_USER"
+                password:
+                  envName: "QUAY_PASS"
 ```
 
 ## Registry Details

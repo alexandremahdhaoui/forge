@@ -97,14 +97,10 @@ func cmdDelete(testID string) error {
 		}
 	}
 
-	// Remove from artifact store
-	if err := forge.DeleteTestEnvironment(&store, testID); err != nil {
+	// Atomically remove from artifact store
+	// Use AtomicDeleteTestEnvironment to avoid race conditions with concurrent writes
+	if err := forge.AtomicDeleteTestEnvironment(artifactStorePath, testID); err != nil {
 		return fmt.Errorf("failed to delete test environment: %w", err)
-	}
-
-	// Write updated artifact store
-	if err := forge.WriteArtifactStore(artifactStorePath, store); err != nil {
-		return fmt.Errorf("failed to write artifact store: %w", err)
 	}
 
 	// Print to stderr to avoid interfering with MCP JSON output

@@ -49,10 +49,19 @@ engines:
         #    is defined by {.kindenv.kubeconfigPath}.
         engine: "go://testenv-lcr"
         spec:
-          # -- autoPushImages defines whether to automatically push images from artifact store on setup.
-          autoPushImages: true
           # -- enabled defines whether the local container registry must be created or not.
           enabled: true
+          # -- images defines the list of images to push to the local container registry.
+          # Use local:// prefix for locally built images (e.g., local://myapp:v1.0.0)
+          # Use full registry path for remote images (e.g., quay.io/example/img:v1)
+          # images:
+          #   - name: local://myapp:v1.0.0
+          #   - name: quay.io/example/myimage:v1.2.3
+          #     basicAuth:
+          #       username:
+          #         envName: "QUAY_USER"
+          #       password:
+          #         envName: "QUAY_PASS"
           # -- creadentialPath defines the output file containing the container registry credentials.
           # credentialPath: .ignore.local-container-registry.yaml
           # -- path to CA certificate.

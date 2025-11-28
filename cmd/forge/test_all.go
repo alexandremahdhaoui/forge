@@ -54,8 +54,8 @@ func runTestAll(args []string) error {
 
 			// Auto-delete test environment before returning (best-effort)
 			// Use the specific testID returned by testRun to avoid mismatch
-			if testSpec.Testenv != "" && testSpec.Testenv != "noop" && testID != "" {
-				if cleanupErr := cleanupTestEnvironment(&config, testSpec, testID); cleanupErr != nil {
+			if testID != "" {
+				if cleanupErr := cleanupTestEnvironmentByID(testSpec, testID); cleanupErr != nil {
 					fmt.Printf("⚠️  Warning: Failed to cleanup test environment for stage '%s': %v\n", testSpec.Name, cleanupErr)
 				} else {
 					fmt.Printf("🧹 Cleaned up test environment for stage '%s'\n", testSpec.Name)
@@ -68,8 +68,8 @@ func runTestAll(args []string) error {
 
 		// Auto-delete test environment if one was created (success case)
 		// Use the specific testID returned by testRun to avoid mismatch
-		if testSpec.Testenv != "" && testSpec.Testenv != "noop" && testID != "" {
-			if cleanupErr := cleanupTestEnvironment(&config, testSpec, testID); cleanupErr != nil {
+		if testID != "" {
+			if cleanupErr := cleanupTestEnvironmentByID(testSpec, testID); cleanupErr != nil {
 				// Log but don't fail - cleanup is best effort
 				fmt.Printf("⚠️  Warning: Failed to cleanup test environment for stage '%s': %v\n", testSpec.Name, cleanupErr)
 			} else {
@@ -83,13 +83,12 @@ func runTestAll(args []string) error {
 	return nil
 }
 
-// cleanupTestEnvironment deletes a specific test environment by its testID.
+// cleanupTestEnvironmentByID deletes a specific test environment by its ID.
 // This ensures we delete exactly the environment that was created by testRun,
 // avoiding mismatch when multiple environments exist for the same stage.
-func cleanupTestEnvironment(config *forge.Spec, testSpec *forge.TestSpec, testID string) error {
-	// Safety check - don't try to delete empty testID
+func cleanupTestEnvironmentByID(testSpec *forge.TestSpec, testID string) error {
 	if testID == "" {
-		return nil
+		return fmt.Errorf("testID is required for cleanup")
 	}
 
 	// Delete it using testDeleteEnv with the specific testID

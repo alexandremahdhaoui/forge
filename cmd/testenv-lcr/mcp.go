@@ -80,13 +80,20 @@ func createLocalContainerRegistry(ctx context.Context, input engineframework.Cre
 		return nil, fmt.Errorf("failed to read forge spec: %w", err)
 	}
 
+	// Parse images configuration
+	var images []ImageSource
+	if input.Spec != nil {
+		var err error
+		images, err = parseImagesFromSpec(input.Spec)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse images: %w", err)
+		}
+	}
+
 	// Override config with spec values if provided
 	if input.Spec != nil {
 		if enabled, ok := input.Spec["enabled"].(bool); ok {
 			config.LocalContainerRegistry.Enabled = enabled
-		}
-		if autoPush, ok := input.Spec["autoPushImages"].(bool); ok {
-			config.LocalContainerRegistry.AutoPushImages = autoPush
 		}
 		if namespace, ok := input.Spec["namespace"].(string); ok {
 			config.LocalContainerRegistry.Namespace = namespace
@@ -169,6 +176,17 @@ func createLocalContainerRegistry(ctx context.Context, input engineframework.Cre
 	managedResources := []string{
 		caCrtPath,
 		credentialPath,
+	}
+
+	// Process images if configured
+	if len(images) > 0 {
+		envs, err := readEnvs()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read environment: %w", err)
+		}
+		if err := processImages(ctx, images, config, envs); err != nil {
+			return nil, fmt.Errorf("failed to process images: %w", err)
+		}
 	}
 
 	// Add image pull secret information if they were created

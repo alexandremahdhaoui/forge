@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/caarlos0/env/v11"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -16,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/alexandremahdhaoui/forge/internal/cli"
-	"github.com/alexandremahdhaoui/forge/internal/util"
 	"github.com/alexandremahdhaoui/forge/pkg/flaterrors"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
@@ -156,36 +154,7 @@ func setupWithConfig(cfg *forge.Spec) error {
 		return flaterrors.Join(err, errSettingLocalContainerRegistry)
 	}
 
-	// IX. Wait for registry deployment to be ready before auto-pushing
-	if config.LocalContainerRegistry.AutoPushImages && len(config.Build) > 0 {
-		_, _ = fmt.Fprintln(os.Stdout, "⏳ Waiting for registry to be ready")
-		waitCmd := exec.Command(
-			"kubectl",
-			"wait",
-			"--for=condition=available",
-			"--timeout=60s",
-			"-n", config.LocalContainerRegistry.Namespace,
-			"deployment/"+Name,
-		)
-		waitCmd.Env = append(
-			os.Environ(),
-			fmt.Sprintf("KUBECONFIG=%s", config.Kindenv.KubeconfigPath),
-		)
-		if err := util.RunCmdWithStdPipes(waitCmd); err != nil {
-			_, _ = fmt.Fprintf(
-				os.Stderr,
-				"⚠️  Warning: registry deployment not ready: %s\n",
-				err.Error(),
-			)
-		} else {
-			if err := pushImagesFromArtifactStore(ctx, config, envs); err != nil {
-				// Log warning but don't fail setup if push fails
-				_, _ = fmt.Fprintf(os.Stderr, "⚠️  Warning: failed to auto-push images: %s\n", err.Error())
-			}
-		}
-	}
-
-	// X. Create image pull secrets in configured namespaces
+	// IX. Create image pull secrets in configured namespaces
 	if len(config.LocalContainerRegistry.ImagePullSecretNamespaces) > 0 {
 		_, _ = fmt.Fprintf(os.Stdout, "⏳ Creating image pull secrets in %d namespace(s)\n",
 			len(config.LocalContainerRegistry.ImagePullSecretNamespaces))

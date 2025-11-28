@@ -386,6 +386,10 @@ func unlockArtifactStore(lockFile *os.File) error {
 // WriteArtifactStore writes the artifact store to the specified path.
 // Before writing, it prunes old build artifacts to keep only the 3 most recent per type+name.
 // This function uses file locking to prevent concurrent write conflicts.
+//
+// IMPORTANT: This function performs an atomic read-merge-write to prevent race conditions.
+// After acquiring the lock, it re-reads the current store from disk and merges TestEnvironments
+// and TestReports to preserve entries that may have been written by concurrent processes.
 func WriteArtifactStore(path string, store ArtifactStore) error {
 	// Acquire exclusive lock
 	lockFile, err := lockArtifactStore(path)
@@ -393,6 +397,39 @@ func WriteArtifactStore(path string, store ArtifactStore) error {
 		return flaterrors.Join(err, errWritingArtifactStore)
 	}
 	defer func() { _ = unlockArtifactStore(lockFile) }()
+
+	// Re-read current store from disk while holding the lock
+	// This prevents race conditions where concurrent processes lose each other's writes
+	currentStore, err := ReadArtifactStore(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return flaterrors.Join(err, errWritingArtifactStore)
+	}
+
+	// Merge TestEnvironments: preserve entries from disk that aren't in the incoming store
+	// The incoming store's entries take precedence (they're newer)
+	if currentStore.TestEnvironments != nil {
+		if store.TestEnvironments == nil {
+			store.TestEnvironments = make(map[string]*TestEnvironment)
+		}
+		for id, env := range currentStore.TestEnvironments {
+			if _, exists := store.TestEnvironments[id]; !exists {
+				store.TestEnvironments[id] = env
+			}
+		}
+	}
+
+	// Merge TestReports: preserve entries from disk that aren't in the incoming store
+	// The incoming store's entries take precedence (they're newer)
+	if currentStore.TestReports != nil {
+		if store.TestReports == nil {
+			store.TestReports = make(map[string]*TestReport)
+		}
+		for id, report := range currentStore.TestReports {
+			if _, exists := store.TestReports[id]; !exists {
+				store.TestReports[id] = report
+			}
+		}
+	}
 
 	// Prune old build artifacts (keep only 3 most recent per type+name)
 	PruneBuildArtifacts(&store, 3)
@@ -566,6 +603,7 @@ func ListTestEnvironments(store *ArtifactStore, stageName string) []*TestEnviron
 }
 
 // DeleteTestEnvironment removes a test environment from the store.
+// DEPRECATED: Use AtomicDeleteTestEnvironment instead for proper atomic operations.
 func DeleteTestEnvironment(store *ArtifactStore, id string) error {
 	if store == nil || store.TestEnvironments == nil {
 		return flaterrors.Join(
@@ -583,6 +621,57 @@ func DeleteTestEnvironment(store *ArtifactStore, id string) error {
 
 	delete(store.TestEnvironments, id)
 	store.LastUpdated = time.Now().UTC()
+	return nil
+}
+
+// AtomicDeleteTestEnvironment atomically deletes a test environment from the artifact store.
+// This function handles file locking internally and reads/writes the store atomically.
+// Use this function instead of DeleteTestEnvironment + WriteArtifactStore to avoid race conditions.
+func AtomicDeleteTestEnvironment(path string, id string) error {
+	// Acquire exclusive lock
+	lockFile, err := lockArtifactStore(path)
+	if err != nil {
+		return flaterrors.Join(err, errWritingArtifactStore)
+	}
+	defer func() { _ = unlockArtifactStore(lockFile) }()
+
+	// Read current store from disk while holding the lock
+	store, err := ReadArtifactStore(path)
+	if err != nil {
+		return flaterrors.Join(err, errWritingArtifactStore)
+	}
+
+	// Delete the test environment
+	if store.TestEnvironments == nil {
+		return flaterrors.Join(
+			errors.New("test environment not found: "+id),
+			errTestEnvironmentNotFound,
+		)
+	}
+
+	if _, exists := store.TestEnvironments[id]; !exists {
+		return flaterrors.Join(
+			errors.New("test environment not found: "+id),
+			errTestEnvironmentNotFound,
+		)
+	}
+
+	delete(store.TestEnvironments, id)
+	store.LastUpdated = time.Now().UTC()
+
+	// Prune old build artifacts (keep only 3 most recent per type+name)
+	PruneBuildArtifacts(&store, 3)
+
+	// Write directly without merge (we already read the current state)
+	b, err := yaml.Marshal(store)
+	if err != nil {
+		return flaterrors.Join(err, errWritingArtifactStore)
+	}
+
+	if err := os.WriteFile(path, b, 0o600); err != nil {
+		return flaterrors.Join(err, errWritingArtifactStore)
+	}
+
 	return nil
 }
 
@@ -646,6 +735,7 @@ func ListTestReports(store *ArtifactStore, stageName string) []*TestReport {
 }
 
 // DeleteTestReport removes a test report from the store.
+// DEPRECATED: Use AtomicDeleteTestReport instead for proper atomic operations.
 // Note: This does not delete the actual artifact files. Callers should handle
 // file cleanup separately using the report.ArtifactFiles list.
 func DeleteTestReport(store *ArtifactStore, id string) error {
@@ -665,6 +755,59 @@ func DeleteTestReport(store *ArtifactStore, id string) error {
 
 	delete(store.TestReports, id)
 	store.LastUpdated = time.Now().UTC()
+	return nil
+}
+
+// AtomicDeleteTestReport atomically deletes a test report from the artifact store.
+// This function handles file locking internally and reads/writes the store atomically.
+// Use this function instead of DeleteTestReport + WriteArtifactStore to avoid race conditions.
+// Note: This does not delete the actual artifact files. Callers should handle
+// file cleanup separately using the report.ArtifactFiles list.
+func AtomicDeleteTestReport(path string, id string) error {
+	// Acquire exclusive lock
+	lockFile, err := lockArtifactStore(path)
+	if err != nil {
+		return flaterrors.Join(err, errWritingArtifactStore)
+	}
+	defer func() { _ = unlockArtifactStore(lockFile) }()
+
+	// Read current store from disk while holding the lock
+	store, err := ReadArtifactStore(path)
+	if err != nil {
+		return flaterrors.Join(err, errWritingArtifactStore)
+	}
+
+	// Delete the test report
+	if store.TestReports == nil {
+		return flaterrors.Join(
+			errors.New("test report not found: "+id),
+			errTestReportNotFound,
+		)
+	}
+
+	if _, exists := store.TestReports[id]; !exists {
+		return flaterrors.Join(
+			errors.New("test report not found: "+id),
+			errTestReportNotFound,
+		)
+	}
+
+	delete(store.TestReports, id)
+	store.LastUpdated = time.Now().UTC()
+
+	// Prune old build artifacts (keep only 3 most recent per type+name)
+	PruneBuildArtifacts(&store, 3)
+
+	// Write directly without merge (we already read the current state)
+	b, err := yaml.Marshal(store)
+	if err != nil {
+		return flaterrors.Join(err, errWritingArtifactStore)
+	}
+
+	if err := os.WriteFile(path, b, 0o600); err != nil {
+		return flaterrors.Join(err, errWritingArtifactStore)
+	}
+
 	return nil
 }
 
