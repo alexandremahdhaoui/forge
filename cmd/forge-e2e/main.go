@@ -198,17 +198,15 @@ func (se *suiteEnvironment) setup(tests []Test) error {
 	return nil
 }
 
-// shouldCreateSharedTestEnv checks if any tests need a shared test environment
+// shouldCreateSharedTestEnv checks if any tests need a shared test environment.
+// Note: Since we use e2e-stub (no KIND required), we always create the shared env
+// if any testenv-dependent tests exist.
 func (se *suiteEnvironment) shouldCreateSharedTestEnv(tests []Test) bool {
-	// Check if KIND_BINARY is available
-	if shouldSkipTestEnvTests() {
-		return false
-	}
-
 	// Check if any tests are testenv-dependent
 	for _, test := range tests {
 		switch test.Category {
-		case CategoryTestEnv, CategoryTestRunner, CategoryPerformance, CategoryCleanup, CategoryError, CategoryArtifactStore:
+		case CategoryTestEnv, CategoryArtifactStore:
+			// These categories use e2e-stub (no KIND required)
 			if !test.Skip {
 				return true
 			}
@@ -217,9 +215,12 @@ func (se *suiteEnvironment) shouldCreateSharedTestEnv(tests []Test) bool {
 	return false
 }
 
-// createSharedTestEnv creates a shared test environment for reuse across tests
+// createSharedTestEnv creates a shared test environment for reuse across tests.
+// Uses e2e-stub stage for fast testenv CRUD testing (no real resources).
+// The integration stage with KIND is only used for tests that need a real cluster.
 func (se *suiteEnvironment) createSharedTestEnv() (string, error) {
-	cmd := exec.Command("./build/bin/forge", "test", "create-env", "integration")
+	// Use e2e-stub for fast testenv CRUD tests (no real resources created)
+	cmd := exec.Command("./build/bin/forge", "test", "create-env", "e2e-stub")
 	cmd.Env = os.Environ()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -231,12 +232,7 @@ func (se *suiteEnvironment) createSharedTestEnv() (string, error) {
 		return "", fmt.Errorf("failed to extract testID from output: %s", output)
 	}
 
-	// Verify cluster was created successfully
-	if err := testutil.VerifyClusterExists(testID); err != nil {
-		_ = testutil.ForceCleanupTestEnv(testID)
-		return "", fmt.Errorf("cluster verification failed: %w", err)
-	}
-
+	// No cluster verification needed for stub environment
 	return testID, nil
 }
 
@@ -247,10 +243,10 @@ func (se *suiteEnvironment) teardown() {
 		return
 	}
 
-	// Cleanup shared test environment if it was created
+	// Cleanup shared test environment if it was created (uses e2e-stub stage)
 	if se.sharedTestEnvID != "" {
 		fmt.Fprintf(os.Stderr, "\n=== Cleaning Up Shared Test Environment ===\n")
-		if err := testutil.ForceCleanupTestEnv(se.sharedTestEnvID); err != nil {
+		if err := testutil.ForceCleanupTestEnv(se.sharedTestEnvID, "e2e-stub"); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to cleanup shared environment: %v\n", err)
 		} else {
 			fmt.Fprintf(os.Stderr, "✓ Shared test environment cleaned up\n")
@@ -728,50 +724,40 @@ func registerAllTests(suite *TestSuite) {
 	// INTEGRATION TESTS - Test with real infrastructure (KIND clusters)
 	// ====================================================================
 
-	// Phase 3: TestEnv lifecycle tests (Integration)
+	// Phase 3: TestEnv lifecycle tests (using e2e-stub - no KIND required)
 	suite.AddTest(Test{
-		Name:       "test environment create",
-		Category:   CategoryTestEnv,
-		Run:        testTestEnvCreate,
-		Skip:       shouldSkipTestEnvTests(),
-		SkipReason: "KIND_BINARY not available",
-		Parallel:   false, // Sequential to avoid artifact store locking contention
+		Name:     "test environment create",
+		Category: CategoryTestEnv,
+		Run:      testTestEnvCreate,
+		Parallel: false, // Sequential to avoid artifact store locking contention
 	})
 
 	suite.AddTest(Test{
-		Name:       "test environment list",
-		Category:   CategoryTestEnv,
-		Run:        testTestEnvList,
-		Skip:       shouldSkipTestEnvTests(),
-		SkipReason: "KIND_BINARY not available",
-		Parallel:   false, // Uses shared environment - sequential
+		Name:     "test environment list",
+		Category: CategoryTestEnv,
+		Run:      testTestEnvList,
+		Parallel: false, // Uses shared environment - sequential
 	})
 
 	suite.AddTest(Test{
-		Name:       "test environment get",
-		Category:   CategoryTestEnv,
-		Run:        testTestEnvGet,
-		Skip:       shouldSkipTestEnvTests(),
-		SkipReason: "KIND_BINARY not available",
-		Parallel:   false, // Uses shared environment - sequential
+		Name:     "test environment get",
+		Category: CategoryTestEnv,
+		Run:      testTestEnvGet,
+		Parallel: false, // Uses shared environment - sequential
 	})
 
 	suite.AddTest(Test{
-		Name:       "test environment get JSON",
-		Category:   CategoryTestEnv,
-		Run:        testTestEnvGetJSON,
-		Skip:       shouldSkipTestEnvTests(),
-		SkipReason: "KIND_BINARY not available",
-		Parallel:   false, // Uses shared environment - sequential
+		Name:     "test environment get JSON",
+		Category: CategoryTestEnv,
+		Run:      testTestEnvGetJSON,
+		Parallel: false, // Uses shared environment - sequential
 	})
 
 	suite.AddTest(Test{
-		Name:       "test environment delete",
-		Category:   CategoryTestEnv,
-		Run:        testTestEnvDelete,
-		Skip:       shouldSkipTestEnvTests(),
-		SkipReason: "KIND_BINARY not available",
-		Parallel:   false, // Sequential to avoid artifact store locking contention
+		Name:     "test environment delete",
+		Category: CategoryTestEnv,
+		Run:      testTestEnvDelete,
+		Parallel: false, // Sequential to avoid artifact store locking contention
 	})
 
 	suite.AddTest(Test{
@@ -1157,8 +1143,8 @@ func testForgeNoArgs(ts *TestSuite) error {
 // Phase 3: TestEnv Lifecycle Tests
 
 func testTestEnvCreate(ts *TestSuite) error {
-	// Create test environment
-	cmd := exec.Command("./build/bin/forge", "test", "create-env", "integration")
+	// Create test environment using e2e-stub (fast, no real resources)
+	cmd := exec.Command("./build/bin/forge", "test", "create-env", "e2e-stub")
 	cmd.Env = os.Environ()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1172,14 +1158,9 @@ func testTestEnvCreate(ts *TestSuite) error {
 	}
 
 	// Cleanup immediately after test
-	defer func() { _ = testutil.ForceCleanupTestEnv(testID) }()
+	defer func() { _ = testutil.ForceCleanupTestEnv(testID, "e2e-stub") }()
 
-	// Verify cluster exists
-	if err := testutil.VerifyClusterExists(testID); err != nil {
-		return fmt.Errorf("cluster verification failed: %w", err)
-	}
-
-	// Verify artifact store entry
+	// Verify artifact store entry (no cluster verification needed for stub)
 	if err := testutil.VerifyArtifactStoreHasTestEnv(testID); err != nil {
 		return fmt.Errorf("artifact store verification failed: %w", err)
 	}
@@ -1194,8 +1175,8 @@ func testTestEnvList(ts *TestSuite) error {
 		return fmt.Errorf("shared test environment not available")
 	}
 
-	// List test environments
-	listCmd := exec.Command("./build/bin/forge", "test", "list-env", "integration")
+	// List test environments (using e2e-stub stage)
+	listCmd := exec.Command("./build/bin/forge", "test", "list-env", "e2e-stub")
 	listOutput, err := listCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("list command failed: %w\nOutput: %s", err, listOutput)
@@ -1221,8 +1202,8 @@ func testTestEnvGet(ts *TestSuite) error {
 		return fmt.Errorf("shared test environment not available")
 	}
 
-	// Get test environment details
-	getCmd := exec.Command("./build/bin/forge", "test", "get-env", "integration", testID)
+	// Get test environment details (using e2e-stub stage)
+	getCmd := exec.Command("./build/bin/forge", "test", "get-env", "e2e-stub", testID)
 	getOutput, err := getCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("get command failed: %w\nOutput: %s", err, getOutput)
@@ -1251,8 +1232,8 @@ func testTestEnvGetJSON(ts *TestSuite) error {
 		return fmt.Errorf("shared test environment not available")
 	}
 
-	// Get test environment as JSON
-	getCmd := exec.Command("./build/bin/forge", "test", "get-env", "integration", testID, "-o", "json")
+	// Get test environment as JSON (using e2e-stub stage)
+	getCmd := exec.Command("./build/bin/forge", "test", "get-env", "e2e-stub", testID, "-o", "json")
 	getOutput, err := getCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("get JSON command failed: %w\nOutput: %s", err, getOutput)
@@ -1276,8 +1257,8 @@ func testTestEnvGetJSON(ts *TestSuite) error {
 }
 
 func testTestEnvDelete(ts *TestSuite) error {
-	// Create test environment
-	createCmd := exec.Command("./build/bin/forge", "test", "create-env", "integration")
+	// Create test environment using e2e-stub (fast, no real resources)
+	createCmd := exec.Command("./build/bin/forge", "test", "create-env", "e2e-stub")
 	createCmd.Env = os.Environ()
 	createOutput, err := createCmd.CombinedOutput()
 	if err != nil {
@@ -1289,31 +1270,17 @@ func testTestEnvDelete(ts *TestSuite) error {
 		return fmt.Errorf("failed to extract testID")
 	}
 
-	// Verify cluster exists before deletion
-	if err := testutil.VerifyClusterExists(testID); err != nil {
-		return fmt.Errorf("cluster not found before deletion: %w", err)
+	// Verify artifact store entry exists before deletion
+	if err := testutil.VerifyArtifactStoreHasTestEnv(testID); err != nil {
+		return fmt.Errorf("artifact store entry not found before deletion: %w", err)
 	}
 
 	// Delete test environment
-	deleteCmd := exec.Command("./build/bin/forge", "test", "delete-env", "integration", testID)
+	deleteCmd := exec.Command("./build/bin/forge", "test", "delete-env", "e2e-stub", testID)
 	deleteCmd.Env = os.Environ()
 	deleteOutput, err := deleteCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("delete command failed: %w\nOutput: %s", err, deleteOutput)
-	}
-
-	// Verify cluster no longer exists
-	kindBinary := os.Getenv("KIND_BINARY")
-	if kindBinary == "" {
-		kindBinary = "kind"
-	}
-
-	expectedClusterName := fmt.Sprintf("forge-%s", testID)
-	checkCmd := exec.Command(kindBinary, "get", "clusters")
-	checkOutput, _ := checkCmd.CombinedOutput()
-
-	if strings.Contains(string(checkOutput), expectedClusterName) {
-		return fmt.Errorf("cluster %s still exists after deletion", expectedClusterName)
 	}
 
 	// Verify artifact store no longer contains testID

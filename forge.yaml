@@ -21,6 +21,12 @@ engines:
   #         command: "go"
   #         args: ["run", "./cmd/go-lint-tags", "."]
 
+  # Fast stub testenv for e2e testing (no real resources created)
+  - alias: setup-e2e-stub
+    type: testenv
+    testenv:
+      - engine: "go://testenv-stub"
+
   - alias: setup-integration
     type: testenv
     testenv:
@@ -134,6 +140,11 @@ test:
   - name: e2e
     runner: "go://forge-e2e"
 
+  # -- e2e-stub - lightweight testenv for fast e2e testing of create/list/get/delete workflow
+  - name: e2e-stub
+    runner: "go://go-test"
+    testenv: "alias://setup-e2e-stub"
+
 # -- build defines the artifacts to build
 build:
   # Format code before building
@@ -164,6 +175,10 @@ build:
     engine: go://go-build
   - name: testenv-helm-install
     src: ./cmd/testenv-helm-install
+    dest: ./build/bin
+    engine: go://go-build
+  - name: testenv-stub
+    src: ./cmd/testenv-stub
     dest: ./build/bin
     engine: go://go-build
   - name: go-test

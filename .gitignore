@@ -39,3 +39,6 @@ tmp/
 /go-gen-mocks-dep-detector
 /go-gen-openapi-dep-detector
 /go-gen-protobuf
+/testenv-lcr
+/testenv-kind
+/testenv-stub

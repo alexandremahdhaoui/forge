@@ -94,25 +94,35 @@ func VerifyArtifactStoreMissingTestEnv(testID string) error {
 }
 
 // ForceCleanupTestEnv forcefully cleans up a test environment without artifact store dependency.
-func ForceCleanupTestEnv(testID string) error {
+// The stage parameter specifies which test stage the environment belongs to (e.g., "integration", "e2e-stub").
+// If stage is empty, it defaults to "integration".
+func ForceCleanupTestEnv(testID string, stage ...string) error {
 	if testID == "" {
 		return nil
 	}
 
-	var errors []error
-
-	// Delete KIND cluster
-	kindBinary := os.Getenv("KIND_BINARY")
-	if kindBinary == "" {
-		kindBinary = "kind"
+	// Default to integration stage if not specified
+	stageName := "integration"
+	if len(stage) > 0 && stage[0] != "" {
+		stageName = stage[0]
 	}
 
-	clusterName := fmt.Sprintf("forge-%s", testID)
-	fmt.Fprintf(os.Stderr, "Deleting cluster: %s\n", clusterName)
-	deleteCmd := exec.Command(kindBinary, "delete", "cluster", "--name", clusterName)
-	if err := deleteCmd.Run(); err != nil {
-		// Only add error if cluster might exist (ignore "not found" errors)
-		errors = append(errors, fmt.Errorf("failed to delete cluster %s: %w", clusterName, err))
+	var errors []error
+
+	// Only delete KIND cluster for non-stub stages
+	if stageName != "e2e-stub" {
+		kindBinary := os.Getenv("KIND_BINARY")
+		if kindBinary == "" {
+			kindBinary = "kind"
+		}
+
+		clusterName := fmt.Sprintf("forge-%s", testID)
+		fmt.Fprintf(os.Stderr, "Deleting cluster: %s\n", clusterName)
+		deleteCmd := exec.Command(kindBinary, "delete", "cluster", "--name", clusterName)
+		if err := deleteCmd.Run(); err != nil {
+			// Only add error if cluster might exist (ignore "not found" errors)
+			errors = append(errors, fmt.Errorf("failed to delete cluster %s: %w", clusterName, err))
+		}
 	}
 
 	// Delete tmp directory
@@ -125,7 +135,7 @@ func ForceCleanupTestEnv(testID string) error {
 	}
 
 	// Try to remove from artifact store (best effort)
-	cleanupTestEnvViaForge(testID)
+	cleanupTestEnvViaForge(testID, stageName)
 
 	if len(errors) > 0 {
 		return fmt.Errorf("cleanup errors: %v", errors)
@@ -135,22 +145,42 @@ func ForceCleanupTestEnv(testID string) error {
 
 // cleanupTestEnvViaForge deletes a test environment via the forge CLI.
 // This is a helper for ForceCleanupTestEnv.
-func cleanupTestEnvViaForge(testID string) {
+func cleanupTestEnvViaForge(testID, stage string) {
 	if testID == "" {
 		return
 	}
 
+	if stage == "" {
+		stage = "integration"
+	}
+
 	// Try to delete via forge
-	cmd := exec.Command("./build/bin/forge", "test", "delete-env", "integration", testID)
+	cmd := exec.Command("./build/bin/forge", "test", "delete-env", stage, testID)
 	cmd.Env = os.Environ()
 	_ = cmd.Run() // Ignore errors during cleanup
 }
 
-// ForceCleanupLeftovers cleans up leftover resources without depending on artifact store.
+// ForceCleanupLeftovers cleans up leftover resources tracked in the local artifact store.
+// This ensures we only delete clusters that belong to THIS forge instance,
+// preventing accidental deletion of clusters from other forge instances running in parallel.
 func ForceCleanupLeftovers() error {
 	var errors []error
 
-	// Cleanup KIND clusters
+	// Build a set of tracked cluster names from the local artifact store
+	trackedClusters := make(map[string]bool)
+	artifactStorePath, err := forge.GetArtifactStorePath(".forge/artifacts.json")
+	if err == nil {
+		store, err := forge.ReadArtifactStore(artifactStorePath)
+		if err == nil {
+			for _, env := range store.TestEnvironments {
+				if clusterName, ok := env.Metadata["testenv-kind.clusterName"]; ok && clusterName != "" {
+					trackedClusters[clusterName] = true
+				}
+			}
+		}
+	}
+
+	// Cleanup KIND clusters - ONLY those tracked in the local artifact store
 	kindBinary := os.Getenv("KIND_BINARY")
 	if kindBinary == "" {
 		kindBinary = "kind"
@@ -162,7 +192,9 @@ func ForceCleanupLeftovers() error {
 		clusters := strings.Split(strings.TrimSpace(string(output)), "\n")
 		for _, cluster := range clusters {
 			cluster = strings.TrimSpace(cluster)
-			if strings.HasPrefix(cluster, "forge-test-") && cluster != "" {
+			// Only delete clusters that are tracked in our local artifact store
+			// This prevents deleting clusters from other forge instances
+			if cluster != "" && trackedClusters[cluster] {
 				fmt.Fprintf(os.Stderr, "Cleaning up leftover cluster: %s\n", cluster)
 				deleteCmd := exec.Command(kindBinary, "delete", "cluster", "--name", cluster)
 				if err := deleteCmd.Run(); err != nil {
