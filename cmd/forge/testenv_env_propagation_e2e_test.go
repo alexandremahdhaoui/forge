@@ -52,6 +52,13 @@ func TestScenario1_BasicPropagation(t *testing.T) {
 		t.Skip("Skipping E2E test (SKIP_E2E_TESTS is set)")
 	}
 
+	// Skip if already running inside a forge test environment to prevent nested cluster creation
+	// This happens when "forge test run integration" runs this test as part of the test suite
+	// Only check FORGE_TESTENV_TMPDIR - KUBECONFIG is commonly set on developer machines
+	if os.Getenv("FORGE_TESTENV_TMPDIR") != "" {
+		t.Skip("Skipping E2E test: already running inside a forge test environment (would create nested KIND cluster)")
+	}
+
 	// Check if we have sufficient timeout for this integration test
 	// Full environment setup takes ~80-90 seconds, we need at least 3 minutes
 	if deadline, ok := t.Deadline(); ok {
@@ -272,6 +279,13 @@ func TestScenario4_BlacklistFiltering(t *testing.T) {
 func TestScenario5_TemplateExpansion(t *testing.T) {
 	if os.Getenv("SKIP_E2E_TESTS") != "" {
 		t.Skip("Skipping E2E test (SKIP_E2E_TESTS is set)")
+	}
+
+	// Skip if already running inside a forge test environment to prevent nested cluster creation
+	// This happens when "forge test run integration" runs this test as part of the test suite
+	// Only check FORGE_TESTENV_TMPDIR - KUBECONFIG is commonly set on developer machines
+	if os.Getenv("FORGE_TESTENV_TMPDIR") != "" {
+		t.Skip("Skipping E2E test: already running inside a forge test environment (would create nested KIND cluster)")
 	}
 
 	// Check if we have sufficient timeout for this integration test

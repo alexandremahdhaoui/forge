@@ -39,9 +39,9 @@ func TestBuildIntegration(t *testing.T) {
 		}
 	}
 
-	// Clean up artifact store before test
+	// Clear only artifacts (preserve testEnvironments for cleanup)
 	artifactStorePath := ".forge/artifact-store.yaml"
-	_ = os.Remove(artifactStorePath)
+	clearArtifactsOnly(t, artifactStorePath)
 
 	// Run forge build
 	cmd := exec.Command(forgeBin, "build")
@@ -191,9 +191,9 @@ func TestBuildWithFormatter(t *testing.T) {
 		t.Skip("forge binary not found, run full build test first")
 	}
 
-	// Clean up artifact store to ensure fresh build
+	// Clear only artifacts (preserve testEnvironments for cleanup)
 	artifactStorePath := ".forge/artifact-store.yaml"
-	_ = os.Remove(artifactStorePath)
+	clearArtifactsOnly(t, artifactStorePath)
 
 	// Run forge build and capture output
 	cmd := exec.Command(forgeBin, "build")

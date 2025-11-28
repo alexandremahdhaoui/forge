@@ -13,6 +13,25 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
 
+// clearArtifactsOnly removes all artifacts from the store while preserving testEnvironments and testReports.
+// This allows tests to start fresh with artifacts without interfering with testenv cleanup.
+func clearArtifactsOnly(t *testing.T, artifactStorePath string) {
+	t.Helper()
+
+	store, err := forge.ReadArtifactStore(artifactStorePath)
+	if err != nil {
+		// No store exists, nothing to clear
+		return
+	}
+
+	// Clear only artifacts, preserve testEnvironments and testReports
+	store.Artifacts = nil
+
+	if err := forge.WriteArtifactStore(artifactStorePath, store); err != nil {
+		t.Logf("Warning: failed to clear artifacts: %v", err)
+	}
+}
+
 // TestLazyRebuild_WithDependencyTracking tests the complete lazy rebuild workflow
 // when dependencies are tracked in the artifact store.
 func TestLazyRebuild_WithDependencyTracking(t *testing.T) {
@@ -39,9 +58,9 @@ func TestLazyRebuild_WithDependencyTracking(t *testing.T) {
 		t.Fatalf("Failed to build forge: %v", err)
 	}
 
-	// Clean up artifact store
+	// Clear only artifacts (preserve testEnvironments for cleanup)
 	artifactStorePath := ".forge/artifact-store.yaml"
-	_ = os.Remove(artifactStorePath)
+	clearArtifactsOnly(t, artifactStorePath)
 
 	// Step 1: First build - should build with "no previous build"
 	t.Log("Step 1: First build")
@@ -171,9 +190,9 @@ func TestLazyRebuild_WithoutDependencyTracking(t *testing.T) {
 		t.Skip("forge binary not found, run full build test first")
 	}
 
-	// Clean up artifact store
+	// Clear only artifacts (preserve testEnvironments for cleanup)
 	artifactStorePath := ".forge/artifact-store.yaml"
-	_ = os.Remove(artifactStorePath)
+	clearArtifactsOnly(t, artifactStorePath)
 
 	// Build once
 	cmd := exec.Command(forgeBin, "build", "testenv-kind")
@@ -239,9 +258,9 @@ func TestLazyRebuild_ArtifactDeleted(t *testing.T) {
 		t.Fatalf("Failed to build forge: %v", err)
 	}
 
-	// Clean up artifact store
+	// Clear only artifacts (preserve testEnvironments for cleanup)
 	artifactStorePath := ".forge/artifact-store.yaml"
-	_ = os.Remove(artifactStorePath)
+	clearArtifactsOnly(t, artifactStorePath)
 
 	// Step 1: First build
 	t.Log("Step 1: First build")
@@ -349,9 +368,9 @@ func TestLazyRebuild_ExternalDepChanged(t *testing.T) {
 		t.Fatalf("Failed to build forge: %v", err)
 	}
 
-	// Clean up artifact store
+	// Clear only artifacts (preserve testEnvironments for cleanup)
 	artifactStorePath := ".forge/artifact-store.yaml"
-	_ = os.Remove(artifactStorePath)
+	clearArtifactsOnly(t, artifactStorePath)
 
 	// Step 1: First build
 	t.Log("Step 1: First build")
@@ -470,9 +489,9 @@ func TestLazyRebuild_MixedChanges(t *testing.T) {
 		t.Fatalf("Failed to build forge: %v", err)
 	}
 
-	// Clean up artifact store
+	// Clear only artifacts (preserve testEnvironments for cleanup)
 	artifactStorePath := ".forge/artifact-store.yaml"
-	_ = os.Remove(artifactStorePath)
+	clearArtifactsOnly(t, artifactStorePath)
 
 	// Step 1: Build two artifacts
 	t.Log("Step 1: Build multiple artifacts")
