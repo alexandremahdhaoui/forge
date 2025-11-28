@@ -128,6 +128,7 @@ func setupWithConfig(cfg *forge.Spec) error {
 		config.LocalContainerRegistry.CaCrtPath,
 		config.LocalContainerRegistry.Namespace,
 		containerRegistry.FQDN(),
+		config.Kindenv.KubeconfigPath,
 		eventualConfig)
 
 	// IV. Set up K8s
@@ -253,7 +254,9 @@ func teardown() error {
 		cl,
 		config.LocalContainerRegistry.CaCrtPath,
 		config.LocalContainerRegistry.Namespace,
-		containerRegistry.FQDN(), nil)
+		containerRegistry.FQDN(),
+		config.Kindenv.KubeconfigPath,
+		nil)
 
 	// IV. Delete image pull secrets (best effort)
 	_, _ = fmt.Fprintln(os.Stdout, "⏳ Cleaning up image pull secrets")

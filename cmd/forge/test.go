@@ -60,7 +60,8 @@ func runTest(args []string) error {
 	// Route to appropriate handler based on subcommand
 	switch subcommand {
 	case "run":
-		return testRun(&config, testSpec, subcommandArgs)
+		_, err := testRun(&config, testSpec, subcommandArgs)
+		return err
 	case "list":
 		return testListReports(testSpec, subcommandArgs)
 	case "get":
@@ -547,7 +548,9 @@ func testDeleteReport(testSpec *forge.TestSpec, args []string) error {
 }
 
 // testRun runs tests via the test runner.
-func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) error {
+// Returns the testID of the environment that was created (if any), and any error.
+// If no environment was created, testID will be empty string.
+func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) (string, error) {
 	var testID string
 
 	// Check if ENV_ID was provided in args
@@ -558,17 +561,17 @@ func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) error 
 		// Verify the environment exists
 		artifactStorePath, err := forge.GetArtifactStorePath(config.ArtifactStorePath)
 		if err != nil {
-			return fmt.Errorf("failed to get artifact store path: %w", err)
+			return "", fmt.Errorf("failed to get artifact store path: %w", err)
 		}
 
 		store, err := forge.ReadArtifactStore(artifactStorePath)
 		if err != nil {
-			return fmt.Errorf("failed to read artifact store: %w", err)
+			return "", fmt.Errorf("failed to read artifact store: %w", err)
 		}
 
 		_, err = forge.GetTestEnvironment(&store, testID)
 		if err != nil {
-			return fmt.Errorf("test environment not found: %s\nUse 'forge test create-env %s' to create one", testID, testSpec.Name)
+			return "", fmt.Errorf("test environment not found: %s\nUse 'forge test create-env %s' to create one", testID, testSpec.Name)
 		}
 
 		fmt.Printf("Using existing test environment: %s\n", testID)
@@ -579,7 +582,7 @@ func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) error 
 			// Resolve engine URI (handles aliases)
 			command, engineArgs, err := resolveEngine(testSpec.Testenv, config)
 			if err != nil {
-				return fmt.Errorf("failed to resolve testenv engine %s: %w", testSpec.Testenv, err)
+				return "", fmt.Errorf("failed to resolve testenv engine %s: %w", testSpec.Testenv, err)
 			}
 
 			// Create test environment
@@ -587,7 +590,7 @@ func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) error 
 				"stage": testSpec.Name,
 			})
 			if err != nil {
-				return fmt.Errorf("failed to create test environment: %w", err)
+				return "", fmt.Errorf("failed to create test environment: %w", err)
 			}
 
 			// Extract test ID
@@ -602,13 +605,13 @@ func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) error 
 
 	// Parse runner URI
 	if testSpec.Runner == "" {
-		return fmt.Errorf("no test runner configured for stage: %s", testSpec.Name)
+		return "", fmt.Errorf("no test runner configured for stage: %s", testSpec.Name)
 	}
 
 	// Resolve runner URI (handles aliases)
 	runnerCommand, runnerArgs, err := resolveEngine(testSpec.Runner, config)
 	if err != nil {
-		return fmt.Errorf("failed to resolve runner %s: %w", testSpec.Runner, err)
+		return "", fmt.Errorf("failed to resolve runner %s: %w", testSpec.Runner, err)
 	}
 
 	// Generate test name
@@ -617,7 +620,7 @@ func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) error 
 	// Create forge directories for this run
 	dirs, err := createForgeDirs()
 	if err != nil {
-		return fmt.Errorf("failed to create forge directories: %w", err)
+		return "", fmt.Errorf("failed to create forge directories: %w", err)
 	}
 
 	// Clean up old tmp directories (keep last 10 runs)
@@ -646,17 +649,17 @@ func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) error 
 	if testID != "" {
 		artifactStorePath, err := forge.GetArtifactStorePath(config.ArtifactStorePath)
 		if err != nil {
-			return fmt.Errorf("failed to get artifact store path: %w", err)
+			return "", fmt.Errorf("failed to get artifact store path: %w", err)
 		}
 
 		store, err := forge.ReadArtifactStore(artifactStorePath)
 		if err != nil {
-			return fmt.Errorf("failed to read artifact store: %w", err)
+			return "", fmt.Errorf("failed to read artifact store: %w", err)
 		}
 
 		env, err := forge.GetTestEnvironment(&store, testID)
 		if err != nil {
-			return fmt.Errorf("test environment not found: %s", testID)
+			return "", fmt.Errorf("test environment not found: %s", testID)
 		}
 
 		// Pass artifact files (relative paths)
@@ -688,11 +691,11 @@ func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) error 
 		aliasName := strings.TrimPrefix(runnerCommand, "alias://")
 		runnerConfig := getEngineConfig(aliasName, config)
 		if runnerConfig == nil {
-			return fmt.Errorf("runner alias not found: %s", aliasName)
+			return "", fmt.Errorf("runner alias not found: %s", aliasName)
 		}
 
 		if runnerConfig.Type != forge.TestRunnerEngineConfigType {
-			return fmt.Errorf("alias %s is not a test-runner type", aliasName)
+			return "", fmt.Errorf("alias %s is not a test-runner type", aliasName)
 		}
 
 		if len(runnerConfig.TestRunner) > 1 {
@@ -714,31 +717,31 @@ func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) error 
 				if testID != "" {
 					updateTestStatus(testID, "failed")
 				}
-				return fmt.Errorf("multi-engine test run failed: %w", err)
+				return "", fmt.Errorf("multi-engine test run failed: %w", err)
 			}
 
 			// Convert report back to map[string]any for compatibility with existing code
 			reportJSON, err := json.Marshal(report)
 			if err != nil {
-				return fmt.Errorf("failed to marshal test report: %w", err)
+				return "", fmt.Errorf("failed to marshal test report: %w", err)
 			}
 			var resultMap map[string]any
 			if err := json.Unmarshal(reportJSON, &resultMap); err != nil {
-				return fmt.Errorf("failed to unmarshal test report: %w", err)
+				return "", fmt.Errorf("failed to unmarshal test report: %w", err)
 			}
 			result = resultMap
 		} else {
 			// Single-engine alias - use single-engine logic below
 			result, err = runWithSingleTestRunner(runnerCommand, runnerArgs, params, runnerConfig, testSpec, testID)
 			if err != nil {
-				return err
+				return "", err
 			}
 		}
 	} else {
 		// Direct go:// URI - single engine, pass testSpec so it can inject testSpec.Spec
 		result, err = runWithSingleTestRunner(runnerCommand, runnerArgs, params, nil, testSpec, testID)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
 
@@ -783,7 +786,7 @@ func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) error 
 		}
 	}
 
-	return nil
+	return testID, nil
 }
 
 // runWithSingleTestRunner handles running tests with a single test runner engine.

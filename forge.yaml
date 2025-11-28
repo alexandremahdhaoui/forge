@@ -213,6 +213,10 @@ build:
     src: ./cmd/go-gen-protobuf
     dest: ./build/bin
     engine: go://go-build
+  - name: go-gen-bpf
+    src: ./cmd/go-gen-bpf
+    dest: ./build/bin
+    engine: go://go-build
   - name: forge-e2e
     src: ./cmd/forge-e2e
     dest: ./build/bin

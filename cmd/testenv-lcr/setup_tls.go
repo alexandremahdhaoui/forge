@@ -32,6 +32,7 @@ type TLS struct {
 	caCrtPath           string
 	namespace           string
 	registryServiceFQDN string
+	kubeconfigPath      string
 
 	ec eventualconfig.EventualConfig
 }
@@ -39,7 +40,7 @@ type TLS struct {
 // NewTLS creates a new TLS struct.
 func NewTLS(
 	cl client.Client,
-	caCrtPath, registryNamespace, registryServiceFQDN string,
+	caCrtPath, registryNamespace, registryServiceFQDN, kubeconfigPath string,
 	ec eventualconfig.EventualConfig,
 ) *TLS {
 	return &TLS{
@@ -48,6 +49,7 @@ func NewTLS(
 		caCrtPath:           caCrtPath,
 		namespace:           registryNamespace,
 		registryServiceFQDN: registryServiceFQDN,
+		kubeconfigPath:      kubeconfigPath,
 
 		ec: ec,
 	}
@@ -73,6 +75,10 @@ func (t *TLS) Setup(ctx context.Context) error {
 			"--set crds.enabled=true "+
 			"--wait "+
 			"--timeout 8m", " ")...)
+	// Set KUBECONFIG environment variable if specified
+	if t.kubeconfigPath != "" {
+		helmInstall.Env = append(os.Environ(), "KUBECONFIG="+t.kubeconfigPath)
+	}
 	if err := util.RunCmdWithStdPipes(helmInstall); err != nil {
 		return flaterrors.Join(err, errSettingUpTLS)
 	}
@@ -170,6 +176,10 @@ func (t *TLS) exportCACert(ctx context.Context) error {
 // It deletes the cert-manager manifests.
 func (t *TLS) Teardown() error {
 	cmd := exec.Command("kubectl", "delete", "-f", certManagerManifests)
+	// Set KUBECONFIG environment variable if specified
+	if t.kubeconfigPath != "" {
+		cmd.Env = append(os.Environ(), "KUBECONFIG="+t.kubeconfigPath)
+	}
 
 	if err := util.RunCmdWithStdPipes(cmd); err != nil {
 		return flaterrors.Join(err, errTearingDownTLS)

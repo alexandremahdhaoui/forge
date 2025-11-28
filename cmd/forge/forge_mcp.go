@@ -673,7 +673,8 @@ func handleTestRunTool(
 	}
 
 	// Call testRun - this will execute the tests and store the report
-	testRunErr := testRun(&config, testSpec, args)
+	// testRun returns the testID and error, but we don't need the testID for MCP
+	_, testRunErr := testRun(&config, testSpec, args)
 
 	// Try to retrieve the most recent test report for this stage from artifact store
 	artifactStorePath, err := forge.GetArtifactStorePath(config.ArtifactStorePath)

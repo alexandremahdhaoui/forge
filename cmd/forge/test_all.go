@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
@@ -44,8 +43,8 @@ func runTestAll(args []string) error {
 		testSpec := &config.Test[i]
 		fmt.Printf("\n--- Running test stage: %s ---\n", testSpec.Name)
 
-		// Execute the test stage
-		err := testRun(&config, testSpec, []string{})
+		// Execute the test stage - testRun returns the testID of the created environment
+		testID, err := testRun(&config, testSpec, []string{})
 
 		// Print stage result
 		if err == nil {
@@ -54,8 +53,9 @@ func runTestAll(args []string) error {
 			fmt.Printf("❌ Stage '%s' failed: %v\n", testSpec.Name, err)
 
 			// Auto-delete test environment before returning (best-effort)
-			if testSpec.Testenv != "" && testSpec.Testenv != "noop" {
-				if cleanupErr := cleanupTestEnvironment(&config, testSpec); cleanupErr != nil {
+			// Use the specific testID returned by testRun to avoid mismatch
+			if testSpec.Testenv != "" && testSpec.Testenv != "noop" && testID != "" {
+				if cleanupErr := cleanupTestEnvironment(&config, testSpec, testID); cleanupErr != nil {
 					fmt.Printf("⚠️  Warning: Failed to cleanup test environment for stage '%s': %v\n", testSpec.Name, cleanupErr)
 				} else {
 					fmt.Printf("🧹 Cleaned up test environment for stage '%s'\n", testSpec.Name)
@@ -67,8 +67,9 @@ func runTestAll(args []string) error {
 		}
 
 		// Auto-delete test environment if one was created (success case)
-		if testSpec.Testenv != "" && testSpec.Testenv != "noop" {
-			if cleanupErr := cleanupTestEnvironment(&config, testSpec); cleanupErr != nil {
+		// Use the specific testID returned by testRun to avoid mismatch
+		if testSpec.Testenv != "" && testSpec.Testenv != "noop" && testID != "" {
+			if cleanupErr := cleanupTestEnvironment(&config, testSpec, testID); cleanupErr != nil {
 				// Log but don't fail - cleanup is best effort
 				fmt.Printf("⚠️  Warning: Failed to cleanup test environment for stage '%s': %v\n", testSpec.Name, cleanupErr)
 			} else {
@@ -82,32 +83,18 @@ func runTestAll(args []string) error {
 	return nil
 }
 
-// cleanupTestEnvironment deletes the most recent test environment for a stage
-func cleanupTestEnvironment(config *forge.Spec, testSpec *forge.TestSpec) error {
-	// Read artifact store
-	store, err := forge.ReadOrCreateArtifactStore(config.ArtifactStorePath)
-	if err != nil {
-		return fmt.Errorf("failed to read artifact store: %w", err)
-	}
-
-	// Get all test environments for this stage
-	envs := forge.ListTestEnvironments(&store, testSpec.Name)
-	if len(envs) == 0 {
-		// No environment to clean up (testRun may have failed before creating one)
+// cleanupTestEnvironment deletes a specific test environment by its testID.
+// This ensures we delete exactly the environment that was created by testRun,
+// avoiding mismatch when multiple environments exist for the same stage.
+func cleanupTestEnvironment(config *forge.Spec, testSpec *forge.TestSpec, testID string) error {
+	// Safety check - don't try to delete empty testID
+	if testID == "" {
 		return nil
 	}
 
-	// Sort by CreatedAt descending to get the most recent first
-	sort.Slice(envs, func(i, j int) bool {
-		return envs[i].CreatedAt.After(envs[j].CreatedAt)
-	})
-
-	// Get the most recent environment
-	mostRecent := envs[0]
-
-	// Delete it using testDeleteEnv
-	if err := testDeleteEnv(testSpec, []string{mostRecent.ID}); err != nil {
-		return fmt.Errorf("failed to delete environment %s: %w", mostRecent.ID, err)
+	// Delete it using testDeleteEnv with the specific testID
+	if err := testDeleteEnv(testSpec, []string{testID}); err != nil {
+		return fmt.Errorf("failed to delete environment %s: %w", testID, err)
 	}
 
 	return nil
