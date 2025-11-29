@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/alexandremahdhaoui/forge/internal/util"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
@@ -38,7 +39,38 @@ func readEnvs() (Envs, error) {
 
 // ----------------------------------------------------- SETUP ------------------------------------------------------ //
 
+// kindConfigContent is the Kind cluster configuration YAML that enables containerd
+// to use the /etc/containerd/certs.d directory for registry-specific TLS certificates.
+// This is required for Kind versions < v0.27.0 and is harmless for newer versions.
+const kindConfigContent = `kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"
+`
+
+// generateKindConfig creates a Kind cluster configuration file with containerdConfigPatches
+// that enable the /etc/containerd/certs.d directory for registry-specific TLS certificates.
+// It writes the config to {tmpDir}/kind-config.yaml and returns the absolute path.
+func generateKindConfig(tmpDir string) (string, error) {
+	configPath := filepath.Join(tmpDir, "kind-config.yaml")
+
+	if err := os.WriteFile(configPath, []byte(kindConfigContent), 0o600); err != nil {
+		return "", fmt.Errorf("failed to write kind config file: %w", err)
+	}
+
+	return configPath, nil
+}
+
 func doSetup(pCfg forge.Spec, envs Envs) error {
+	// 0. Generate Kind config file with containerd patches for TLS trust.
+	tmpDir := filepath.Dir(pCfg.Kindenv.KubeconfigPath)
+	kindConfigPath, err := generateKindConfig(tmpDir)
+	if err != nil {
+		return fmt.Errorf("failed to generate kind config: %w", err)
+	}
+
 	// 1. Allow prefixing kind binary with "sudo".
 	cmdName := envs.KindBinary
 	args := []string{
@@ -46,6 +78,7 @@ func doSetup(pCfg forge.Spec, envs Envs) error {
 		"cluster",
 		"--name", pCfg.Name,
 		"--kubeconfig", pCfg.Kindenv.KubeconfigPath,
+		"--config", kindConfigPath,
 		"--wait", "5m",
 	}
 

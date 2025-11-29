@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestLocalContainerRegistryPushPull verifies that we can push and pull images
@@ -87,7 +88,7 @@ func testPushPullAlpineImage(t *testing.T, registryFQDN string) {
 
 		// Wait a bit for port-forward to establish
 		t.Log("Waiting for port-forward to be ready...")
-		exec.Command("sleep", "2").Run()
+		time.Sleep(2 * time.Second)
 
 		// Log in to the registry
 		t.Log("Logging in to registry...")
@@ -330,5 +331,144 @@ func TestLocalContainerRegistryDeployment(t *testing.T) {
 		}
 
 		t.Logf("✅ Registry service is running on port %s", port)
+	})
+}
+
+// TestPodCanPullImageFromLCR verifies that a pod can pull an image from LCR
+// using the automatically created image pull secret. This tests the full
+// containerd trust configuration including:
+// - Kind cluster configured with containerd certs.d path
+// - CA certificate copied to Kind nodes
+// - hosts.toml configured for the registry FQDN
+// - Image pull secret properly configured in the namespace
+func TestPodCanPullImageFromLCR(t *testing.T) {
+	// Verify testenv-lcr metadata is set
+	registryFQDN := os.Getenv("FORGE_METADATA_TESTENV_LCR_REGISTRYFQDN")
+	if registryFQDN == "" {
+		t.Skip("FORGE_METADATA_TESTENV_LCR_REGISTRYFQDN not set - testenv-lcr may not be fully set up")
+	}
+
+	// Get kubeconfig
+	kubeconfigPath := os.Getenv("FORGE_ARTIFACT_TESTENV_KIND_KUBECONFIG")
+	if kubeconfigPath == "" {
+		t.Fatal("FORGE_ARTIFACT_TESTENV_KIND_KUBECONFIG not set")
+	}
+
+	// Get image pull secret info from default namespace (first configured namespace)
+	secretName := os.Getenv("FORGE_METADATA_TESTENV_LCR_IMAGEPULLSECRET_0_SECRETNAME")
+	if secretName == "" {
+		secretName = "local-container-registry-credentials" // default
+	}
+
+	// Use the alpine image that should have been pushed to LCR by testenv-lcr
+	// The full image path is preserved when pushing to LCR:
+	// docker.io/library/alpine:3.18 -> {registryFQDN}/docker.io/library/alpine:3.18
+	testImage := fmt.Sprintf("%s/docker.io/library/alpine:3.18", registryFQDN)
+	testNamespace := "default"
+	testPodName := "test-lcr-image-pull"
+
+	t.Run("CreateAndVerifyPodImagePull", func(t *testing.T) {
+		// Cleanup: Delete pod if it exists from previous test run
+		cleanupCmd := exec.Command("kubectl", "delete", "pod", testPodName,
+			"-n", testNamespace,
+			"--kubeconfig", kubeconfigPath,
+			"--ignore-not-found=true")
+		cleanupCmd.Run() // Ignore errors from cleanup
+
+		// Create pod YAML
+		podYAML := fmt.Sprintf(`apiVersion: v1
+kind: Pod
+metadata:
+  name: %s
+  namespace: %s
+spec:
+  containers:
+  - name: test-container
+    image: %s
+    command: ["sleep", "3600"]
+  imagePullSecrets:
+  - name: %s
+  restartPolicy: Never
+`, testPodName, testNamespace, testImage, secretName)
+
+		t.Logf("Creating pod with image: %s", testImage)
+		t.Logf("Using image pull secret: %s", secretName)
+
+		// Create pod using kubectl apply
+		applyCmd := exec.Command("kubectl", "apply", "-f", "-",
+			"--kubeconfig", kubeconfigPath)
+		applyCmd.Stdin = strings.NewReader(podYAML)
+		output, err := applyCmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("Failed to create pod: %v\nOutput: %s", err, string(output))
+		}
+		t.Logf("Pod created successfully")
+
+		// Wait for pod to pull image (check for image pull success)
+		// We wait up to 60 seconds for the image to be pulled
+		var lastStatus string
+		var imagePulled bool
+		for i := 0; i < 30; i++ {
+			// Get pod status
+			statusCmd := exec.Command("kubectl", "get", "pod", testPodName,
+				"-n", testNamespace,
+				"--kubeconfig", kubeconfigPath,
+				"-o", "jsonpath={.status.phase},{.status.containerStatuses[0].state}")
+			statusOutput, err := statusCmd.CombinedOutput()
+			if err != nil {
+				t.Logf("Waiting for pod... (attempt %d/30)", i+1)
+				time.Sleep(2 * time.Second)
+				continue
+			}
+
+			lastStatus = strings.TrimSpace(string(statusOutput))
+			t.Logf("Pod status (attempt %d/30): %s", i+1, lastStatus)
+
+			// Check if pod phase indicates image was pulled successfully
+			// Phase can be "Pending" (still pulling), "Running" (pulled and running), or "Failed"
+			if strings.HasPrefix(lastStatus, "Running") {
+				imagePulled = true
+				break
+			}
+
+			// Check for ImagePullBackOff or ErrImagePull which would indicate failure
+			if strings.Contains(lastStatus, "ImagePullBackOff") ||
+				strings.Contains(lastStatus, "ErrImagePull") {
+				// Get detailed events for debugging
+				eventsCmd := exec.Command("kubectl", "describe", "pod", testPodName,
+					"-n", testNamespace,
+					"--kubeconfig", kubeconfigPath)
+				eventsOutput, _ := eventsCmd.CombinedOutput()
+				t.Fatalf("Image pull failed: %s\nPod details:\n%s", lastStatus, string(eventsOutput))
+			}
+
+			// Also check if container is waiting with a successful image pull
+			// (e.g., pod might be Running state)
+			if strings.Contains(lastStatus, "running") {
+				imagePulled = true
+				break
+			}
+
+			time.Sleep(2 * time.Second)
+		}
+
+		if !imagePulled {
+			// Get detailed events for debugging
+			eventsCmd := exec.Command("kubectl", "describe", "pod", testPodName,
+				"-n", testNamespace,
+				"--kubeconfig", kubeconfigPath)
+			eventsOutput, _ := eventsCmd.CombinedOutput()
+			t.Fatalf("Image pull did not complete in time. Last status: %s\nPod details:\n%s",
+				lastStatus, string(eventsOutput))
+		}
+
+		t.Logf("✅ Pod successfully pulled image from LCR: %s", testImage)
+
+		// Cleanup: Delete the test pod
+		deleteCmd := exec.Command("kubectl", "delete", "pod", testPodName,
+			"-n", testNamespace,
+			"--kubeconfig", kubeconfigPath,
+			"--ignore-not-found=true")
+		deleteCmd.Run() // Best effort cleanup
 	})
 }

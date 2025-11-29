@@ -164,10 +164,13 @@ func setupWithConfig(cfg *forge.Spec) error {
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "⚠️  Warning: failed to read CA cert for image pull secrets: %s\n", err.Error())
 		} else {
+			// Include port in registry FQDN for Docker credential matching
+			// Docker/containerd match credentials by full registry address including port
+			registryFQDNWithPort := fmt.Sprintf("%s:%d", containerRegistry.FQDN(), containerRegistry.Port())
 			imagePullSecret := NewImagePullSecret(
 				cl,
 				config.LocalContainerRegistry.ImagePullSecretName,
-				containerRegistry.FQDN(),
+				registryFQDNWithPort,
 				cred.credentials.Username,
 				cred.credentials.Password,
 				caCert,

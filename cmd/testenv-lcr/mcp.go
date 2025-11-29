@@ -150,6 +150,20 @@ func createLocalContainerRegistry(ctx context.Context, input engineframework.Cre
 		return nil, fmt.Errorf("failed to setup local container registry: %w", err)
 	}
 
+	// Construct registryFQDN early so it can be used for containerd trust configuration
+	registryFQDN := fmt.Sprintf("%s.%s.svc.cluster.local:5000", Name, config.LocalContainerRegistry.Namespace)
+
+	// Configure containerd trust on Kind nodes (Phase 2)
+	// This must happen AFTER CA cert is exported (by setupWithConfig) and BEFORE we return metadata
+	if clusterName, ok := input.Metadata["testenv-kind.clusterName"]; ok && clusterName != "" {
+		log.Printf("Configuring containerd trust for cluster %s", clusterName)
+		if err := configureContainerdTrust(clusterName, registryFQDN, caCrtPath, config.Kindenv.KubeconfigPath); err != nil {
+			return nil, fmt.Errorf("failed to configure containerd trust: %w", err)
+		}
+	} else {
+		return nil, fmt.Errorf("testenv-kind not executed: missing clusterName in metadata - containerd trust cannot be configured")
+	}
+
 	// Create Kubernetes client to list created image pull secrets
 	cl, err := createKubeClient(config)
 	if err != nil {
@@ -163,7 +177,6 @@ func createLocalContainerRegistry(ctx context.Context, input engineframework.Cre
 	}
 
 	// Prepare metadata
-	registryFQDN := fmt.Sprintf("%s.%s.svc.cluster.local:5000", Name, config.LocalContainerRegistry.Namespace)
 	metadata := map[string]string{
 		"testenv-lcr.registryFQDN":   registryFQDN,
 		"testenv-lcr.namespace":      config.LocalContainerRegistry.Namespace,
