@@ -31,7 +31,7 @@ import (
 //   - Template string
 //   - Undefined variable name
 //   - List of available environment variables
-//   - Example: "template expansion failed: variable 'UNDEFINED_VAR' not found in environment for template '{{.Env.UNDEFINED_VAR}}'. Available: [KUBECONFIG, REGISTRY_URL]"
+//   - Example: "template expansion failed: variable 'UNDEFINED_VAR' not found in environment for template '{{.Env.UNDEFINED_VAR}}'. Available: [KUBECONFIG, TESTENV_LCR_FQDN]"
 func ExpandTemplates(spec map[string]interface{}, env map[string]string) (map[string]interface{}, error) {
 	// Create a copy of the spec to avoid modifying the input
 	result := make(map[string]interface{})

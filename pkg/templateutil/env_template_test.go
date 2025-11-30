@@ -29,12 +29,12 @@ func TestExpandTemplates_BasicExpansion(t *testing.T) {
 func TestExpandTemplates_MultipleVariables(t *testing.T) {
 	spec := map[string]interface{}{
 		"kubeconfig": "{{.Env.KUBECONFIG}}",
-		"registry":   "{{.Env.REGISTRY_URL}}",
+		"registry":   "{{.Env.TESTENV_LCR_FQDN}}",
 	}
 
 	env := map[string]string{
-		"KUBECONFIG":   "/tmp/kubeconfig",
-		"REGISTRY_URL": "localhost:5000",
+		"KUBECONFIG":       "/tmp/kubeconfig",
+		"TESTENV_LCR_FQDN": "localhost:5000",
 	}
 
 	result, err := ExpandTemplates(spec, env)
@@ -88,14 +88,14 @@ func TestExpandTemplates_Array(t *testing.T) {
 	spec := map[string]interface{}{
 		"paths": []interface{}{
 			"{{.Env.KUBECONFIG}}",
-			"{{.Env.REGISTRY_URL}}",
+			"{{.Env.TESTENV_LCR_FQDN}}",
 			"/static/path",
 		},
 	}
 
 	env := map[string]string{
-		"KUBECONFIG":   "/tmp/kubeconfig",
-		"REGISTRY_URL": "localhost:5000",
+		"KUBECONFIG":       "/tmp/kubeconfig",
+		"TESTENV_LCR_FQDN": "localhost:5000",
 	}
 
 	result, err := ExpandTemplates(spec, env)
@@ -171,8 +171,8 @@ func TestExpandTemplates_UndefinedVariable(t *testing.T) {
 	}
 
 	env := map[string]string{
-		"KUBECONFIG":   "/tmp/kubeconfig",
-		"REGISTRY_URL": "localhost:5000",
+		"KUBECONFIG":       "/tmp/kubeconfig",
+		"TESTENV_LCR_FQDN": "localhost:5000",
 	}
 
 	_, err := ExpandTemplates(spec, env)
@@ -196,8 +196,8 @@ func TestExpandTemplates_UndefinedVariable(t *testing.T) {
 	}
 
 	// Check that available variables are mentioned
-	if !strings.Contains(errMsg, "KUBECONFIG") || !strings.Contains(errMsg, "REGISTRY_URL") {
-		t.Errorf("Error message should list available variables (KUBECONFIG, REGISTRY_URL), got: %s", errMsg)
+	if !strings.Contains(errMsg, "KUBECONFIG") || !strings.Contains(errMsg, "TESTENV_LCR_FQDN") {
+		t.Errorf("Error message should list available variables (KUBECONFIG, TESTENV_LCR_FQDN), got: %s", errMsg)
 	}
 }
 
@@ -301,12 +301,12 @@ func TestExpandTemplates_PartialTemplate(t *testing.T) {
 func TestExpandTemplates_MultipleTemplatesInString(t *testing.T) {
 	// Test multiple templates in a single string
 	spec := map[string]interface{}{
-		"url": "https://{{.Env.REGISTRY_HOST}}:{{.Env.REGISTRY_PORT}}/repo",
+		"url": "https://{{.Env.TESTENV_LCR_HOST}}:{{.Env.TESTENV_LCR_PORT}}/repo",
 	}
 
 	env := map[string]string{
-		"REGISTRY_HOST": "localhost",
-		"REGISTRY_PORT": "5000",
+		"TESTENV_LCR_HOST": "localhost",
+		"TESTENV_LCR_PORT": "5000",
 	}
 
 	result, err := ExpandTemplates(spec, env)

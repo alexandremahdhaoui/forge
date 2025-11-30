@@ -33,9 +33,9 @@ import (
 //	    Stage:    "integration",
 //	    TmpDir:   "/tmp/forge-test-abc123",
 //	    RootDir:  "/home/user/project",
-//	    Metadata: map[string]string{"testenv-lcr.registryURL": "localhost:5000"},
+//	    Metadata: map[string]string{"testenv-lcr.registryFQDN": "testenv-lcr.testenv-lcr.svc.cluster.local:31906"},
 //	    Spec:     map[string]any{"kindVersion": "v1.27.0"},
-//	    Env:      map[string]string{"REGISTRY_URL": "localhost:5000"},
+//	    Env:      map[string]string{"TESTENV_LCR_FQDN": "testenv-lcr.testenv-lcr.svc.cluster.local:31906"},
 //	}
 type CreateInput struct {
 	TestID         string                `json:"testID"`                   // Test environment ID (required)

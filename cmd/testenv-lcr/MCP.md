@@ -41,8 +41,9 @@ Create local container registry in Kind cluster.
     "testenv-lcr.credentials.yaml": "registry-credentials.yaml"
   },
   "metadata": {
-    "testenv-lcr.registryFQDN": "testenv-lcr.testenv-lcr.svc.cluster.local:5000",
+    "testenv-lcr.registryFQDN": "testenv-lcr.testenv-lcr.svc.cluster.local:31906",
     "testenv-lcr.namespace": "testenv-lcr",
+    "testenv-lcr.port": "31906",
     "testenv-lcr.caCrtPath": "/abs/path/to/tmpDir/ca.crt",
     "testenv-lcr.credentialPath": "/abs/path/to/tmpDir/registry-credentials.yaml",
     "testenv-lcr.imagePullSecretCount": "2",
@@ -50,6 +51,13 @@ Create local container registry in Kind cluster.
     "testenv-lcr.imagePullSecret.0.secretName": "local-container-registry-credentials",
     "testenv-lcr.imagePullSecret.1.namespace": "my-app",
     "testenv-lcr.imagePullSecret.1.secretName": "local-container-registry-credentials"
+  },
+  "env": {
+    "TESTENV_LCR_FQDN": "testenv-lcr.testenv-lcr.svc.cluster.local:31906",
+    "TESTENV_LCR_HOST": "testenv-lcr.testenv-lcr.svc.cluster.local",
+    "TESTENV_LCR_PORT": "31906",
+    "TESTENV_LCR_NAMESPACE": "testenv-lcr",
+    "TESTENV_LCR_CA_CERT": "/abs/path/to/tmpDir/ca.crt"
   },
   "managedResources": [
     "/abs/path/to/tmpDir/ca.crt",
@@ -164,7 +172,7 @@ Create an image pull secret in a specific namespace for the local container regi
       "testID": "test-int-20250106-xyz789",
       "namespace": "my-app",
       "metadata": {
-        "testenv-lcr.registryFQDN": "testenv-lcr.testenv-lcr.svc.cluster.local:5000",
+        "testenv-lcr.registryFQDN": "testenv-lcr.testenv-lcr.svc.cluster.local:31906",
         "testenv-lcr.caCrtPath": ".forge/tmp/.../ca.crt",
         "testenv-lcr.credentialPath": ".forge/tmp/.../registry-credentials.yaml"
       }
@@ -339,11 +347,53 @@ engines:
 ## Registry Details
 
 - **Image**: registry:2
-- **Port**: 5000 (HTTPS)
-- **FQDN**: `testenv-lcr.testenv-lcr.svc.cluster.local:5000`
+- **Port**: Dynamic (30000-32767 NodePort range, allocated per cluster)
+- **FQDN**: `testenv-lcr.testenv-lcr.svc.cluster.local:<dynamic-port>`
 - **Auth**: htpasswd (random 32-char username/password)
 - **TLS**: Self-signed via cert-manager
 - **Storage**: emptyDir (ephemeral)
+
+## Environment Variables
+
+testenv-lcr exports environment variables for use in subsequent testenv sub-engines via template expansion.
+
+### Exported Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `TESTENV_LCR_FQDN` | Full registry address with port | `testenv-lcr.testenv-lcr.svc.cluster.local:31906` |
+| `TESTENV_LCR_HOST` | Registry hostname (without port) | `testenv-lcr.testenv-lcr.svc.cluster.local` |
+| `TESTENV_LCR_PORT` | Dynamic port number | `31906` |
+| `TESTENV_LCR_NAMESPACE` | Kubernetes namespace | `testenv-lcr` |
+| `TESTENV_LCR_CA_CERT` | Absolute path to CA certificate | `/abs/path/to/tmpDir/ca.crt` |
+
+### Template Expansion
+
+These variables can be referenced in subsequent testenv sub-engine specs using `{{.Env.VARIABLE_NAME}}` syntax:
+
+```yaml
+engines:
+  - alias: setup-integration
+    type: testenv
+    testenv:
+      - engine: go://testenv-kind
+      - engine: go://testenv-lcr
+        spec:
+          enabled: true
+          namespace: testenv-lcr
+      - engine: go://testenv-helm-install
+        spec:
+          charts:
+            - name: my-app
+              path: ./charts/my-app
+              namespace: default
+              values:
+                image:
+                  repository: "{{.Env.TESTENV_LCR_FQDN}}/my-app"
+                  tag: latest
+```
+
+In the example above, `{{.Env.TESTENV_LCR_FQDN}}` is expanded to the actual registry address (e.g., `testenv-lcr.testenv-lcr.svc.cluster.local:31906`) before testenv-helm-install processes the chart.
 
 ## Credential Format
 

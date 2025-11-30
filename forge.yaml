@@ -107,7 +107,7 @@ engines:
           # charts:
           #   - name: my-app
           #     values:
-          #       registry: "{{.Env.REGISTRY_URL}}"  # Reference registry URL from testenv-lcr
+          #       registry: "{{.Env.TESTENV_LCR_FQDN}}"  # Reference registry FQDN from testenv-lcr
 
 # -- test defines the test stages and their configuration
 test:
@@ -134,7 +134,7 @@ test:
     #   # envPropagation:
     #     # whitelist:                # Only propagate these variables
     #     #   - KUBECONFIG
-    #     #   - REGISTRY_URL
+    #     #   - TESTENV_LCR_FQDN
     #     # blacklist:                # Propagate all except these (mutually exclusive with whitelist)
     #     #   - REGISTRY_PASSWORD
     #     #   - SECRET_TOKEN

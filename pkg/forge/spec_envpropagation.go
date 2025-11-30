@@ -29,7 +29,7 @@ import (
 //
 //	envProp := &EnvPropagation{
 //	    Priority: intPtr(100),  // High priority
-//	    Whitelist: []string{"KUBECONFIG", "REGISTRY_URL"},
+//	    Whitelist: []string{"KUBECONFIG", "TESTENV_LCR_FQDN"},
 //	    Envs: map[string]EnvPropagationOverride{
 //	        "KUBECONFIG": {Priority: intPtr(0)}, // Highest priority for KUBECONFIG
 //	    },

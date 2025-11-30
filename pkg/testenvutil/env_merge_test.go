@@ -277,8 +277,8 @@ func TestEnvSourceTracker_PerEnvPriorityOverride(t *testing.T) {
 	// First sub-engine: default priority 100, but KUBECONFIG has priority 0
 	tracker.Merge(
 		map[string]string{
-			"KUBECONFIG":   "/path1",
-			"REGISTRY_URL": "registry1",
+			"KUBECONFIG":       "/path1",
+			"TESTENV_LCR_FQDN": "registry1",
 		},
 		&forge.EnvPropagation{
 			Priority: intPtr(100),
@@ -292,8 +292,8 @@ func TestEnvSourceTracker_PerEnvPriorityOverride(t *testing.T) {
 	// Second sub-engine: priority 50 for all
 	tracker.Merge(
 		map[string]string{
-			"KUBECONFIG":   "/path2",
-			"REGISTRY_URL": "registry2",
+			"KUBECONFIG":       "/path2",
+			"TESTENV_LCR_FQDN": "registry2",
 		},
 		&forge.EnvPropagation{Priority: intPtr(50)},
 		1,
@@ -306,9 +306,9 @@ func TestEnvSourceTracker_PerEnvPriorityOverride(t *testing.T) {
 		t.Errorf("Expected KUBECONFIG=/path1 (priority 0 wins), got %s", result["KUBECONFIG"])
 	}
 
-	// REGISTRY_URL should use registry2 (priority 50 beats priority 100)
-	if result["REGISTRY_URL"] != "registry2" {
-		t.Errorf("Expected REGISTRY_URL=registry2 (priority 50 wins), got %s", result["REGISTRY_URL"])
+	// TESTENV_LCR_FQDN should use registry2 (priority 50 beats priority 100)
+	if result["TESTENV_LCR_FQDN"] != "registry2" {
+		t.Errorf("Expected TESTENV_LCR_FQDN=registry2 (priority 50 wins), got %s", result["TESTENV_LCR_FQDN"])
 	}
 }
 
@@ -411,9 +411,9 @@ func TestEnvSourceTracker_ComplexScenario(t *testing.T) {
 		0,
 	)
 
-	// Sub-engine 1: testenv-lcr exports REGISTRY_URL with default priority
+	// Sub-engine 1: testenv-lcr exports TESTENV_LCR_FQDN with default priority
 	tracker.Merge(
-		map[string]string{"REGISTRY_URL": "localhost:5000"},
+		map[string]string{"TESTENV_LCR_FQDN": "localhost:5000"},
 		nil,
 		1,
 	)
@@ -436,9 +436,9 @@ func TestEnvSourceTracker_ComplexScenario(t *testing.T) {
 		t.Errorf("Expected KUBECONFIG=/tmp/kubeconfig, got %s", result["KUBECONFIG"])
 	}
 
-	// REGISTRY_URL should be present
-	if result["REGISTRY_URL"] != "localhost:5000" {
-		t.Errorf("Expected REGISTRY_URL=localhost:5000, got %s", result["REGISTRY_URL"])
+	// TESTENV_LCR_FQDN should be present
+	if result["TESTENV_LCR_FQDN"] != "localhost:5000" {
+		t.Errorf("Expected TESTENV_LCR_FQDN=localhost:5000, got %s", result["TESTENV_LCR_FQDN"])
 	}
 
 	// HELM_VERSION should be added

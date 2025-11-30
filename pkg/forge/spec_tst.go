@@ -89,7 +89,7 @@ type TestEnvironment struct {
 
 	// Env holds merged environment variables from all testenv sub-engines
 	// This is accumulated during testenv creation with priority-based resolution
-	// Keys are environment variable names (e.g., "KUBECONFIG", "REGISTRY_URL")
+	// Keys are environment variable names (e.g., "KUBECONFIG", "TESTENV_LCR_FQDN")
 	Env map[string]string `json:"env,omitempty"`
 }
 

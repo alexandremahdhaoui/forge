@@ -301,11 +301,21 @@ func createLocalContainerRegistry(ctx context.Context, input engineframework.Cre
 		}
 	}
 
-	// Prepare environment variables to export
+	// Construct registry hostname (without port)
+	registryHost := fmt.Sprintf("%s.%s.svc.cluster.local", Name, config.LocalContainerRegistry.Namespace)
+
+	// Prepare environment variables to export for template expansion in subsequent testenv sub-engines.
+	// These can be referenced in forge.yaml specs using {{.Env.VARIABLE_NAME}} syntax.
+	// Example usage in testenv-helm-install:
+	//   values:
+	//     image:
+	//       repository: "{{.Env.TESTENV_LCR_FQDN}}/myapp"
 	env := map[string]string{
-		"REGISTRY_FQDN":      registryFQDN,
-		"REGISTRY_NAMESPACE": config.LocalContainerRegistry.Namespace,
-		"REGISTRY_CA_CERT":   caCrtPath,
+		"TESTENV_LCR_FQDN":      registryFQDN,                            // Full registry address with port (e.g., testenv-lcr.testenv-lcr.svc.cluster.local:31906)
+		"TESTENV_LCR_HOST":      registryHost,                            // Registry hostname without port (e.g., testenv-lcr.testenv-lcr.svc.cluster.local)
+		"TESTENV_LCR_PORT":      fmt.Sprintf("%d", dynamicPort),          // Registry port (e.g., 31906)
+		"TESTENV_LCR_NAMESPACE": config.LocalContainerRegistry.Namespace, // Kubernetes namespace (e.g., testenv-lcr)
+		"TESTENV_LCR_CA_CERT":   caCrtPath,                               // Absolute path to CA certificate
 	}
 
 	return &engineframework.TestEnvArtifact{

@@ -21,64 +21,64 @@ func TestEnvPropagationFiltering(t *testing.T) {
 		{
 			name: "No filtering - all vars propagated",
 			testenvEnv: map[string]string{
-				"KUBECONFIG":   "/tmp/kubeconfig",
-				"REGISTRY_URL": "localhost:5000",
-				"NAMESPACE":    "test-ns",
+				"KUBECONFIG":       "/tmp/kubeconfig",
+				"TESTENV_LCR_FQDN": "localhost:5000",
+				"NAMESPACE":        "test-ns",
 			},
 			envPropagation: nil, // No filtering config
 			wantEnvPresent: map[string]string{
-				"KUBECONFIG":   "/tmp/kubeconfig",
-				"REGISTRY_URL": "localhost:5000",
-				"NAMESPACE":    "test-ns",
+				"KUBECONFIG":       "/tmp/kubeconfig",
+				"TESTENV_LCR_FQDN": "localhost:5000",
+				"NAMESPACE":        "test-ns",
 			},
 			wantEnvNotPresent: []string{},
 		},
 		{
 			name: "Whitelist filtering - only whitelisted vars propagated",
 			testenvEnv: map[string]string{
-				"KUBECONFIG":   "/tmp/kubeconfig",
-				"REGISTRY_URL": "localhost:5000",
-				"NAMESPACE":    "test-ns",
-				"OTHER_VAR":    "other-value",
+				"KUBECONFIG":       "/tmp/kubeconfig",
+				"TESTENV_LCR_FQDN": "localhost:5000",
+				"NAMESPACE":        "test-ns",
+				"OTHER_VAR":        "other-value",
 			},
 			envPropagation: &forge.EnvPropagation{
-				Whitelist: []string{"KUBECONFIG", "REGISTRY_URL"},
+				Whitelist: []string{"KUBECONFIG", "TESTENV_LCR_FQDN"},
 			},
 			wantEnvPresent: map[string]string{
-				"KUBECONFIG":   "/tmp/kubeconfig",
-				"REGISTRY_URL": "localhost:5000",
+				"KUBECONFIG":       "/tmp/kubeconfig",
+				"TESTENV_LCR_FQDN": "localhost:5000",
 			},
 			wantEnvNotPresent: []string{"NAMESPACE", "OTHER_VAR"},
 		},
 		{
 			name: "Blacklist filtering - blacklisted vars excluded",
 			testenvEnv: map[string]string{
-				"KUBECONFIG":   "/tmp/kubeconfig",
-				"REGISTRY_URL": "localhost:5000",
-				"NAMESPACE":    "test-ns",
-				"SECRET_TOKEN": "secret-value",
+				"KUBECONFIG":       "/tmp/kubeconfig",
+				"TESTENV_LCR_FQDN": "localhost:5000",
+				"NAMESPACE":        "test-ns",
+				"SECRET_TOKEN":     "secret-value",
 			},
 			envPropagation: &forge.EnvPropagation{
 				Blacklist: []string{"SECRET_TOKEN", "NAMESPACE"},
 			},
 			wantEnvPresent: map[string]string{
-				"KUBECONFIG":   "/tmp/kubeconfig",
-				"REGISTRY_URL": "localhost:5000",
+				"KUBECONFIG":       "/tmp/kubeconfig",
+				"TESTENV_LCR_FQDN": "localhost:5000",
 			},
 			wantEnvNotPresent: []string{"SECRET_TOKEN", "NAMESPACE"},
 		},
 		{
 			name: "Disabled propagation - no vars propagated",
 			testenvEnv: map[string]string{
-				"KUBECONFIG":   "/tmp/kubeconfig",
-				"REGISTRY_URL": "localhost:5000",
-				"NAMESPACE":    "test-ns",
+				"KUBECONFIG":       "/tmp/kubeconfig",
+				"TESTENV_LCR_FQDN": "localhost:5000",
+				"NAMESPACE":        "test-ns",
 			},
 			envPropagation: &forge.EnvPropagation{
 				Disabled: true,
 			},
 			wantEnvPresent:    map[string]string{},
-			wantEnvNotPresent: []string{"KUBECONFIG", "REGISTRY_URL", "NAMESPACE"},
+			wantEnvNotPresent: []string{"KUBECONFIG", "TESTENV_LCR_FQDN", "NAMESPACE"},
 		},
 		{
 			name: "Whitelist with non-existent vars - only existing whitelisted vars propagated",
@@ -87,12 +87,12 @@ func TestEnvPropagationFiltering(t *testing.T) {
 				"NAMESPACE":  "test-ns",
 			},
 			envPropagation: &forge.EnvPropagation{
-				Whitelist: []string{"KUBECONFIG", "REGISTRY_URL", "NON_EXISTENT"},
+				Whitelist: []string{"KUBECONFIG", "TESTENV_LCR_FQDN", "NON_EXISTENT"},
 			},
 			wantEnvPresent: map[string]string{
 				"KUBECONFIG": "/tmp/kubeconfig",
 			},
-			wantEnvNotPresent: []string{"NAMESPACE", "REGISTRY_URL", "NON_EXISTENT"},
+			wantEnvNotPresent: []string{"NAMESPACE", "TESTENV_LCR_FQDN", "NON_EXISTENT"},
 		},
 		{
 			name: "Empty whitelist - no filtering (all vars propagated)",
@@ -249,8 +249,8 @@ func TestNormalizeEnvKey(t *testing.T) {
 			want:  "CLUSTER_NAME",
 		},
 		{
-			input: "registry-url",
-			want:  "REGISTRY_URL",
+			input: "testenv-lcr-fqdn",
+			want:  "TESTENV_LCR_FQDN",
 		},
 		{
 			input: "ALREADY_UPPER",
@@ -286,9 +286,9 @@ func TestEnvPropagationIntegration(t *testing.T) {
 				Stage: "integration",
 				Name:  "test-whitelist",
 				TestenvEnv: map[string]string{
-					"KUBECONFIG":   "/tmp/kubeconfig",
-					"REGISTRY_URL": "localhost:5000",
-					"NAMESPACE":    "test-ns",
+					"KUBECONFIG":       "/tmp/kubeconfig",
+					"TESTENV_LCR_FQDN": "localhost:5000",
+					"NAMESPACE":        "test-ns",
 				},
 				EnvPropagation: &forge.EnvPropagation{
 					Whitelist: []string{"KUBECONFIG"},
@@ -301,7 +301,7 @@ func TestEnvPropagationIntegration(t *testing.T) {
 				"KUBECONFIG": "/tmp/kubeconfig",
 				"CUSTOM_VAR": "custom-value",
 			},
-			wantEnvNotPresent: []string{"REGISTRY_URL", "NAMESPACE"},
+			wantEnvNotPresent: []string{"TESTENV_LCR_FQDN", "NAMESPACE"},
 		},
 		{
 			name: "Integration: Disabled with metadata",
