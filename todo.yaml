@@ -1,12 +1,16 @@
-todo:
-  - Allow specifying prepend cmd to custom engines ?
+TODOs:
+  - |-
+    # forge global .envrc
+
+    - Add a field to forge.yaml to specify a .envrc file that is sourced into forge.
+    - Not sure if actually can source that file from the go program because obviously
+      `exec.Command("source", ".envrc").Run()` will only source it in the spawned process.
+    - The idea would rather be to parse the file, execute any stuff in "``", "$()" or "<()", etc...
+      and "export"/set the environment variables.
 
   - |-
-    Implement bpf2go code generation based on:
-    ```make
-    BPF_GOPACKAGE := bpfadapter
-    BPF_DIR       := $(ROOT)/internal/adapter/bpf
-    BPF_FILE      := $(BPF_DIR)/$(PROJECT)_kern.c
-    BPF2GO_OPTS   := --go-package $(BPF_GOPACKAGE) -tags linux --output-dir $(BPF_DIR) --output-stem zz_generated
-    ```
+    # testenv-lcr
+
+    - [ ] Fix TLS (use nodeport or ClusterIP to allow the node to communicate with the registry)
+    - [ ] Implement concurrency for testenv-lcr: i.e. using different ports (not always port :5000)
 
