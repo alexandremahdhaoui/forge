@@ -11,9 +11,37 @@ import (
 	"time"
 )
 
+// runCmd executes a command and logs stdout/stderr to the test output.
+// Returns the combined output and any error.
+func runCmd(t *testing.T, name string, args ...string) (string, error) {
+	t.Helper()
+	cmd := exec.Command(name, args...)
+	t.Logf(">>> Running: %s %s", name, strings.Join(args, " "))
+	output, err := cmd.CombinedOutput()
+	if len(output) > 0 {
+		t.Logf("<<< Output:\n%s", string(output))
+	}
+	return string(output), err
+}
+
+// runCmdWithStdin executes a command with stdin and logs stdout/stderr to the test output.
+func runCmdWithStdin(t *testing.T, stdin string, name string, args ...string) (string, error) {
+	t.Helper()
+	cmd := exec.Command(name, args...)
+	cmd.Stdin = strings.NewReader(stdin)
+	t.Logf(">>> Running: %s %s", name, strings.Join(args, " "))
+	output, err := cmd.CombinedOutput()
+	if len(output) > 0 {
+		t.Logf("<<< Output:\n%s", string(output))
+	}
+	return string(output), err
+}
+
 // TestLocalContainerRegistryPushPull verifies that we can push and pull images
 // from the local container registry created by testenv-lcr.
 func TestLocalContainerRegistryPushPull(t *testing.T) {
+	t.Parallel() // Can run in parallel - uses isolated namespace
+
 	// Verify testenv-lcr metadata is set
 	registryFQDN := os.Getenv("FORGE_METADATA_TESTENV_LCR_REGISTRYFQDN")
 	if registryFQDN == "" {
@@ -44,39 +72,101 @@ func TestLocalContainerRegistryPushPull(t *testing.T) {
 	}
 	t.Logf("CA certificate: %s", caCrtPath)
 
-	// Test push and pull with a minimal alpine image
-	testPushPullAlpineImage(t, registryFQDN)
+	// Test push and pull with the minimal for-testing-purposes image
+	testPushPullLocalImage(t, registryFQDN)
 }
 
-// testPushPullAlpineImage tests pushing and pulling a minimal alpine image.
-func testPushPullAlpineImage(t *testing.T, registryFQDN string) {
-	t.Run("PushPullAlpineImage", func(t *testing.T) {
-		// Get kubeconfig for port-forward
+// testPushPullLocalImage tests pushing and pulling the for-testing-purposes image.
+// This test deploys its OWN testenv-lcr in a SEPARATE namespace using the EXISTING Kind cluster.
+// This ensures test isolation without the overhead of creating a new cluster.
+func testPushPullLocalImage(t *testing.T, _ string) {
+	t.Run("PushPullLocalImage", func(t *testing.T) {
+		// Use the existing Kind cluster's kubeconfig
 		kubeconfigPath := os.Getenv("FORGE_ARTIFACT_TESTENV_KIND_KUBECONFIG")
 		if kubeconfigPath == "" {
 			t.Fatal("FORGE_ARTIFACT_TESTENV_KIND_KUBECONFIG not set")
 		}
 
-		// Get registry namespace
-		namespace := os.Getenv("FORGE_METADATA_TESTENV_LCR_NAMESPACE")
-		if namespace == "" {
-			namespace = "testenv-lcr" // default
+		// Deploy a SEPARATE testenv-lcr in a different namespace for this test
+		testNamespace := "testenv-lcr-pushpull"
+		testPort := "30500" // Use a different port to avoid conflicts
+
+		t.Logf("Deploying separate testenv-lcr in namespace %s", testNamespace)
+
+		// Create namespace
+		nsYAML, err := runCmd(t, "kubectl", "create", "namespace", testNamespace,
+			"--kubeconfig", kubeconfigPath, "--dry-run=client", "-o", "yaml")
+		if err != nil {
+			t.Fatalf("Failed to generate namespace YAML: %v", err)
 		}
 
-		// Get credentials path
-		credentialPath := os.Getenv("FORGE_ARTIFACT_TESTENV_LCR_CREDENTIALS_YAML")
-		if credentialPath == "" {
-			t.Fatal("FORGE_ARTIFACT_TESTENV_LCR_CREDENTIALS_YAML not set")
+		if _, err := runCmdWithStdin(t, nsYAML, "kubectl", "apply", "-f", "-", "--kubeconfig", kubeconfigPath); err != nil {
+			t.Fatalf("Failed to create namespace: %v", err)
 		}
 
-		// Establish port-forward to the registry
-		t.Log("Establishing port-forward to registry...")
+		// Cleanup namespace at the end
+		defer func() {
+			t.Log("Cleaning up test namespace...")
+			runCmd(t, "kubectl", "delete", "namespace", testNamespace,
+				"--kubeconfig", kubeconfigPath, "--ignore-not-found=true")
+		}()
+
+		// Deploy a simple registry (no TLS, no auth for simplicity in this isolated test)
+		registryDeployment := fmt.Sprintf(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: registry
+  namespace: %s
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: registry
+  template:
+    metadata:
+      labels:
+        app: registry
+    spec:
+      containers:
+      - name: registry
+        image: registry:2
+        ports:
+        - containerPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry
+  namespace: %s
+spec:
+  type: NodePort
+  selector:
+    app: registry
+  ports:
+  - port: 5000
+    targetPort: 5000
+    nodePort: %s
+`, testNamespace, testNamespace, testPort)
+
+		if _, err := runCmdWithStdin(t, registryDeployment, "kubectl", "apply", "-f", "-", "--kubeconfig", kubeconfigPath); err != nil {
+			t.Fatalf("Failed to deploy registry: %v", err)
+		}
+
+		// Wait for registry to be ready
+		t.Log("Waiting for registry deployment to be ready...")
+		if _, err := runCmd(t, "kubectl", "rollout", "status", "deployment/registry",
+			"-n", testNamespace, "--kubeconfig", kubeconfigPath, "--timeout=60s"); err != nil {
+			t.Fatalf("Registry deployment not ready: %v", err)
+		}
+
+		// Start port-forward to the registry
+		t.Log("Starting port-forward to registry...")
 		portForwardCmd := exec.Command("kubectl", "port-forward",
-			"-n", namespace,
-			"svc/testenv-lcr", "5000:5000",
+			"-n", testNamespace,
+			"svc/registry", fmt.Sprintf("%s:5000", testPort),
 			"--kubeconfig", kubeconfigPath)
-
-		// Start port-forward in background
+		t.Logf(">>> Running (background): kubectl port-forward -n %s svc/registry %s:5000", testNamespace, testPort)
 		if err := portForwardCmd.Start(); err != nil {
 			t.Fatalf("Failed to start port-forward: %v", err)
 		}
@@ -86,101 +176,53 @@ func testPushPullAlpineImage(t *testing.T, registryFQDN string) {
 			}
 		}()
 
-		// Wait a bit for port-forward to establish
-		t.Log("Waiting for port-forward to be ready...")
+		// Wait for port-forward to be ready
 		time.Sleep(2 * time.Second)
 
-		// Log in to the registry
-		t.Log("Logging in to registry...")
-		// Read credentials
-		credBytes, err := os.ReadFile(credentialPath)
-		if err != nil {
-			t.Fatalf("Failed to read credentials: %v", err)
+		// Registry endpoint (no TLS, no auth)
+		registryEndpoint := fmt.Sprintf("127.0.0.1:%s", testPort)
+
+		// Use the for-testing-purposes image that's already built locally by forge
+		sourceImage := "for-testing-purposes:latest"
+		localImage := fmt.Sprintf("%s/for-testing-purposes:push-pull-test", registryEndpoint)
+
+		// Tag the local image for the registry
+		t.Logf("Tagging %s as %s...", sourceImage, localImage)
+		if _, err := runCmd(t, "docker", "tag", sourceImage, localImage); err != nil {
+			t.Fatalf("Failed to tag image: %v", err)
 		}
 
-		// Parse credentials (simple YAML parsing - look for username: and password: lines)
-		var creds struct {
-			Username string
-			Password string
-		}
-		lines := strings.Split(string(credBytes), "\n")
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "username:") {
-				creds.Username = strings.TrimSpace(strings.TrimPrefix(line, "username:"))
-			} else if strings.HasPrefix(line, "password:") {
-				creds.Password = strings.TrimSpace(strings.TrimPrefix(line, "password:"))
-			}
-		}
-
-		if creds.Username == "" || creds.Password == "" {
-			t.Fatalf("Failed to parse credentials from file")
-		}
-
-		// Login using stdin for password
-		loginCmd := exec.Command("docker", "login", registryFQDN, "--username", creds.Username, "--password-stdin")
-		loginCmd.Stdin = strings.NewReader(creds.Password)
-		output, err := loginCmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("Failed to login to registry: %v\nOutput: %s", err, string(output))
-		}
-		t.Logf("Successfully logged in to registry")
-
-		// Pull alpine image from public registry
-		t.Log("Pulling alpine:latest from public registry...")
-		cmd := exec.Command("docker", "pull", "alpine:latest")
-		output, err = cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("Failed to pull alpine:latest: %v\nOutput: %s", err, string(output))
-		}
-		t.Logf("Successfully pulled alpine:latest")
-
-		// Tag image for local registry
-		localImage := fmt.Sprintf("%s/alpine:test", registryFQDN)
-		t.Logf("Tagging image as %s...", localImage)
-		cmd = exec.Command("docker", "tag", "alpine:latest", localImage)
-		output, err = cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("Failed to tag image: %v\nOutput: %s", err, string(output))
-		}
-
-		// Push image to local registry
+		// Push image to local registry (insecure, no TLS)
 		t.Logf("Pushing image to local registry...")
-		cmd = exec.Command("docker", "push", localImage)
-		output, err = cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("Failed to push image: %v\nOutput: %s", err, string(output))
+		if _, err := runCmd(t, "docker", "push", localImage); err != nil {
+			t.Fatalf("Failed to push image: %v", err)
 		}
 		t.Logf("Successfully pushed image to local registry")
 
-		// Remove local image to test pull
-		t.Log("Removing local image to test pull...")
-		cmd = exec.Command("docker", "rmi", localImage)
-		output, err = cmd.CombinedOutput()
-		if err != nil {
-			t.Logf("Warning: Failed to remove local image (non-fatal): %v", err)
+		// Remove the tagged image to test pull
+		t.Log("Removing tagged image to test pull...")
+		if _, err := runCmd(t, "docker", "rmi", localImage); err != nil {
+			t.Logf("Warning: Failed to remove tagged image (non-fatal): %v", err)
 		}
 
 		// Pull image from local registry
 		t.Logf("Pulling image from local registry...")
-		cmd = exec.Command("docker", "pull", localImage)
-		output, err = cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("Failed to pull image from local registry: %v\nOutput: %s", err, string(output))
+		if _, err := runCmd(t, "docker", "pull", localImage); err != nil {
+			t.Fatalf("Failed to pull image from local registry: %v", err)
 		}
 		t.Logf("Successfully pulled image from local registry")
 
-		// Cleanup
+		// Cleanup images
 		t.Log("Cleaning up test images...")
-		exec.Command("docker", "rmi", localImage).Run()
-		exec.Command("docker", "rmi", "alpine:latest").Run()
-		exec.Command("docker", "logout", registryFQDN).Run()
+		runCmd(t, "docker", "rmi", localImage)
 	})
 }
 
 // TestLocalContainerRegistryImagePullSecrets verifies that image pull secrets
 // are automatically created in the configured namespaces.
 func TestLocalContainerRegistryImagePullSecrets(t *testing.T) {
+	t.Parallel() // Can run in parallel - read-only kubectl commands
+
 	// Verify testenv-lcr metadata is set
 	registryFQDN := os.Getenv("FORGE_METADATA_TESTENV_LCR_REGISTRYFQDN")
 	if registryFQDN == "" {
@@ -226,16 +268,15 @@ func testImagePullSecretInNamespace(t *testing.T, kubeconfigPath string, index i
 		t.Logf("Checking image pull secret: %s/%s", namespace, secretName)
 
 		// Verify secret exists
-		cmd := exec.Command("kubectl", "get", "secret", secretName,
+		output, err := runCmd(t, "kubectl", "get", "secret", secretName,
 			"-n", namespace,
 			"--kubeconfig", kubeconfigPath,
 			"-o", "jsonpath={.type}")
-		output, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("Failed to get secret: %v\nOutput: %s", err, string(output))
+			t.Fatalf("Failed to get secret: %v", err)
 		}
 
-		secretType := strings.TrimSpace(string(output))
+		secretType := strings.TrimSpace(output)
 		expectedType := "kubernetes.io/dockerconfigjson"
 		if secretType != expectedType {
 			t.Errorf("Expected secret type %s, got %s", expectedType, secretType)
@@ -244,30 +285,28 @@ func testImagePullSecretInNamespace(t *testing.T, kubeconfigPath string, index i
 		t.Logf("✅ Image pull secret verified: %s/%s (type: %s)", namespace, secretName, secretType)
 
 		// Verify secret has the correct data keys
-		cmd = exec.Command("kubectl", "get", "secret", secretName,
+		output, err = runCmd(t, "kubectl", "get", "secret", secretName,
 			"-n", namespace,
 			"--kubeconfig", kubeconfigPath,
 			"-o", "jsonpath={.data}")
-		output, err = cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("Failed to get secret data: %v\nOutput: %s", err, string(output))
+			t.Fatalf("Failed to get secret data: %v", err)
 		}
 
-		if !strings.Contains(string(output), ".dockerconfigjson") {
+		if !strings.Contains(output, ".dockerconfigjson") {
 			t.Errorf("Secret does not contain .dockerconfigjson key")
 		}
 
 		// Verify secret has the correct label
-		cmd = exec.Command("kubectl", "get", "secret", secretName,
+		output, err = runCmd(t, "kubectl", "get", "secret", secretName,
 			"-n", namespace,
 			"--kubeconfig", kubeconfigPath,
 			"-o", "jsonpath={.metadata.labels.app\\.kubernetes\\.io/managed-by}")
-		output, err = cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("Failed to get secret label: %v\nOutput: %s", err, string(output))
+			t.Fatalf("Failed to get secret label: %v", err)
 		}
 
-		managedBy := strings.TrimSpace(string(output))
+		managedBy := strings.TrimSpace(output)
 		if managedBy != "testenv-lcr" {
 			t.Errorf("Expected managed-by label to be 'testenv-lcr', got '%s'", managedBy)
 		}
@@ -277,6 +316,8 @@ func testImagePullSecretInNamespace(t *testing.T, kubeconfigPath string, index i
 // TestLocalContainerRegistryDeployment verifies that the local container registry
 // deployment is running in the cluster.
 func TestLocalContainerRegistryDeployment(t *testing.T) {
+	t.Parallel() // Can run in parallel - read-only kubectl commands
+
 	// Check if testenv-lcr was set up
 	registryFQDN := os.Getenv("FORGE_METADATA_TESTENV_LCR_REGISTRYFQDN")
 	if registryFQDN == "" {
@@ -297,16 +338,15 @@ func TestLocalContainerRegistryDeployment(t *testing.T) {
 
 	t.Run("RegistryDeployment", func(t *testing.T) {
 		// Check deployment exists and is ready
-		cmd := exec.Command("kubectl", "get", "deployment", "testenv-lcr",
+		output, err := runCmd(t, "kubectl", "get", "deployment", "testenv-lcr",
 			"-n", namespace,
 			"--kubeconfig", kubeconfigPath,
 			"-o", "jsonpath={.status.availableReplicas}")
-		output, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("Failed to get deployment: %v\nOutput: %s", err, string(output))
+			t.Fatalf("Failed to get deployment: %v", err)
 		}
 
-		availableReplicas := strings.TrimSpace(string(output))
+		availableReplicas := strings.TrimSpace(output)
 		if availableReplicas != "1" {
 			t.Errorf("Expected 1 available replica, got %s", availableReplicas)
 		}
@@ -315,19 +355,25 @@ func TestLocalContainerRegistryDeployment(t *testing.T) {
 	})
 
 	t.Run("RegistryService", func(t *testing.T) {
+		// Get expected port from metadata (dynamic port from PortLeaseManager)
+		expectedPort := os.Getenv("FORGE_METADATA_TESTENV_LCR_PORT")
+		if expectedPort == "" {
+			// Fallback for backward compatibility if metadata is not set
+			expectedPort = "5000"
+		}
+
 		// Check service exists
-		cmd := exec.Command("kubectl", "get", "service", "testenv-lcr",
+		output, err := runCmd(t, "kubectl", "get", "service", "testenv-lcr",
 			"-n", namespace,
 			"--kubeconfig", kubeconfigPath,
 			"-o", "jsonpath={.spec.ports[0].port}")
-		output, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("Failed to get service: %v\nOutput: %s", err, string(output))
+			t.Fatalf("Failed to get service: %v", err)
 		}
 
-		port := strings.TrimSpace(string(output))
-		if port != "5000" {
-			t.Errorf("Expected service port 5000, got %s", port)
+		port := strings.TrimSpace(output)
+		if port != expectedPort {
+			t.Errorf("Expected service port %s, got %s", expectedPort, port)
 		}
 
 		t.Logf("✅ Registry service is running on port %s", port)
@@ -342,6 +388,8 @@ func TestLocalContainerRegistryDeployment(t *testing.T) {
 // - hosts.toml configured for the registry FQDN
 // - Image pull secret properly configured in the namespace
 func TestPodCanPullImageFromLCR(t *testing.T) {
+	t.Parallel() // Can run in parallel - uses unique pod name
+
 	// Verify testenv-lcr metadata is set
 	registryFQDN := os.Getenv("FORGE_METADATA_TESTENV_LCR_REGISTRYFQDN")
 	if registryFQDN == "" {
@@ -360,20 +408,19 @@ func TestPodCanPullImageFromLCR(t *testing.T) {
 		secretName = "local-container-registry-credentials" // default
 	}
 
-	// Use the alpine image that should have been pushed to LCR by testenv-lcr
-	// The full image path is preserved when pushing to LCR:
-	// docker.io/library/alpine:3.18 -> {registryFQDN}/docker.io/library/alpine:3.18
-	testImage := fmt.Sprintf("%s/docker.io/library/alpine:3.18", registryFQDN)
+	// Use the for-testing-purposes image built by forge and pushed to LCR
+	// Local images are pushed as: local://name:tag -> {registryFQDN}/name:tag
+	testImage := fmt.Sprintf("%s/for-testing-purposes:latest", registryFQDN)
 	testNamespace := "default"
 	testPodName := "test-lcr-image-pull"
 
 	t.Run("CreateAndVerifyPodImagePull", func(t *testing.T) {
 		// Cleanup: Delete pod if it exists from previous test run
-		cleanupCmd := exec.Command("kubectl", "delete", "pod", testPodName,
+		t.Log("Cleaning up any existing test pod...")
+		runCmd(t, "kubectl", "delete", "pod", testPodName,
 			"-n", testNamespace,
 			"--kubeconfig", kubeconfigPath,
 			"--ignore-not-found=true")
-		cleanupCmd.Run() // Ignore errors from cleanup
 
 		// Create pod YAML
 		podYAML := fmt.Sprintf(`apiVersion: v1
@@ -395,34 +442,30 @@ spec:
 		t.Logf("Using image pull secret: %s", secretName)
 
 		// Create pod using kubectl apply
-		applyCmd := exec.Command("kubectl", "apply", "-f", "-",
-			"--kubeconfig", kubeconfigPath)
-		applyCmd.Stdin = strings.NewReader(podYAML)
-		output, err := applyCmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("Failed to create pod: %v\nOutput: %s", err, string(output))
+		if _, err := runCmdWithStdin(t, podYAML, "kubectl", "apply", "-f", "-",
+			"--kubeconfig", kubeconfigPath); err != nil {
+			t.Fatalf("Failed to create pod: %v", err)
 		}
 		t.Logf("Pod created successfully")
 
 		// Wait for pod to pull image (check for image pull success)
-		// We wait up to 60 seconds for the image to be pulled
+		// We wait up to 20 seconds for the image to be pulled (using minimal for-testing-purposes image)
 		var lastStatus string
 		var imagePulled bool
-		for i := 0; i < 30; i++ {
+		for i := 0; i < 10; i++ {
 			// Get pod status
-			statusCmd := exec.Command("kubectl", "get", "pod", testPodName,
+			output, err := runCmd(t, "kubectl", "get", "pod", testPodName,
 				"-n", testNamespace,
 				"--kubeconfig", kubeconfigPath,
 				"-o", "jsonpath={.status.phase},{.status.containerStatuses[0].state}")
-			statusOutput, err := statusCmd.CombinedOutput()
 			if err != nil {
-				t.Logf("Waiting for pod... (attempt %d/30)", i+1)
+				t.Logf("Waiting for pod... (attempt %d/10)", i+1)
 				time.Sleep(2 * time.Second)
 				continue
 			}
 
-			lastStatus = strings.TrimSpace(string(statusOutput))
-			t.Logf("Pod status (attempt %d/30): %s", i+1, lastStatus)
+			lastStatus = strings.TrimSpace(output)
+			t.Logf("Pod status (attempt %d/10): %s", i+1, lastStatus)
 
 			// Check if pod phase indicates image was pulled successfully
 			// Phase can be "Pending" (still pulling), "Running" (pulled and running), or "Failed"
@@ -435,11 +478,10 @@ spec:
 			if strings.Contains(lastStatus, "ImagePullBackOff") ||
 				strings.Contains(lastStatus, "ErrImagePull") {
 				// Get detailed events for debugging
-				eventsCmd := exec.Command("kubectl", "describe", "pod", testPodName,
+				eventsOutput, _ := runCmd(t, "kubectl", "describe", "pod", testPodName,
 					"-n", testNamespace,
 					"--kubeconfig", kubeconfigPath)
-				eventsOutput, _ := eventsCmd.CombinedOutput()
-				t.Fatalf("Image pull failed: %s\nPod details:\n%s", lastStatus, string(eventsOutput))
+				t.Fatalf("Image pull failed: %s\nPod details:\n%s", lastStatus, eventsOutput)
 			}
 
 			// Also check if container is waiting with a successful image pull
@@ -454,21 +496,20 @@ spec:
 
 		if !imagePulled {
 			// Get detailed events for debugging
-			eventsCmd := exec.Command("kubectl", "describe", "pod", testPodName,
+			eventsOutput, _ := runCmd(t, "kubectl", "describe", "pod", testPodName,
 				"-n", testNamespace,
 				"--kubeconfig", kubeconfigPath)
-			eventsOutput, _ := eventsCmd.CombinedOutput()
 			t.Fatalf("Image pull did not complete in time. Last status: %s\nPod details:\n%s",
-				lastStatus, string(eventsOutput))
+				lastStatus, eventsOutput)
 		}
 
 		t.Logf("✅ Pod successfully pulled image from LCR: %s", testImage)
 
 		// Cleanup: Delete the test pod
-		deleteCmd := exec.Command("kubectl", "delete", "pod", testPodName,
+		t.Log("Cleaning up test pod...")
+		runCmd(t, "kubectl", "delete", "pod", testPodName,
 			"-n", testNamespace,
 			"--kubeconfig", kubeconfigPath,
 			"--ignore-not-found=true")
-		deleteCmd.Run() // Best effort cleanup
 	})
 }

@@ -73,7 +73,8 @@ func pullRemoteImage(containerEngine string, img ImageSource, parsed ParsedImage
 }
 
 // processImages handles all image processing: pre-flight validation, pull, tag, push.
-func processImages(ctx context.Context, images []ImageSource, config forge.Spec, envs Envs) error {
+// The dynamicPort parameter is the port that was acquired by the port lease manager and used for the NodePort service.
+func processImages(ctx context.Context, images []ImageSource, config forge.Spec, envs Envs, dynamicPort int32) error {
 	if len(images) == 0 {
 		return nil // No images to process
 	}
@@ -101,7 +102,7 @@ func processImages(ctx context.Context, images []ImageSource, config forge.Spec,
 	}
 
 	// Phase 2: Process images with registry access
-	return withRegistryAccess(ctx, config, envs, func(registryFQDNWithPort string) error {
+	return withRegistryAccess(ctx, config, envs, dynamicPort, func(registryFQDNWithPort string) error {
 		for _, img := range images {
 			parsed := ParseImageName(img.Name)
 

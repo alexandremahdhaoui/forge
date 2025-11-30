@@ -55,8 +55,8 @@ engines:
           # Use local:// prefix for locally built images (e.g., local://myapp:v1.0.0)
           # Use full registry path for remote images (e.g., quay.io/example/img:v1)
           images:
-            # Test image for integration test - pulls alpine and pushes to LCR
-            - name: docker.io/library/alpine:3.18
+            # Minimal test image built by forge - much faster than pulling from remote
+            - name: local://for-testing-purposes:latest
           # -- creadentialPath defines the output file containing the container registry credentials.
           # credentialPath: .ignore.local-container-registry.yaml
           # -- path to CA certificate.

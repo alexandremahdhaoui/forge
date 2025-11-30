@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
@@ -14,6 +15,12 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"sigs.k8s.io/yaml"
 )
+
+// activePortForwarders tracks active port-forwarders by testID for cleanup.
+var activePortForwarders = make(map[string]*PortForwarder)
+
+// portForwardersMu protects concurrent access to activePortForwarders.
+var portForwardersMu sync.Mutex
 
 // CreateImagePullSecretInput represents the input for the create-image-pull-secret tool.
 type CreateImagePullSecretInput struct {
@@ -123,6 +130,41 @@ func createLocalContainerRegistry(ctx context.Context, input engineframework.Cre
 		}, nil
 	}
 
+	// Extract clusterName from metadata (required for port leasing and containerd trust)
+	clusterName, ok := input.Metadata["testenv-kind.clusterName"]
+	if !ok || clusterName == "" {
+		return nil, fmt.Errorf("testenv-kind not executed: missing clusterName in metadata - containerd trust cannot be configured")
+	}
+
+	// Acquire dynamic port for this cluster using the port lease manager.
+	// This port is used for NodePort, service port, target port, container port, and port-forward.
+	portLeaseManager := NewPortLeaseManager()
+	dynamicPort, err := portLeaseManager.AcquirePort(clusterName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire port: %w", err)
+	}
+	log.Printf("Acquired dynamic port %d for cluster %s", dynamicPort, clusterName)
+
+	// Track whether we need to release the port on failure
+	portAcquired := true
+	var portForwarder *PortForwarder
+
+	// Defer cleanup on failure
+	defer func() {
+		if err != nil {
+			// Cleanup port-forwarder if started
+			if portForwarder != nil {
+				portForwarder.Stop()
+			}
+			// Release port lease if acquired
+			if portAcquired {
+				if releaseErr := portLeaseManager.ReleasePort(clusterName); releaseErr != nil {
+					log.Printf("Warning: failed to release port lease on cleanup: %v", releaseErr)
+				}
+			}
+		}
+	}()
+
 	// Override kubeconfig path from environment (primary source, from testenv-kind)
 	// Fallback to metadata for backward compatibility
 	kubeconfigPath := ""
@@ -145,30 +187,66 @@ func createLocalContainerRegistry(ctx context.Context, input engineframework.Cre
 	config.LocalContainerRegistry.CaCrtPath = caCrtPath
 	config.LocalContainerRegistry.CredentialPath = credentialPath
 
-	// Call the existing setup logic with the overridden config
-	if err := setupWithConfig(&config); err != nil {
+	// Call the existing setup logic with the overridden config and dynamic port
+	if err = setupWithConfig(&config, dynamicPort); err != nil {
 		return nil, fmt.Errorf("failed to setup local container registry: %w", err)
 	}
 
-	// Construct registryFQDN early so it can be used for containerd trust configuration
-	registryFQDN := fmt.Sprintf("%s.%s.svc.cluster.local:5000", Name, config.LocalContainerRegistry.Namespace)
+	// Construct registryFQDN with dynamic port
+	registryFQDN := fmt.Sprintf("%s.%s.svc.cluster.local:%d", Name, config.LocalContainerRegistry.Namespace, dynamicPort)
+
+	// Start port-forward to make registry accessible from host
+	portForwarder = NewPortForwarder(config, config.LocalContainerRegistry.Namespace, dynamicPort)
+	if err = portForwarder.Start(ctx); err != nil {
+		return nil, fmt.Errorf("failed to start port-forward: %w", err)
+	}
+
+	// Store port-forwarder in map for cleanup during delete
+	portForwardersMu.Lock()
+	activePortForwarders[input.TestID] = portForwarder
+	portForwardersMu.Unlock()
 
 	// Configure containerd trust on Kind nodes (Phase 2)
 	// This must happen AFTER CA cert is exported (by setupWithConfig) and BEFORE we return metadata
-	if clusterName, ok := input.Metadata["testenv-kind.clusterName"]; ok && clusterName != "" {
-		log.Printf("Configuring containerd trust for cluster %s", clusterName)
-		if err := configureContainerdTrust(clusterName, registryFQDN, caCrtPath, config.Kindenv.KubeconfigPath); err != nil {
-			return nil, fmt.Errorf("failed to configure containerd trust: %w", err)
-		}
-	} else {
-		return nil, fmt.Errorf("testenv-kind not executed: missing clusterName in metadata - containerd trust cannot be configured")
+	log.Printf("Configuring containerd trust for cluster %s", clusterName)
+	if err = configureContainerdTrust(clusterName, registryFQDN, caCrtPath); err != nil {
+		return nil, fmt.Errorf("failed to configure containerd trust: %w", err)
 	}
 
-	// Create Kubernetes client to list created image pull secrets
+	// IMPORTANT: The containerd restart on Kind nodes disrupts ALL pods, including the registry.
+	// The port-forward loses connection to the pod. We need to:
+	// 1. Wait for the registry deployment to be ready again
+	// 2. Stop the old (dead) port-forward
+	// 3. Start a new port-forward
+
+	// Create Kubernetes client (needed for waiting for deployment)
 	cl, err := createKubeClient(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
+
+	// Wait for registry deployment to be ready after containerd restart
+	log.Printf("Waiting for registry deployment to be ready after containerd restart...")
+	containerRegistry := NewContainerRegistry(cl, config.LocalContainerRegistry.Namespace, nil)
+	if err = containerRegistry.awaitDeployment(ctx); err != nil {
+		return nil, fmt.Errorf("failed to wait for registry deployment after containerd restart: %w", err)
+	}
+	log.Printf("Registry deployment is ready")
+
+	// Stop the old port-forward (it's dead anyway from "lost connection to pod")
+	portForwarder.Stop()
+
+	// Start a new port-forward
+	portForwarder = NewPortForwarder(config, config.LocalContainerRegistry.Namespace, dynamicPort)
+	if err = portForwarder.Start(ctx); err != nil {
+		return nil, fmt.Errorf("failed to restart port-forward after containerd restart: %w", err)
+	}
+	log.Printf("Port-forward restarted successfully")
+
+	// Update the stored port-forwarder
+	portForwardersMu.Lock()
+	activePortForwarders[input.TestID] = portForwarder
+	portForwardersMu.Unlock()
 
 	// Prepare files map (relative paths within tmpDir)
 	files := map[string]string{
@@ -183,6 +261,7 @@ func createLocalContainerRegistry(ctx context.Context, input engineframework.Cre
 		"testenv-lcr.caCrtPath":      caCrtPath,
 		"testenv-lcr.credentialPath": credentialPath,
 		"testenv-lcr.enabled":        "true",
+		"testenv-lcr.port":           fmt.Sprintf("%d", dynamicPort),
 	}
 
 	// Prepare managed resources (for cleanup)
@@ -197,7 +276,7 @@ func createLocalContainerRegistry(ctx context.Context, input engineframework.Cre
 		if err != nil {
 			return nil, fmt.Errorf("failed to read environment: %w", err)
 		}
-		if err := processImages(ctx, images, config, envs); err != nil {
+		if err := processImages(ctx, images, config, envs, dynamicPort); err != nil {
 			return nil, fmt.Errorf("failed to process images: %w", err)
 		}
 	}
@@ -248,6 +327,15 @@ func deleteLocalContainerRegistry(ctx context.Context, input engineframework.Del
 		return nil
 	}
 
+	// Stop port-forward if running for this testID
+	portForwardersMu.Lock()
+	if pf, ok := activePortForwarders[input.TestID]; ok {
+		pf.Stop()
+		delete(activePortForwarders, input.TestID)
+		log.Printf("Stopped port-forward for testID=%s", input.TestID)
+	}
+	portForwardersMu.Unlock()
+
 	// Read forge.yaml configuration
 	config, err := forge.ReadSpec()
 	if err != nil {
@@ -271,6 +359,16 @@ func deleteLocalContainerRegistry(ctx context.Context, input engineframework.Del
 	if err := teardown(); err != nil {
 		// Log error but don't fail - best effort cleanup
 		log.Printf("Warning: failed to teardown local container registry: %v", err)
+	}
+
+	// Release port lease for this cluster (best-effort)
+	if clusterName, ok := input.Metadata["testenv-kind.clusterName"]; ok && clusterName != "" {
+		portLeaseManager := NewPortLeaseManager()
+		if err := portLeaseManager.ReleasePort(clusterName); err != nil {
+			log.Printf("Warning: failed to release port lease for cluster %s: %v", clusterName, err)
+		} else {
+			log.Printf("Released port lease for cluster %s", clusterName)
+		}
 	}
 
 	return nil

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 var errListingKindNodes = errors.New("failed to list Kind nodes")
@@ -61,19 +62,19 @@ ca = "/etc/containerd/certs.d/%s/ca.crt"
 //  1. Creates the containerd certs.d directory for the registry FQDN on the node
 //  2. Copies the CA certificate from the host to the node
 //  3. Generates and writes the hosts.toml configuration to the node
-//  4. Adds DNS entry to /etc/hosts on the node for the registry FQDN
+//  4. Restarts containerd to apply the certificate trust changes
 //
-// Note: containerd uses inotify to auto-detect file changes, so no restart is needed.
+// Note: containerd requires restart to pick up new certs.d configurations.
+// The inotify mechanism does not reliably detect changes in Kind environments.
 //
 // Parameters:
 //   - nodeName: Name of the Kind node (e.g., "test-cluster-control-plane")
-//   - registryFQDN: Registry FQDN (e.g., "testenv-lcr.testenv-lcr.svc.cluster.local:5000")
+//   - registryFQDN: Registry FQDN (e.g., "testenv-lcr.testenv-lcr.svc.cluster.local:30123")
 //   - caCrtPath: Host path to CA certificate file
-//   - clusterIP: ClusterIP of the registry service (for /etc/hosts entry)
 //
 // Returns:
 //   - error if any step fails
-func configureNode(nodeName, registryFQDN, caCrtPath, clusterIP string) error {
+func configureNode(nodeName, registryFQDN, caCrtPath string) error {
 	// Step 1: Create directory on node for registry certificates
 	certsDir := fmt.Sprintf("/etc/containerd/certs.d/%s", registryFQDN)
 	mkdirCmd := exec.Command("docker", "exec", nodeName, "mkdir", "-p", certsDir)
@@ -99,29 +100,15 @@ func configureNode(nodeName, registryFQDN, caCrtPath, clusterIP string) error {
 		return fmt.Errorf("failed to write hosts.toml to node %s: %w\noutput: %s", nodeName, err, string(output))
 	}
 
-	// Step 5: Add DNS entry to /etc/hosts on the node
-	// This is necessary because Kind nodes use host DNS, not Kubernetes CoreDNS,
-	// so they cannot resolve cluster-internal FQDNs like service.namespace.svc.cluster.local
-	if clusterIP != "" {
-		// Extract hostname without port for /etc/hosts entry
-		hostname := registryFQDN
-		if idx := strings.LastIndex(registryFQDN, ":"); idx != -1 {
-			hostname = registryFQDN[:idx]
-		}
-
-		hostsEntry := fmt.Sprintf("%s %s", clusterIP, hostname)
-		// Check if entry already exists to avoid duplicates
-		checkCmd := exec.Command("docker", "exec", nodeName, "grep", "-q", hostname, "/etc/hosts")
-		if err := checkCmd.Run(); err != nil {
-			// Entry doesn't exist, add it
-			addCmd := exec.Command("docker", "exec", nodeName, "sh", "-c",
-				fmt.Sprintf("echo '%s' >> /etc/hosts", hostsEntry))
-			if output, err := addCmd.CombinedOutput(); err != nil {
-				return fmt.Errorf("failed to add /etc/hosts entry on node %s: %w\noutput: %s", nodeName, err, string(output))
-			}
-			log.Printf("Added /etc/hosts entry on node %s: %s", nodeName, hostsEntry)
-		}
+	// Step 5: Restart containerd to pick up new certs.d configuration
+	restartCmd := exec.Command("docker", "exec", nodeName, "systemctl", "restart", "containerd")
+	if output, err := restartCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to restart containerd on node %s: %w\noutput: %s", nodeName, err, string(output))
 	}
+
+	// Wait for containerd to stabilize
+	time.Sleep(2 * time.Second)
+	log.Printf("Restarted containerd on node %s", nodeName)
 
 	return nil
 }
@@ -163,55 +150,23 @@ func verifyNodeConfig(nodeName, registryFQDN string) error {
 	return nil
 }
 
-// getServiceClusterIP retrieves the ClusterIP of a Kubernetes service using kubectl.
-// It requires KUBECONFIG environment variable to be set or uses the default kubeconfig.
-//
-// Parameters:
-//   - serviceName: Name of the service (e.g., "testenv-lcr")
-//   - namespace: Namespace where the service is located
-//   - kubeconfigPath: Path to kubeconfig file
-//
-// Returns:
-//   - ClusterIP string on success
-//   - error if the service doesn't exist or kubectl fails
-func getServiceClusterIP(serviceName, namespace, kubeconfigPath string) (string, error) {
-	args := []string{
-		"get", "service", serviceName,
-		"-n", namespace,
-		"-o", "jsonpath={.spec.clusterIP}",
-	}
-	if kubeconfigPath != "" {
-		args = append(args, "--kubeconfig", kubeconfigPath)
-	}
-
-	cmd := exec.Command("kubectl", args...)
-	output, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("failed to get ClusterIP for service %s/%s: %w", namespace, serviceName, err)
-	}
-
-	clusterIP := strings.TrimSpace(string(output))
-	if clusterIP == "" || clusterIP == "None" {
-		return "", fmt.Errorf("service %s/%s has no ClusterIP (might be headless)", namespace, serviceName)
-	}
-
-	return clusterIP, nil
-}
-
 // configureContainerdTrust orchestrates the complete containerd trust configuration
 // across all nodes in a Kind cluster. It lists all nodes, then for each node:
 // configures the containerd trust settings and verifies the configuration was applied.
 //
+// The DNS leak mechanism is used for Kind node access: the host's /etc/hosts entry
+// (127.0.0.1 -> registry FQDN) leaks to Kind nodes via Docker DNS, and kube-proxy's
+// iptables rules intercept traffic to 127.0.0.1:NodePort on the OUTPUT chain.
+//
 // Parameters:
 //   - clusterName: Name of the Kind cluster
-//   - registryFQDN: Registry FQDN (e.g., "testenv-lcr.testenv-lcr.svc.cluster.local:5000")
+//   - registryFQDN: Registry FQDN with port (e.g., "testenv-lcr.testenv-lcr.svc.cluster.local:30123")
 //   - caCrtPath: Host path to CA certificate file
-//   - kubeconfigPath: Path to kubeconfig file for kubectl commands
 //
 // Returns:
 //   - nil if all nodes are successfully configured and verified
 //   - error immediately if any node fails (fail-fast behavior)
-func configureContainerdTrust(clusterName, registryFQDN, caCrtPath, kubeconfigPath string) error {
+func configureContainerdTrust(clusterName, registryFQDN, caCrtPath string) error {
 	// Step 1: Get all nodes in the cluster
 	nodes, err := listKindNodes(clusterName)
 	if err != nil {
@@ -224,32 +179,12 @@ func configureContainerdTrust(clusterName, registryFQDN, caCrtPath, kubeconfigPa
 		return fmt.Errorf("no nodes found for cluster %s", clusterName)
 	}
 
-	// Step 3: Get the ClusterIP of the registry service
-	// Extract service name and namespace from FQDN
-	// FQDN format: service.namespace.svc.cluster.local:port
-	fqdnWithoutPort := registryFQDN
-	if idx := strings.LastIndex(registryFQDN, ":"); idx != -1 {
-		fqdnWithoutPort = registryFQDN[:idx]
-	}
-	parts := strings.SplitN(fqdnWithoutPort, ".", 3)
-	if len(parts) < 2 {
-		return fmt.Errorf("invalid registry FQDN format: %s", registryFQDN)
-	}
-	serviceName := parts[0]
-	namespace := parts[1]
-
-	clusterIP, err := getServiceClusterIP(serviceName, namespace, kubeconfigPath)
-	if err != nil {
-		return fmt.Errorf("failed to get registry ClusterIP: %w", err)
-	}
-	log.Printf("Registry service ClusterIP: %s", clusterIP)
-
-	// Step 4: Configure and verify each node
+	// Step 3: Configure and verify each node
 	for _, node := range nodes {
 		log.Printf("Configuring containerd trust on node %s", node)
 
-		// Configure the node
-		if err := configureNode(node, registryFQDN, caCrtPath, clusterIP); err != nil {
+		// Configure the node (includes containerd restart)
+		if err := configureNode(node, registryFQDN, caCrtPath); err != nil {
 			return fmt.Errorf("failed to configure node %s: %w", node, err)
 		}
 

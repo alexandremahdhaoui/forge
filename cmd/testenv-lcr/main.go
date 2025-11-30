@@ -72,7 +72,8 @@ var errSettingLocalContainerRegistry = errors.New("error received while setting 
 
 // setupWithConfig executes the setup logic with an optional pre-loaded config.
 // If cfg is nil, it reads the config from forge.yaml.
-func setupWithConfig(cfg *forge.Spec) error {
+// If dynamicPort > 0, it is used as the port for the container registry (NodePort, service port, etc.).
+func setupWithConfig(cfg *forge.Spec, dynamicPort int32) error {
 	_, _ = fmt.Fprintln(os.Stdout, "⏳ Setting up "+Name)
 	ctx := context.Background()
 
@@ -112,6 +113,11 @@ func setupWithConfig(cfg *forge.Spec) error {
 		config.LocalContainerRegistry.Namespace,
 		eventualConfig,
 	)
+
+	// Set dynamic port if provided (from MCP handler via PortLeaseManager)
+	if dynamicPort > 0 {
+		containerRegistry.SetDynamicPort(dynamicPort)
+	}
 	k8s := NewK8s(cl, config.Kindenv.KubeconfigPath, config.LocalContainerRegistry.Namespace)
 
 	cred := NewCredential(

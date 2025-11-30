@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/alexandremahdhaoui/forge/internal/util"
 	"github.com/alexandremahdhaoui/forge/pkg/flaterrors"
@@ -21,6 +25,33 @@ var (
 	errSettingUpDockerCerts   = errors.New("setting up docker certificates")
 	errTearingDownDockerCerts = errors.New("tearing down docker certificates")
 )
+
+// waitForRegistryConnection waits for the registry to be accessible via the port-forward.
+// This is necessary because the port-forward may need time to stabilize after containerd restart.
+func waitForRegistryConnection(ctx context.Context, port int32) error {
+	timeout := time.After(30 * time.Second)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	_, _ = fmt.Fprintf(os.Stdout, "⏳ Waiting for registry connection at %s\n", addr)
+
+	for {
+		select {
+		case <-timeout:
+			return errors.New("timeout waiting for registry connection")
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			conn, err := net.DialTimeout("tcp", addr, 500*time.Millisecond)
+			if err == nil {
+				_ = conn.Close()
+				_, _ = fmt.Fprintf(os.Stdout, "✅ Registry connection verified\n")
+				return nil
+			}
+		}
+	}
+}
 
 // readCredentials reads the credentials from the specified file.
 func readCredentials(credPath string) (Credentials, error) {
@@ -48,7 +79,10 @@ func setupDockerCerts(registryFQDN, caCrtPath, prependCmd string) (string, error
 	// Create directory with sudo if needed
 	var mkdirCmd *exec.Cmd
 	if prependCmd != "" {
-		mkdirCmd = exec.Command(prependCmd, "mkdir", "-p", certsDir)
+		// Split prependCmd into parts (e.g., "sudo -E" -> ["sudo", "-E"])
+		prependParts := strings.Fields(prependCmd)
+		args := append(prependParts[1:], "mkdir", "-p", certsDir)
+		mkdirCmd = exec.Command(prependParts[0], args...)
 	} else {
 		mkdirCmd = exec.Command("mkdir", "-p", certsDir)
 	}
@@ -61,7 +95,10 @@ func setupDockerCerts(registryFQDN, caCrtPath, prependCmd string) (string, error
 	destCertPath := filepath.Join(certsDir, "ca.crt")
 	var cpCmd *exec.Cmd
 	if prependCmd != "" {
-		cpCmd = exec.Command(prependCmd, "cp", caCrtPath, destCertPath)
+		// Split prependCmd into parts (e.g., "sudo -E" -> ["sudo", "-E"])
+		prependParts := strings.Fields(prependCmd)
+		args := append(prependParts[1:], "cp", caCrtPath, destCertPath)
+		cpCmd = exec.Command(prependParts[0], args...)
 	} else {
 		cpCmd = exec.Command("cp", caCrtPath, destCertPath)
 	}
@@ -84,7 +121,10 @@ func teardownDockerCerts(certsDir, prependCmd string) error {
 	// Remove the certificate directory
 	var rmCmd *exec.Cmd
 	if prependCmd != "" {
-		rmCmd = exec.Command(prependCmd, "rm", "-rf", certsDir)
+		// Split prependCmd into parts (e.g., "sudo -E" -> ["sudo", "-E"])
+		prependParts := strings.Fields(prependCmd)
+		args := append(prependParts[1:], "rm", "-rf", certsDir)
+		rmCmd = exec.Command(prependParts[0], args...)
 	} else {
 		rmCmd = exec.Command("rm", "-rf", certsDir)
 	}
@@ -114,6 +154,11 @@ func loginToRegistry(containerEngine, registryEndpoint, credPath string) error {
 		"--password-stdin",
 	)
 
+	// Capture stdout and stderr for debugging
+	var stdout, stderr bytes.Buffer
+	loginCmd.Stdout = &stdout
+	loginCmd.Stderr = &stderr
+
 	// Set password as stdin using a pipe
 	stdin, err := loginCmd.StdinPipe()
 	if err != nil {
@@ -133,7 +178,10 @@ func loginToRegistry(containerEngine, registryEndpoint, credPath string) error {
 
 	// Wait for command to finish
 	if err := loginCmd.Wait(); err != nil {
-		return flaterrors.Join(err, errLoggingInToRegistry)
+		// Include stdout and stderr in error message for debugging
+		errMsg := fmt.Sprintf("docker login failed: %v\nstdout: %s\nstderr: %s",
+			err, stdout.String(), stderr.String())
+		return flaterrors.Join(errors.New(errMsg), errLoggingInToRegistry)
 	}
 
 	_, _ = fmt.Fprintf(os.Stdout, "✅ Logged in to registry: %s\n", registryEndpoint)
@@ -174,43 +222,54 @@ func pushImage(containerEngine, sourceImage, registryFQDN string) error {
 	return nil
 }
 
-// withRegistryAccess handles all the setup (port-forward, certs, login) and teardown for registry access.
+// withRegistryAccess handles all the setup (certs, login) and uses the already-running port-forward for registry access.
 // It calls the provided function with the registry FQDN:PORT.
+// The dynamicPort parameter is the port that was acquired by the port lease manager and used for the NodePort service.
+// A port-forward should already be running from createLocalContainerRegistry, so this function does NOT start a new one.
 func withRegistryAccess(
 	ctx context.Context,
 	config forge.Spec,
 	envs Envs,
+	dynamicPort int32,
 	fn func(registryFQDNWithPort string) error,
 ) error {
-	// I. Establish port-forward to registry
-	pf := NewPortForwarder(config, config.LocalContainerRegistry.Namespace)
-	if err := pf.Start(ctx); err != nil {
-		return flaterrors.Join(err, errors.New("establishing port-forward"))
-	}
-	defer pf.Stop()
-
-	// II. Create FQDN:PORT for image tags, certs, and login
+	// I. Create container registry with the dynamic port
 	containerRegistry := NewContainerRegistry(nil, config.LocalContainerRegistry.Namespace, nil)
-	registryFQDNWithPort := fmt.Sprintf("%s:%d", containerRegistry.FQDN(), pf.LocalPort())
+	containerRegistry.SetDynamicPort(dynamicPort)
+
+	// II. Port-forward is already running from createLocalContainerRegistry - no need to start a new one.
+	// The port-forward maps dynamicPort:dynamicPort (same port on both ends).
+
+	// III. Create FQDN:PORT for image tags, certs, and login
+	registryFQDNWithPort := fmt.Sprintf("%s:%d", containerRegistry.FQDN(), dynamicPort)
 
 	// III. Set up Docker certificates if using Docker
+	// Check for "docker" in the executable name (handles both "docker" and "/usr/bin/docker")
 	var certsDir string
 	var err error
-	if envs.ContainerEngineExecutable == "docker" {
+	isDocker := strings.Contains(filepath.Base(envs.ContainerEngineExecutable), "docker")
+	if isDocker {
+		// Use ElevatedPrependCmd for writing to /etc/docker/certs.d/ (requires root)
 		certsDir, err = setupDockerCerts(
 			registryFQDNWithPort,
 			config.LocalContainerRegistry.CaCrtPath,
-			envs.PrependCmd,
+			envs.ElevatedPrependCmd,
 		)
 		if err != nil {
 			return flaterrors.Join(err, errSettingUpDockerCerts)
 		}
 		defer func() {
-			_ = teardownDockerCerts(certsDir, envs.PrependCmd)
+			_ = teardownDockerCerts(certsDir, envs.ElevatedPrependCmd)
 		}()
 	}
 
-	// IV. Login to registry using FQDN:PORT (Docker stores credentials per registry hostname)
+	// IV. Wait for registry to be accessible before logging in
+	// The port-forward may need time to stabilize after containerd restart
+	if err := waitForRegistryConnection(ctx, dynamicPort); err != nil {
+		return flaterrors.Join(err, errors.New("waiting for registry connection"))
+	}
+
+	// V. Login to registry using FQDN:PORT (Docker stores credentials per registry hostname)
 	if err := loginToRegistry(envs.ContainerEngineExecutable, registryFQDNWithPort, config.LocalContainerRegistry.CredentialPath); err != nil {
 		return flaterrors.Join(err, errLoggingInToRegistry)
 	}

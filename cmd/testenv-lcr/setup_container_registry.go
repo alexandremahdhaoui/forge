@@ -17,6 +17,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,6 +38,10 @@ type ContainerRegistry struct {
 	namespace string
 
 	ec eventualconfig.EventualConfig
+
+	// dynamicPort is the dynamic port used for NodePort service and container.
+	// This port is used everywhere: NodePort, service port, target port, and container port.
+	dynamicPort int32
 }
 
 // NewContainerRegistry creates a new ContainerRegistry struct.
@@ -149,7 +154,7 @@ func (r *ContainerRegistry) createDeployment(ctx context.Context, labels map[str
 
 					Ports: []corev1.ContainerPort{{
 						Name:          "https",
-						ContainerPort: containerRegistryPort,
+						ContainerPort: r.Port(),
 						Protocol:      corev1.ProtocolTCP,
 					}},
 				}},
@@ -215,10 +220,15 @@ func (r *ContainerRegistry) createService(ctx context.Context, labels map[string
 	service.Namespace = r.namespace
 	service.Labels = labels
 
+	// Use NodePort service type to enable kube-proxy interception on Kind nodes.
+	// All ports (nodePort, port, targetPort) use the same dynamicPort value.
+	service.Spec.Type = corev1.ServiceTypeNodePort
 	service.Spec.Selector = labels
 	service.Spec.Ports = []corev1.ServicePort{{
-		Name: "https",
-		Port: r.Port(),
+		Name:       "https",
+		Port:       r.Port(),
+		TargetPort: intstr.FromInt32(r.Port()),
+		NodePort:   r.Port(),
 	}}
 
 	if err := r.client.Create(ctx, service); err != nil {
@@ -233,8 +243,18 @@ func (r *ContainerRegistry) FQDN() string {
 	return fmt.Sprintf("%s.%s.svc.cluster.local", Name, r.namespace)
 }
 
+// SetDynamicPort sets the dynamic port for the container registry.
+// This port is used everywhere: NodePort, service port, target port, and container port.
+func (r *ContainerRegistry) SetDynamicPort(port int32) {
+	r.dynamicPort = port
+}
+
 // Port returns the port of the container registry service.
+// It returns the dynamicPort if set, otherwise falls back to the default containerRegistryPort.
 func (r *ContainerRegistry) Port() int32 {
+	if r.dynamicPort != 0 {
+		return r.dynamicPort
+	}
 	return containerRegistryPort
 }
 
