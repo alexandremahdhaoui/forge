@@ -44,3 +44,4 @@ tmp/
 /testenv-lcr
 /testenv-kind
 /testenv-stub
+/go-verify-license

@@ -111,10 +111,14 @@ engines:
 
 # -- test defines the test stages and their configuration
 test:
-  # -- verify-tags - verify all test files have build tags
-  - name: verify-tags
+  # -- lint-tags - verify all test files have build tags
+  - name: lint-tags
     runner: "go://go-lint-tags"
     # -- default value for setup is "go://test-report"
+
+  # -- lint-license - verify all Go files have license headers
+  - name: lint-license
+    runner: "go://go-lint-licenses"
 
   # -- lint - linting as a test stage (no environment needed)
   - name: lint
@@ -187,6 +191,10 @@ build:
     engine: go://go-build
   - name: go-test
     src: ./cmd/go-test
+    dest: ./build/bin
+    engine: go://go-build
+  - name: go-lint-licenses
+    src: ./cmd/go-lint-licenses
     dest: ./build/bin
     engine: go://go-build
   - name: go-lint-tags

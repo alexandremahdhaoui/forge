@@ -1,3 +1,17 @@
+// Copyright 2024 Alexandre Mahdhaoui
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package enginetest
 
 import (
@@ -195,6 +209,7 @@ func AllEngines(repoRoot string) []Engine {
 		{Name: "testenv-lcr", BinaryPath: filepath.Join(buildBin, "testenv-lcr"), SupportsMCP: true},
 		{Name: "testenv-helm-install", BinaryPath: filepath.Join(buildBin, "testenv-helm-install"), SupportsMCP: true},
 		{Name: "go-test", BinaryPath: filepath.Join(buildBin, "go-test"), SupportsMCP: true},
+		{Name: "go-lint-licenses", BinaryPath: filepath.Join(buildBin, "go-lint-licenses"), SupportsMCP: true},
 		{Name: "go-lint-tags", BinaryPath: filepath.Join(buildBin, "go-lint-tags"), SupportsMCP: true},
 		{Name: "generic-test-runner", BinaryPath: filepath.Join(buildBin, "generic-test-runner"), SupportsMCP: true},
 		{Name: "test-report", BinaryPath: filepath.Join(buildBin, "test-report"), SupportsMCP: true},
