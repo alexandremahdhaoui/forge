@@ -112,6 +112,17 @@ type DocsGetInput struct {
 	Name string `json:"name"`
 }
 
+// ListInput represents the input parameters for the list tool.
+type ListInput struct {
+	Category string `json:"category,omitempty"` // "build", "test", or empty (default: list both)
+}
+
+// ListResult represents the result of listing targets.
+type ListResult struct {
+	BuildTargets []string `json:"buildTargets,omitempty"`
+	TestStages   []string `json:"testStages,omitempty"`
+}
+
 // runMCPServer starts the forge MCP server with stdio transport.
 func runMCPServer() error {
 	v, _, _ := versionInfo.Get()
@@ -188,6 +199,12 @@ func runMCPServer() error {
 		Name:        "docs-get",
 		Description: "Get a specific documentation by name",
 	}, handleDocsGetTool)
+
+	// Register list tool
+	mcpserver.RegisterTool(server, &mcp.Tool{
+		Name:        "list",
+		Description: "List available build targets and test stages",
+	}, handleListTool)
 
 	// Run the MCP server
 	return server.RunDefault()
@@ -1044,4 +1061,67 @@ func handleDocsGetTool(
 			&mcp.TextContent{Text: fmt.Sprintf("Successfully retrieved documentation: %s", input.Name)},
 		},
 	}, nil, nil
+}
+
+// handleListTool handles the "list" tool call from MCP clients.
+// It returns available build targets and test stages from forge.yaml.
+func handleListTool(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input ListInput,
+) (*mcp.CallToolResult, any, error) {
+	log.Printf("Listing targets: category=%s", input.Category)
+
+	// Validate category if provided
+	// Note: In Go, JSON null and empty string both deserialize to ""
+	if input.Category != "" && input.Category != "build" && input.Category != "test" {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("Invalid category: %s (valid: build, test)", input.Category)},
+			},
+			IsError: true,
+		}, nil, nil
+	}
+
+	// Load configuration
+	config, err := loadConfig()
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("Failed to load configuration: %v", err)},
+			},
+			IsError: true,
+		}, nil, nil
+	}
+
+	// Build result based on category
+	result := ListResult{}
+
+	if input.Category == "" || input.Category == "build" {
+		result.BuildTargets = make([]string, 0, len(config.Build))
+		for _, b := range config.Build {
+			result.BuildTargets = append(result.BuildTargets, b.Name)
+		}
+	}
+
+	if input.Category == "" || input.Category == "test" {
+		result.TestStages = make([]string, 0, len(config.Test))
+		for _, t := range config.Test {
+			result.TestStages = append(result.TestStages, t.Name)
+		}
+	}
+
+	// Generate summary message
+	var msg string
+	switch input.Category {
+	case "build":
+		msg = fmt.Sprintf("Found %d build target(s)", len(result.BuildTargets))
+	case "test":
+		msg = fmt.Sprintf("Found %d test stage(s)", len(result.TestStages))
+	default:
+		msg = fmt.Sprintf("Found %d build target(s) and %d test stage(s)", len(result.BuildTargets), len(result.TestStages))
+	}
+
+	mcpResult, artifact := mcputil.SuccessResultWithArtifact(msg, result)
+	return mcpResult, artifact, nil
 }

@@ -127,6 +127,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+	case "list":
+		if err := runList(cmdArgs); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	case "version", "--version", "-v":
 		versionInfo.Print()
 	case "help", "--help", "-h":
@@ -173,6 +178,7 @@ Commands:
   build [artifact-name]              Build all artifacts
   test <stage> <operation>           Manage test environments
   test-all                           Build all artifacts and run all test stages
+  list [build|test]                  List available build targets and test stages
   prompt <list|get> [name]           Fetch documentation prompts
   docs <list|get> [name]             Fetch project documentation
   config <subcommand>                Configuration management
@@ -191,6 +197,11 @@ Test:
 
 Test All:
   test-all                           Build all artifacts and run all test stages sequentially
+
+List:
+  list                               List all build targets and test stages
+  list build                         List only build targets
+  list test                          List only test stages
 
 Prompts:
   prompt list                        List all available prompts
