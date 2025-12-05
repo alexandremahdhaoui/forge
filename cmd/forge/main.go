@@ -19,6 +19,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/alexandremahdhaoui/forge/internal/cmdutil"
 	"github.com/alexandremahdhaoui/forge/internal/version"
 )
 
@@ -62,6 +63,19 @@ func main() {
 		printUsage()
 		os.Exit(1)
 	}
+
+	// Source global environment file if configured
+	// TODO: This calls loadConfig() which is also called in command handlers.
+	// This is intentional to avoid refactoring all handlers, but is technical debt.
+	// The double-call is acceptable as YAML parsing is fast (<1ms).
+	config, err := loadConfig()
+	if err == nil && config.EnvFile != "" {
+		if err := cmdutil.SourceEnvFile(config.EnvFile); err != nil {
+			fmt.Fprintf(os.Stderr, "Error sourcing envFile: %v\n", err)
+			os.Exit(1)
+		}
+	}
+	// Note: We don't fail if loadConfig errors here - let the command handler report it
 
 	command := args[0]
 	cmdArgs := args[1:]

@@ -1,5 +1,8 @@
 name: forge
 
+# -- envFile is the path to a global environment file to source before any operations
+envFile: .envrc
+
 # -- artifactStorePath is the path to the unified artifact store (moved to root level)
 artifactStorePath: .forge/artifact-store.yaml
 

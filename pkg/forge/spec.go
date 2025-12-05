@@ -34,6 +34,9 @@ type Spec struct {
 	// Name is the name of the project.
 	Name string `json:"name"`
 
+	// EnvFile is the path to a global environment file to source before any operations
+	EnvFile string `json:"envFile,omitempty"`
+
 	// Path to the artifact store. The artifact store is a yaml data structures that
 	// tracks the name, timestamp etc of all built artifacts
 	ArtifactStorePath string `json:"artifactStorePath"`
