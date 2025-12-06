@@ -52,6 +52,30 @@ type RunInput struct {
 	// EnvPropagation configuration for filtering testenv environment variables
 	EnvPropagation *forge.EnvPropagation `json:"envPropagation,omitempty"`
 
+	// Spec contains runner-specific configuration (free-form, alternative to individual fields)
+	// When present, runners should prefer spec fields over individual Args/Env fields
+	// This allows passing configuration from TestSpec.Spec directly through MCP
+	//
+	// Example for parallel-test-runner engine:
+	//   spec: {
+	//     "primaryCoverageRunner": "go-test",
+	//     "runners": [
+	//       {
+	//         "name": "go-test",
+	//         "engine": "go://go-test",
+	//         "spec": {}
+	//       },
+	//       {
+	//         "name": "go-lint",
+	//         "engine": "go://go-lint",
+	//         "spec": {}
+	//       }
+	//     ]
+	//   }
+	//
+	// Runners define their own Spec structure. See individual runner MCP documentation for details.
+	Spec map[string]interface{} `json:"spec,omitempty"`
+
 	// Directory parameters (injected by forge)
 	DirectoryParams
 }

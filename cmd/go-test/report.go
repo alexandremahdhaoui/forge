@@ -70,6 +70,11 @@ type TestStats struct {
 
 // Coverage contains code coverage information.
 type Coverage struct {
+	// Enabled indicates whether coverage was actually calculated.
+	// If false, this runner does not produce coverage (e.g., lint tools).
+	// If true, Percentage contains the actual coverage value.
+	Enabled bool `json:"enabled"`
+
 	// Percentage is the code coverage percentage (0-100)
 	Percentage float64 `json:"percentage"`
 
@@ -138,7 +143,7 @@ func parseCoverage(coveragePath string) (*Coverage, error) {
 	cmd := exec.Command("go", "tool", "cover", "-func", coveragePath)
 	output, err := cmd.Output()
 	if err != nil {
-		return &Coverage{FilePath: coveragePath}, fmt.Errorf("failed to parse coverage: %w", err)
+		return &Coverage{Enabled: true, FilePath: coveragePath}, fmt.Errorf("failed to parse coverage: %w", err)
 	}
 
 	// Extract total coverage percentage from last line
@@ -155,6 +160,7 @@ func parseCoverage(coveragePath string) (*Coverage, error) {
 				var percentage float64
 				if _, err := fmt.Sscanf(percentStr, "%f", &percentage); err == nil {
 					return &Coverage{
+						Enabled:    true,
 						Percentage: percentage,
 						FilePath:   coveragePath,
 					}, nil
@@ -164,5 +170,5 @@ func parseCoverage(coveragePath string) (*Coverage, error) {
 	}
 
 	// If we couldn't parse the percentage, return 0
-	return &Coverage{FilePath: coveragePath}, nil
+	return &Coverage{Enabled: true, FilePath: coveragePath}, nil
 }

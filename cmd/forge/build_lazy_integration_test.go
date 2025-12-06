@@ -88,8 +88,10 @@ func TestLazyRebuild_WithDependencyTracking(t *testing.T) {
 		t.Errorf("Expected 'no previous build' message, got: %s", outputStr)
 	}
 
-	// Step 2: Read artifact store and manually add dependencies to simulate dependency tracking
-	t.Log("Step 2: Adding dependencies to artifact store")
+	// Step 2: Read artifact store and verify dependencies from Step 1's build
+	// The build in Step 1 already ran the dependency detector and stored timestamps.
+	// We just need to verify the artifact has dependencies tracked.
+	t.Log("Step 2: Verifying dependencies in artifact store")
 	store, err := forge.ReadArtifactStore(artifactStorePath)
 	if err != nil {
 		t.Fatalf("Failed to read artifact store: %v", err)
@@ -107,27 +109,31 @@ func TestLazyRebuild_WithDependencyTracking(t *testing.T) {
 		t.Fatal("go-lint artifact not found in store")
 	}
 
-	// Add mock dependencies with current timestamps
-	mainGo := filepath.Join("cmd", "go-lint", "main.go")
-	mainInfo, err := os.Stat(mainGo)
-	if err != nil {
-		t.Fatalf("Failed to stat main.go: %v", err)
+	// Verify the build detected dependencies (should have found multiple)
+	if len(artifact.Dependencies) == 0 {
+		t.Fatal("No dependencies were detected by Step 1's build")
 	}
-	absMainGo, _ := filepath.Abs(mainGo)
+	t.Logf("Step 1's build detected %d dependencies", len(artifact.Dependencies))
 
-	artifact.Dependencies = []forge.ArtifactDependency{
-		{
-			Type:      forge.DependencyTypeFile,
-			FilePath:  absMainGo,
-			Timestamp: mainInfo.ModTime().UTC().Format(time.RFC3339),
-		},
+	// Find go.mod dependency - the dependency detector tracks go.mod and imported packages
+	goModPath := "go.mod"
+	absGoMod, _ := filepath.Abs(goModPath)
+	var goModDep *forge.ArtifactDependency
+	for i := range artifact.Dependencies {
+		if artifact.Dependencies[i].FilePath == absGoMod {
+			goModDep = &artifact.Dependencies[i]
+			break
+		}
 	}
-	artifact.DependencyDetectorEngine = "go://go-dependency-detector"
-
-	// Write updated store
-	if err := forge.WriteArtifactStore(artifactStorePath, store); err != nil {
-		t.Fatalf("Failed to write artifact store: %v", err)
+	if goModDep == nil {
+		// List actual dependencies for debugging
+		t.Logf("Tracked dependencies:")
+		for _, dep := range artifact.Dependencies {
+			t.Logf("  - %s: %s", dep.Type, dep.FilePath)
+		}
+		t.Fatalf("go.mod dependency not found in artifact store (expected path: %s)", absGoMod)
 	}
+	t.Logf("go.mod dependency timestamp from build: %s", goModDep.Timestamp)
 
 	// Step 3: Second build - should skip (unchanged)
 	t.Log("Step 3: Second build - should skip")
@@ -148,7 +154,7 @@ func TestLazyRebuild_WithDependencyTracking(t *testing.T) {
 	t.Log("Step 4: Touch dependency - should rebuild")
 	time.Sleep(time.Second) // Ensure timestamp changes
 	now := time.Now()
-	if err := os.Chtimes(absMainGo, now, now); err != nil {
+	if err := os.Chtimes(absGoMod, now, now); err != nil {
 		t.Fatalf("Failed to touch file: %v", err)
 	}
 

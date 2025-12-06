@@ -45,3 +45,5 @@ tmp/
 /testenv-kind
 /testenv-stub
 /go-verify-license
+/go-test
+/parallel-*

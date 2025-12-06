@@ -1247,9 +1247,15 @@ func testTestEnvGetJSON(ts *TestSuite) error {
 	}
 
 	// Get test environment as JSON (using e2e-stub stage)
+	// Use Output() instead of CombinedOutput() to only capture stdout (JSON)
+	// and not stderr (which contains "Sourced X environment variables" messages)
 	getCmd := exec.Command("./build/bin/forge", "test", "get-env", "e2e-stub", testID, "-o", "json")
-	getOutput, err := getCmd.CombinedOutput()
+	getOutput, err := getCmd.Output()
 	if err != nil {
+		// On error, get stderr for debugging
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return fmt.Errorf("get JSON command failed: %w\nStderr: %s\nStdout: %s", err, exitErr.Stderr, getOutput)
+		}
 		return fmt.Errorf("get JSON command failed: %w\nOutput: %s", err, getOutput)
 	}
 

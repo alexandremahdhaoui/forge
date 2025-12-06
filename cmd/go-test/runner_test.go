@@ -125,6 +125,7 @@ func TestTestReport_Structure(t *testing.T) {
 			Skipped: 2,
 		},
 		Coverage: Coverage{
+			Enabled:    true,
 			Percentage: 85.5,
 			FilePath:   "/tmp/coverage.out",
 		},
@@ -146,6 +147,10 @@ func TestTestReport_Structure(t *testing.T) {
 
 	if report.Coverage.Percentage != 85.5 {
 		t.Errorf("Expected coverage 85.5, got %.1f", report.Coverage.Percentage)
+	}
+
+	if !report.Coverage.Enabled {
+		t.Error("Expected coverage Enabled to be true")
 	}
 }
 

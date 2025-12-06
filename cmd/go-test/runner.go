@@ -90,7 +90,8 @@ func runTests(stage, name, tmpDir string, testEnv map[string]string) (*TestRepor
 	coverage, coverageErr := parseCoverage(coverageFile)
 	if coverageErr != nil {
 		// If we can't parse coverage, create empty coverage but don't fail
-		coverage = &Coverage{FilePath: coverageFile}
+		// Enabled is still true because go-test always attempts coverage
+		coverage = &Coverage{Enabled: true, FilePath: coverageFile}
 	}
 
 	// Create test report

@@ -139,11 +139,16 @@ type TestStats struct {
 
 // Coverage contains code coverage information.
 type Coverage struct {
+	// Enabled indicates whether coverage was actually calculated.
+	// If false, this runner does not produce coverage (e.g., lint tools).
+	// If true, Percentage contains the actual coverage value.
+	Enabled bool `json:"enabled" yaml:"enabled"`
+
 	// Percentage is the code coverage percentage (0-100)
-	Percentage float64 `json:"percentage"`
+	Percentage float64 `json:"percentage" yaml:"percentage"`
 
 	// FilePath is the path to the coverage file
-	FilePath string `json:"filePath,omitempty"`
+	FilePath string `json:"filePath,omitempty" yaml:"filePath,omitempty"`
 }
 
 type ArtifactStore struct {

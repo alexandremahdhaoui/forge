@@ -14,6 +14,48 @@ localContainerRegistry:
   caCrtPath: .forge/ca.crt
 
 # -- engines defines custom engine configurations with aliases
+#
+# Parallel Engines Documentation:
+#
+# go://parallel-builder - Runs multiple builders in parallel
+# Example usage in build section:
+#   - name: all-binaries
+#     engine: go://parallel-builder
+#     spec:
+#       builders:
+#         - name: forge-cli
+#           engine: go://go-build
+#           spec:
+#             src: ./cmd/forge
+#             dest: ./build/bin
+#         - name: go-test-runner
+#           engine: go://go-build
+#           spec:
+#             src: ./cmd/go-test
+#             dest: ./build/bin
+#
+# go://parallel-test-runner - Runs multiple test runners in parallel
+# Example usage in test section:
+#   - name: unit-and-lint
+#     runner: go://parallel-test-runner
+#     spec:
+#       primaryCoverageRunner: go-test  # Coverage is taken from this runner only
+#       runners:
+#         - name: go-test
+#           engine: go://go-test
+#           spec:
+#             packages: ./pkg/...
+#         - name: go-lint-licenses
+#           engine: go://go-lint-licenses
+#           spec: {}
+#
+# Key notes:
+# - All sub-engines must use go:// URIs (not alias://)
+# - Coverage is NOT averaged - it comes from primaryCoverageRunner only
+# - TestStats are summed from all runners
+# - If any runner fails, the overall status is "failed"
+# - All results are collected (no fail-fast behavior)
+#
 engines:
   # Example: custom test runner alias
   # - alias: verify-tags-runner
@@ -242,6 +284,14 @@ build:
     engine: go://go-build
   - name: generic-test-runner
     src: ./cmd/generic-test-runner
+    dest: ./build/bin
+    engine: go://go-build
+  - name: parallel-builder
+    src: ./cmd/parallel-builder
+    dest: ./build/bin
+    engine: go://go-build
+  - name: parallel-test-runner
+    src: ./cmd/parallel-test-runner
     dest: ./build/bin
     engine: go://go-build
   - name: test-report

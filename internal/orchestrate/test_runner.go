@@ -172,26 +172,40 @@ func mergeTestReports(base *forge.TestReport, additional *forge.TestReport) *for
 	// Merge durations (sum)
 	merged.Duration = base.Duration + additional.Duration
 
-	// Merge coverage (weighted average by number of tests)
-	// This is a simple average - could be improved with more detailed coverage data
-	if base.TestStats.Total > 0 && additional.TestStats.Total > 0 {
-		totalTests := float64(base.TestStats.Total + additional.TestStats.Total)
-		baseWeight := float64(base.TestStats.Total) / totalTests
-		additionalWeight := float64(additional.TestStats.Total) / totalTests
-		merged.Coverage.Percentage = (base.Coverage.Percentage * baseWeight) +
-			(additional.Coverage.Percentage * additionalWeight)
-	} else if base.TestStats.Total > 0 {
-		merged.Coverage.Percentage = base.Coverage.Percentage
-	} else {
-		merged.Coverage.Percentage = additional.Coverage.Percentage
-	}
+	// Merge coverage - only from Enabled sources
+	baseEnabled := base.Coverage.Enabled
+	additionalEnabled := additional.Coverage.Enabled
 
-	// Merge coverage file paths (comma-separated)
+	if baseEnabled && additionalEnabled {
+		// Both have coverage enabled - weighted average by test count
+		if base.TestStats.Total > 0 && additional.TestStats.Total > 0 {
+			totalTests := float64(base.TestStats.Total + additional.TestStats.Total)
+			merged.Coverage.Enabled = true
+			merged.Coverage.Percentage = (base.Coverage.Percentage*float64(base.TestStats.Total) +
+				additional.Coverage.Percentage*float64(additional.TestStats.Total)) / totalTests
+		} else if base.TestStats.Total > 0 {
+			merged.Coverage = base.Coverage
+		} else if additional.TestStats.Total > 0 {
+			merged.Coverage = additional.Coverage
+		} else {
+			// Both enabled but zero tests - use base
+			merged.Coverage = base.Coverage
+		}
+	} else if baseEnabled {
+		// Only base has coverage
+		merged.Coverage = base.Coverage
+	} else if additionalEnabled {
+		// Only additional has coverage
+		merged.Coverage = additional.Coverage
+	}
+	// If neither enabled, merged.Coverage.Enabled stays false (zero value)
+
+	// Merge coverage file paths (comma-separated) - only from enabled sources
 	coverageFiles := []string{}
-	if base.Coverage.FilePath != "" {
+	if baseEnabled && base.Coverage.FilePath != "" {
 		coverageFiles = append(coverageFiles, base.Coverage.FilePath)
 	}
-	if additional.Coverage.FilePath != "" {
+	if additionalEnabled && additional.Coverage.FilePath != "" {
 		coverageFiles = append(coverageFiles, additional.Coverage.FilePath)
 	}
 	if len(coverageFiles) > 0 {

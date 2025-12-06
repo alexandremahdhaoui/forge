@@ -143,6 +143,7 @@ func runTestsWrapper(ctx context.Context, input mcptypes.RunInput) (*forge.TestR
 			Skipped: report.TestStats.Skipped,
 		},
 		Coverage: forge.Coverage{
+			Enabled:    report.Coverage.Enabled,
 			Percentage: report.Coverage.Percentage,
 		},
 	}
