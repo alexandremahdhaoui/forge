@@ -294,3 +294,129 @@ go 1.24
 		t.Fatalf("Failed to create main.go: %v", err)
 	}
 }
+
+func TestIsExternalModule(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		path string
+		want bool
+	}{
+		// Internal short names
+		{name: "short name testenv-kind", path: "testenv-kind", want: false},
+		{name: "short name go-build", path: "go-build", want: false},
+		{name: "short name testenv", path: "testenv", want: false},
+		{name: "short name with numbers", path: "go-test-v2", want: false},
+
+		// External modules (domain with dot in first segment)
+		{name: "github.com module", path: "github.com/user/repo/cmd/tool", want: true},
+		{name: "gitlab.com module", path: "gitlab.com/org/project/pkg/util", want: true},
+		{name: "bitbucket.org module", path: "bitbucket.org/team/repo", want: true},
+		{name: "custom domain", path: "my.company.com/internal/tool", want: true},
+		{name: "gopkg.in module", path: "gopkg.in/yaml.v3", want: true},
+
+		// Local paths (not external)
+		{name: "relative current dir", path: "./cmd/tool", want: false},
+		{name: "relative parent dir", path: "../pkg/util", want: false},
+		{name: "relative nested", path: "./internal/pkg/foo", want: false},
+
+		// Edge cases
+		{name: "empty path", path: "", want: false},
+		{name: "internal sub-path no dot", path: "cmd/tool", want: false},
+		{name: "internal sub-path multiple segments", path: "internal/pkg/util", want: false},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := IsExternalModule(tt.path)
+			if got != tt.want {
+				t.Errorf("IsExternalModule(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildExternalGoRunCommand_Success(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		modulePath string
+		version    string
+		wantArgs   []string
+	}{
+		{
+			name:       "with explicit version",
+			modulePath: "github.com/user/repo/cmd/tool",
+			version:    "v1.0.0",
+			wantArgs:   []string{"run", "github.com/user/repo/cmd/tool@v1.0.0"},
+		},
+		{
+			name:       "with empty version defaults to latest",
+			modulePath: "github.com/user/repo/cmd/tool",
+			version:    "",
+			wantArgs:   []string{"run", "github.com/user/repo/cmd/tool@latest"},
+		},
+		{
+			name:       "with dirty suffix stripped (dash)",
+			modulePath: "github.com/user/repo/cmd/tool",
+			version:    "v1.0.0-dirty",
+			wantArgs:   []string{"run", "github.com/user/repo/cmd/tool@v1.0.0"},
+		},
+		{
+			name:       "with dirty suffix stripped (plus)",
+			modulePath: "github.com/user/repo/cmd/tool",
+			version:    "v1.0.0+dirty",
+			wantArgs:   []string{"run", "github.com/user/repo/cmd/tool@v1.0.0"},
+		},
+		{
+			name:       "gitlab module",
+			modulePath: "gitlab.com/org/project/cmd/cli",
+			version:    "v2.3.4",
+			wantArgs:   []string{"run", "gitlab.com/org/project/cmd/cli@v2.3.4"},
+		},
+		{
+			name:       "gopkg.in module",
+			modulePath: "gopkg.in/yaml.v3",
+			version:    "v3.0.1",
+			wantArgs:   []string{"run", "gopkg.in/yaml.v3@v3.0.1"},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := BuildExternalGoRunCommand(tt.modulePath, tt.version)
+			if err != nil {
+				t.Fatalf("BuildExternalGoRunCommand(%q, %q) unexpected error = %v", tt.modulePath, tt.version, err)
+			}
+
+			if len(got) != len(tt.wantArgs) {
+				t.Fatalf("BuildExternalGoRunCommand(%q, %q) = %v, want %v", tt.modulePath, tt.version, got, tt.wantArgs)
+			}
+
+			for i, arg := range got {
+				if arg != tt.wantArgs[i] {
+					t.Errorf("BuildExternalGoRunCommand(%q, %q)[%d] = %q, want %q", tt.modulePath, tt.version, i, arg, tt.wantArgs[i])
+				}
+			}
+		})
+	}
+}
+
+func TestBuildExternalGoRunCommand_EmptyModulePath(t *testing.T) {
+	t.Parallel()
+
+	_, err := BuildExternalGoRunCommand("", "v1.0.0")
+	if err == nil {
+		t.Error("BuildExternalGoRunCommand(\"\", \"v1.0.0\") expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "module path cannot be empty") {
+		t.Errorf("BuildExternalGoRunCommand(\"\", \"v1.0.0\") error = %v, want error containing 'module path cannot be empty'", err)
+	}
+}

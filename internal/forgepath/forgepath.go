@@ -202,3 +202,66 @@ func BuildGoRunCommand(packageName, forgeVersion string) ([]string, error) {
 	moduleVersion = strings.TrimSuffix(moduleVersion, "+dirty")
 	return []string{"run", fmt.Sprintf("%s/cmd/%s@%s", forgeModule, packageName, moduleVersion)}, nil
 }
+
+// IsExternalModule determines if a module path refers to an external module
+// (i.e., not part of the forge repository).
+//
+// Returns true for external module paths like:
+//   - github.com/user/repo/cmd/tool
+//   - gitlab.com/org/project/pkg/util
+//
+// Returns false for:
+//   - Short names (testenv-kind, go-build)
+//   - Local paths (./cmd/tool, ../pkg/util) - these should be handled separately
+//   - Empty paths
+func IsExternalModule(path string) bool {
+	if path == "" {
+		return false
+	}
+	// Local paths are not external modules (handled by FORGE_RUN_LOCAL_ENABLED)
+	if strings.HasPrefix(path, "./") || strings.HasPrefix(path, "../") {
+		return false
+	}
+	// Short names without "/" are internal forge packages
+	if !strings.Contains(path, "/") {
+		return false
+	}
+	// Check if first segment contains "." (e.g., github.com, gitlab.com)
+	firstSlash := strings.Index(path, "/")
+	firstSegment := path[:firstSlash]
+	return strings.Contains(firstSegment, ".")
+}
+
+// BuildExternalGoRunCommand constructs the command arguments for executing an external
+// Go module via `go run`. Unlike BuildGoRunCommand, this function uses the full module
+// path directly without prepending the forge module prefix.
+//
+// Parameters:
+//   - modulePath: Full module path (e.g., "github.com/user/repo/cmd/tool")
+//   - version: Version to use (e.g., "v1.0.0"). If empty, defaults to "latest"
+//
+// Returns:
+//   - []string: Command arguments for exec.Command("go", args...)
+//   - error: If modulePath is empty
+//
+// Example usage:
+//
+//	args, err := BuildExternalGoRunCommand("github.com/user/repo/cmd/tool", "v1.0.0")
+//	// Returns: ["run", "github.com/user/repo/cmd/tool@v1.0.0"]
+//	cmd := exec.Command("go", args...)
+func BuildExternalGoRunCommand(modulePath, version string) ([]string, error) {
+	if modulePath == "" {
+		return nil, fmt.Errorf("module path cannot be empty")
+	}
+
+	// Default version to "latest" for external modules
+	if version == "" {
+		version = "latest"
+	}
+
+	// Strip dirty suffixes for module resolution (consistent with BuildGoRunCommand)
+	version = strings.TrimSuffix(version, "-dirty")
+	version = strings.TrimSuffix(version, "+dirty")
+
+	return []string{"run", fmt.Sprintf("%s@%s", modulePath, version)}, nil
+}

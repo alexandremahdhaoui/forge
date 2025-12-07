@@ -134,22 +134,36 @@ func resolveEngineURI(engineURI string) (string, []string, error) {
 		return "", nil, fmt.Errorf("empty engine path after go://")
 	}
 
-	// Remove version if present (go://testenv-kind@v1.0.0 -> testenv-kind)
+	// Extract version if present (go://testenv-kind@v1.0.0 -> testenv-kind, v1.0.0)
+	var version string
+	modulePath := packagePath
 	if idx := strings.Index(packagePath, "@"); idx != -1 {
-		packagePath = packagePath[:idx]
+		modulePath = packagePath[:idx]
+		version = packagePath[idx+1:]
 	}
 
-	// Extract package name (handle full paths like "github.com/user/repo/cmd/tool")
-	if strings.Contains(packagePath, "/") {
-		parts := strings.Split(packagePath, "/")
-		packagePath = parts[len(parts)-1]
+	// Check if this is an external module
+	if forgepath.IsExternalModule(modulePath) {
+		// External module: use full path with specified or default version
+		runArgs, err := forgepath.BuildExternalGoRunCommand(modulePath, version)
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to build go run command for external module %s: %w", modulePath, err)
+		}
+		return "go", runArgs, nil
+	}
+
+	// Internal module: extract short name and use testenv's version
+	packageName := modulePath
+	if strings.Contains(modulePath, "/") {
+		parts := strings.Split(modulePath, "/")
+		packageName = parts[len(parts)-1]
 	}
 
 	// Use forgepath to build the go run command
 	// Use testenv's own version for sub-engines
-	runArgs, err := forgepath.BuildGoRunCommand(packagePath, getVersion())
+	runArgs, err := forgepath.BuildGoRunCommand(packageName, getVersion())
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to build go run command for %s: %w", packagePath, err)
+		return "", nil, fmt.Errorf("failed to build go run command for %s: %w", packageName, err)
 	}
 
 	// Return command and args for go run
