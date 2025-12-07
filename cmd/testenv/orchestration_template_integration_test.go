@@ -221,3 +221,269 @@ func containsSubstring(s, substr string) bool {
 	}
 	return false
 }
+
+// TestDeferTemplatesInOrchestration verifies the DeferTemplates behavior:
+// 1. When DeferTemplates=true, templates are NOT expanded by forge (passed verbatim to sub-engine)
+// 2. When DeferTemplates=false (default), templates ARE expanded by forge
+// 3. Backward compatibility: omitted DeferTemplates defaults to false (expansion occurs)
+//
+// The key verification is the ORDER of errors:
+// - When DeferTemplates=true, undefined template variables should NOT cause errors from forge
+// - When DeferTemplates=false, undefined template variables SHOULD cause expansion errors
+func TestDeferTemplatesInOrchestration(t *testing.T) {
+	// Setup: Create a temporary directory for test fixtures
+	tmpDir := t.TempDir()
+	forgeYamlPath := filepath.Join(tmpDir, "forge.yaml")
+	artifactStorePath := filepath.Join(tmpDir, ".forge", "artifacts.json")
+
+	// Change to temp directory for test
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(originalDir); err != nil {
+			t.Errorf("Failed to restore working directory: %v", err)
+		}
+	}()
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to change to temp directory: %v", err)
+	}
+
+	// Create .forge directory
+	if err := os.MkdirAll(filepath.Join(tmpDir, ".forge"), 0o755); err != nil {
+		t.Fatalf("Failed to create .forge directory: %v", err)
+	}
+
+	tests := []struct {
+		name                       string
+		config                     forge.Spec
+		setupAlias                 string
+		wantTemplateExpansionError bool // true if we expect template expansion to fail
+		errorContains              string
+		verifyFunc                 func(t *testing.T, env *forge.TestEnvironment, err error)
+	}{
+		{
+			name: "DeferTemplates=true skips template expansion (no error for undefined variable)",
+			config: forge.Spec{
+				Name:              "test-project",
+				ArtifactStorePath: artifactStorePath,
+				Engines: []forge.EngineConfig{
+					{
+						Alias: "test-orchestrator",
+						Type:  "testenv",
+						Testenv: []forge.TestenvEngineSpec{
+							{
+								Engine:         "go://testenv-mock",
+								DeferTemplates: true, // Skip forge template expansion
+								Spec: map[string]interface{}{
+									// This would FAIL if expanded by forge (UNDEFINED_VAR not in env)
+									// But with deferTemplates=true, forge should NOT expand it
+									"templatedField": "{{.Env.UNDEFINED_VAR}}",
+									"subEngineVar":   "{{.Networks.mynet}}",
+								},
+							},
+						},
+					},
+				},
+			},
+			setupAlias:                 "test-orchestrator",
+			wantTemplateExpansionError: false, // Template expansion should be skipped
+			verifyFunc: func(t *testing.T, env *forge.TestEnvironment, err error) {
+				// The key assertion: if we see an error about "UNDEFINED_VAR",
+				// it means template expansion happened when it shouldn't have
+				if err != nil && containsString(err.Error(), "UNDEFINED_VAR") {
+					t.Errorf("Template expansion occurred when deferTemplates=true; got error: %v", err)
+				}
+				if err != nil && containsString(err.Error(), "template expansion failed") {
+					t.Errorf("Template expansion occurred when deferTemplates=true; got error: %v", err)
+				}
+				// It's OK to fail on engine resolution (mock engine doesn't exist)
+				if err != nil {
+					t.Logf("Got expected error (not template expansion): %v", err)
+				}
+			},
+		},
+		{
+			name: "DeferTemplates=false (explicit) expands templates and fails on undefined variable",
+			config: forge.Spec{
+				Name:              "test-project",
+				ArtifactStorePath: artifactStorePath,
+				Engines: []forge.EngineConfig{
+					{
+						Alias: "test-orchestrator",
+						Type:  "testenv",
+						Testenv: []forge.TestenvEngineSpec{
+							{
+								Engine:         "go://testenv-mock",
+								DeferTemplates: false, // Explicitly set to false
+								Spec: map[string]interface{}{
+									"templatedField": "{{.Env.UNDEFINED_VAR}}",
+								},
+							},
+						},
+					},
+				},
+			},
+			setupAlias:                 "test-orchestrator",
+			wantTemplateExpansionError: true,
+			errorContains:              "UNDEFINED_VAR",
+		},
+		{
+			name: "DeferTemplates omitted (defaults to false) expands templates and fails on undefined variable",
+			config: forge.Spec{
+				Name:              "test-project",
+				ArtifactStorePath: artifactStorePath,
+				Engines: []forge.EngineConfig{
+					{
+						Alias: "test-orchestrator",
+						Type:  "testenv",
+						Testenv: []forge.TestenvEngineSpec{
+							{
+								Engine: "go://testenv-mock",
+								// DeferTemplates omitted - should default to false
+								Spec: map[string]interface{}{
+									"templatedField": "{{.Env.MISSING_VAR}}",
+								},
+							},
+						},
+					},
+				},
+			},
+			setupAlias:                 "test-orchestrator",
+			wantTemplateExpansionError: true,
+			errorContains:              "MISSING_VAR",
+		},
+		{
+			name: "DeferTemplates=false with no templates passes spec unchanged",
+			config: forge.Spec{
+				Name:              "test-project",
+				ArtifactStorePath: artifactStorePath,
+				Engines: []forge.EngineConfig{
+					{
+						Alias: "test-orchestrator",
+						Type:  "testenv",
+						Testenv: []forge.TestenvEngineSpec{
+							{
+								Engine:         "go://testenv-mock",
+								DeferTemplates: false,
+								Spec: map[string]interface{}{
+									// No templates - should pass through without error
+									"plainField": "plain_value",
+									"nested": map[string]interface{}{
+										"value": "no_template_here",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			setupAlias:                 "test-orchestrator",
+			wantTemplateExpansionError: false, // No templates = no expansion error
+			verifyFunc: func(t *testing.T, env *forge.TestEnvironment, err error) {
+				// Should NOT see template expansion error (no templates to expand)
+				if err != nil && containsString(err.Error(), "template expansion failed") {
+					t.Errorf("Template expansion should not fail when no templates present; got error: %v", err)
+				}
+				// Engine resolution error is expected (mock engine doesn't exist)
+				if err != nil {
+					t.Logf("Got expected error (not template expansion): %v", err)
+				}
+			},
+		},
+		{
+			name: "Mixed DeferTemplates - first engine has no templates, second defers",
+			config: forge.Spec{
+				Name:              "test-project",
+				ArtifactStorePath: artifactStorePath,
+				Engines: []forge.EngineConfig{
+					{
+						Alias: "test-orchestrator",
+						Type:  "testenv",
+						Testenv: []forge.TestenvEngineSpec{
+							{
+								Engine:         "go://testenv-mock-first",
+								DeferTemplates: false,
+								Spec: map[string]interface{}{
+									// No templates - will pass expansion phase
+									"plainField": "plain_value",
+								},
+							},
+							{
+								Engine:         "go://testenv-mock-second",
+								DeferTemplates: true,
+								Spec: map[string]interface{}{
+									// Uses undefined variable but should NOT fail
+									// because DeferTemplates=true
+									"field": "{{.Env.UNDEFINED_VAR}}",
+								},
+							},
+						},
+					},
+				},
+			},
+			setupAlias:                 "test-orchestrator",
+			wantTemplateExpansionError: false, // First engine has no templates, second defers
+			verifyFunc: func(t *testing.T, env *forge.TestEnvironment, err error) {
+				// Should NOT see error about UNDEFINED_VAR since second engine defers templates
+				if err != nil && containsString(err.Error(), "UNDEFINED_VAR") {
+					t.Errorf("Second engine should not expand templates; got error: %v", err)
+				}
+				// Should NOT see template expansion error at all
+				if err != nil && containsString(err.Error(), "template expansion failed") {
+					t.Errorf("Neither engine should cause template expansion failure; got error: %v", err)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Write forge.yaml config
+			configData, err := json.MarshalIndent(tt.config, "", "  ")
+			if err != nil {
+				t.Fatalf("Failed to marshal config: %v", err)
+			}
+			if err := os.WriteFile(forgeYamlPath, configData, 0o644); err != nil {
+				t.Fatalf("Failed to write forge.yaml: %v", err)
+			}
+
+			// Create test environment
+			env := &forge.TestEnvironment{
+				ID:               "test-integration-12345678",
+				Name:             "integration-test",
+				Status:           forge.TestStatusCreated,
+				CreatedAt:        time.Now().UTC(),
+				UpdatedAt:        time.Now().UTC(),
+				TmpDir:           filepath.Join(tmpDir, ".forge", "tmp", "test-integration-12345678"),
+				Files:            make(map[string]string),
+				ManagedResources: []string{},
+				Metadata:         make(map[string]string),
+			}
+
+			// Create tmpDir
+			if err := os.MkdirAll(env.TmpDir, 0o755); err != nil {
+				t.Fatalf("Failed to create tmpDir: %v", err)
+			}
+			defer os.RemoveAll(env.TmpDir)
+
+			// Call orchestrateCreate
+			err = orchestrateCreate(tt.config, tt.setupAlias, env)
+
+			// Verify error expectations
+			if tt.wantTemplateExpansionError {
+				if err == nil {
+					t.Error("Expected template expansion error but got nil")
+				} else if tt.errorContains != "" && !containsString(err.Error(), tt.errorContains) {
+					t.Errorf("Expected error containing %q, got %q", tt.errorContains, err.Error())
+				} else {
+					t.Logf("Got expected template expansion error: %v", err)
+				}
+			} else if tt.verifyFunc != nil {
+				tt.verifyFunc(t, env, err)
+			}
+		})
+	}
+}

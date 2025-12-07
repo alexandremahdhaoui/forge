@@ -468,3 +468,138 @@ engines:
 		})
 	}
 }
+
+func TestTestenvEngineSpecDeferTemplates(t *testing.T) {
+	tests := []struct {
+		name     string
+		yaml     string
+		validate func(t *testing.T, spec Spec)
+	}{
+		{
+			name: "DeferTemplates defaults to false",
+			yaml: `
+name: test-project
+artifactStorePath: .test.yaml
+engines:
+  - alias: my-testenv
+    type: testenv
+    testenv:
+      - engine: go://testenv-kind
+`,
+			validate: func(t *testing.T, spec Spec) {
+				if len(spec.Engines) != 1 {
+					t.Fatalf("Expected 1 engine, got %d", len(spec.Engines))
+				}
+				if len(spec.Engines[0].Testenv) != 1 {
+					t.Fatalf("Expected 1 testenv, got %d", len(spec.Engines[0].Testenv))
+				}
+				if spec.Engines[0].Testenv[0].DeferTemplates {
+					t.Error("Expected DeferTemplates to default to false")
+				}
+			},
+		},
+		{
+			name: "DeferTemplates can be set to true",
+			yaml: `
+name: test-project
+artifactStorePath: .test.yaml
+engines:
+  - alias: my-testenv
+    type: testenv
+    testenv:
+      - engine: go://testenv-helm
+        deferTemplates: true
+        spec:
+          chart: "my-chart"
+          values:
+            key: "{{ .Value }}"
+`,
+			validate: func(t *testing.T, spec Spec) {
+				if len(spec.Engines) != 1 {
+					t.Fatalf("Expected 1 engine, got %d", len(spec.Engines))
+				}
+				if len(spec.Engines[0].Testenv) != 1 {
+					t.Fatalf("Expected 1 testenv, got %d", len(spec.Engines[0].Testenv))
+				}
+				testenv := spec.Engines[0].Testenv[0]
+				if !testenv.DeferTemplates {
+					t.Error("Expected DeferTemplates to be true")
+				}
+				// Verify spec is preserved with template syntax
+				if testenv.Spec == nil {
+					t.Fatal("Expected spec to be non-nil")
+				}
+				if testenv.Spec["chart"] != "my-chart" {
+					t.Errorf("Expected chart 'my-chart', got '%v'", testenv.Spec["chart"])
+				}
+			},
+		},
+		{
+			name: "DeferTemplates explicitly false",
+			yaml: `
+name: test-project
+artifactStorePath: .test.yaml
+engines:
+  - alias: my-testenv
+    type: testenv
+    testenv:
+      - engine: go://testenv-kind
+        deferTemplates: false
+`,
+			validate: func(t *testing.T, spec Spec) {
+				if len(spec.Engines) != 1 {
+					t.Fatalf("Expected 1 engine, got %d", len(spec.Engines))
+				}
+				if len(spec.Engines[0].Testenv) != 1 {
+					t.Fatalf("Expected 1 testenv, got %d", len(spec.Engines[0].Testenv))
+				}
+				if spec.Engines[0].Testenv[0].DeferTemplates {
+					t.Error("Expected DeferTemplates to be false")
+				}
+			},
+		},
+		{
+			name: "Mixed DeferTemplates in same testenv config",
+			yaml: `
+name: test-project
+artifactStorePath: .test.yaml
+engines:
+  - alias: my-testenv
+    type: testenv
+    testenv:
+      - engine: go://testenv-kind
+        deferTemplates: false
+      - engine: go://testenv-helm
+        deferTemplates: true
+        spec:
+          values:
+            template: "{{ .SomeVar }}"
+`,
+			validate: func(t *testing.T, spec Spec) {
+				if len(spec.Engines) != 1 {
+					t.Fatalf("Expected 1 engine, got %d", len(spec.Engines))
+				}
+				if len(spec.Engines[0].Testenv) != 2 {
+					t.Fatalf("Expected 2 testenv entries, got %d", len(spec.Engines[0].Testenv))
+				}
+				if spec.Engines[0].Testenv[0].DeferTemplates {
+					t.Error("Expected first testenv DeferTemplates to be false")
+				}
+				if !spec.Engines[0].Testenv[1].DeferTemplates {
+					t.Error("Expected second testenv DeferTemplates to be true")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var spec Spec
+			err := yaml.Unmarshal([]byte(tt.yaml), &spec)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal YAML: %v", err)
+			}
+			tt.validate(t, spec)
+		})
+	}
+}

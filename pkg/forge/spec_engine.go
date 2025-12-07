@@ -108,6 +108,11 @@ type TestenvEngineSpec struct {
 
 	// Spec contains engine-specific configuration (free-form)
 	Spec map[string]interface{} `json:"spec,omitempty"`
+
+	// DeferTemplates when true, skips template expansion and passes spec verbatim to sub-engine.
+	// This allows sub-engines to handle their own template expansion.
+	// Default is false (templates are expanded by the orchestrator).
+	DeferTemplates bool `json:"deferTemplates,omitempty" yaml:"deferTemplates,omitempty"`
 }
 
 // DependencyDetectorEngineSpec defines specification for dependency-detector-type engines

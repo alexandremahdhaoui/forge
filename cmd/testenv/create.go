@@ -237,15 +237,21 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 	for subengineIndex, subengine := range subengines {
 		fmt.Fprintf(os.Stderr, "Setting up %s...\n", subengine.Engine)
 
-		// Expand templates in spec using accumulated environment FIRST
-		// This catches template errors early before any engine resolution
-		expandedSpec := subengine.Spec
-		if len(subengine.Spec) > 0 {
-			accumulatedEnv := envTracker.ToMap()
-			var err error
-			expandedSpec, err = templateutil.ExpandTemplates(subengine.Spec, accumulatedEnv)
-			if err != nil {
-				return fmt.Errorf("failed to expand templates for %s: %w", subengine.Engine, err)
+		// Determine spec to use - either expand templates or pass verbatim
+		var specToUse map[string]interface{}
+		if subengine.DeferTemplates {
+			// Skip template expansion - pass spec verbatim to sub-engine
+			specToUse = subengine.Spec
+		} else {
+			// Default: expand templates using accumulated environment
+			specToUse = subengine.Spec
+			if len(subengine.Spec) > 0 {
+				accumulatedEnv := envTracker.ToMap()
+				var err error
+				specToUse, err = templateutil.ExpandTemplates(subengine.Spec, accumulatedEnv)
+				if err != nil {
+					return fmt.Errorf("failed to expand templates for %s: %w", subengine.Engine, err)
+				}
 			}
 		}
 
@@ -280,9 +286,9 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 			"env":      envTracker.ToMap(),  // Pass accumulated environment from previous subengines
 		}
 
-		// Add expanded spec if provided
-		if len(expandedSpec) > 0 {
-			params["spec"] = expandedSpec
+		// Add spec if provided (either expanded or verbatim based on DeferTemplates)
+		if len(specToUse) > 0 {
+			params["spec"] = specToUse
 		}
 
 		// Add envPropagation if present

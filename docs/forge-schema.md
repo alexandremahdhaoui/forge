@@ -175,6 +175,40 @@ engines:
           autoPushImages: true
 ```
 
+**TestenvEngineSpec Fields:**
+
+Each testenv sub-engine configuration supports these fields:
+
+- `engine` (string, required) - Engine URI (e.g., `go://testenv-kind`)
+- `deferTemplates` (boolean, optional, default: `false`) - When `true`, forge skips template expansion for this engine's `spec`. The spec is passed verbatim to the sub-engine, allowing it to perform its own template expansion with a richer context (e.g., access to `.Networks`, `.Keys`, or other sub-engine-specific variables).
+- `spec` (map, optional) - Engine-specific configuration
+
+**Example: Mixed Template Handling**
+```yaml
+engines:
+  - alias: setup-integration
+    type: testenv
+    testenv:
+      # Engine using forge template expansion (default)
+      - engine: "go://testenv-kind"
+        spec:
+          clusterName: "{{.Env.CLUSTER_NAME}}"  # Expanded by forge
+
+      # Engine handling its own templates
+      - engine: "go://testenv-vm"
+        deferTemplates: true  # Skip forge expansion
+        spec:
+          cloudInit: |
+            {{- range .Networks }}  # Expanded by testenv-vm, not forge
+            network: {{ .Name }}
+            {{- end }}
+```
+
+**When to use `deferTemplates: true`:**
+- Sub-engine has its own template system with variables forge does not know about
+- Template syntax conflicts with forge's Go template expansion
+- Sub-engine needs access to runtime context not available during forge execution
+
 **Usage:**
 ```yaml
 build:
