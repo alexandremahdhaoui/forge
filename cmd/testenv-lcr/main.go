@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/alexandremahdhaoui/forge/internal/cli"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/flaterrors"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
@@ -43,6 +44,14 @@ var (
 	CommitSHA      = "unknown"
 	BuildTimestamp = "unknown"
 )
+
+// docsConfig is the configuration for the docs subcommand.
+var docsConfig = &enginedocs.Config{
+	EngineName:   Name,
+	LocalDir:     "cmd/testenv-lcr/docs",
+	BaseURL:      "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main",
+	RequiredDocs: []string{"usage", "schema"},
+}
 
 // ----------------------------------------------------- ENVS ------------------------------------------------------- //
 
@@ -79,6 +88,7 @@ func main() {
 		CommitSHA:      CommitSHA,
 		BuildTimestamp: BuildTimestamp,
 		RunMCP:         runMCPServer,
+		DocsConfig:     docsConfig,
 	})
 }
 

@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "generic-builder"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Generic Builder Usage Guide"
+    description: "How to use generic-builder to execute shell commands as build steps"
+    url: "cmd/generic-builder/docs/usage.md"
+    tags: ["usage", "getting-started"]
+    required: true
+
+  - name: "schema"
+    title: "Generic Builder Configuration"
+    description: "Configuration options for generic-builder in forge.yaml"
+    url: "cmd/generic-builder/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

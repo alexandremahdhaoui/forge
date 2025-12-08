@@ -23,10 +23,13 @@ import (
 
 	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 )
+
+const Name = "go-format"
 
 // Version information (set via ldflags during build)
 var (
@@ -35,26 +38,39 @@ var (
 	BuildTimestamp = "unknown"
 )
 
+// docsConfig is the configuration for the docs subcommand.
+var docsConfig = &enginedocs.Config{
+	EngineName:   Name,
+	LocalDir:     "cmd/go-format/docs",
+	BaseURL:      "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main",
+	RequiredDocs: []string{"usage", "schema"},
+}
+
 func main() {
 	cli.Bootstrap(cli.Config{
-		Name:           "go-format",
+		Name:           Name,
 		Version:        Version,
 		CommitSHA:      CommitSHA,
 		BuildTimestamp: BuildTimestamp,
 		RunMCP:         runMCPServer,
+		DocsConfig:     docsConfig,
 	})
 }
 
 func runMCPServer() error {
-	server := mcpserver.New("go-format", Version)
+	server := mcpserver.New(Name, Version)
 
 	config := engineframework.BuilderConfig{
-		Name:      "go-format",
+		Name:      Name,
 		Version:   Version,
 		BuildFunc: build,
 	}
 
 	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+		return err
+	}
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
 

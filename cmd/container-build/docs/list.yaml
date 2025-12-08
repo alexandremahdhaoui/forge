@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "container-build"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Container Build Usage Guide"
+    description: "How to use container-build to create container images"
+    url: "cmd/container-build/docs/usage.md"
+    tags: ["usage", "getting-started"]
+    required: true
+
+  - name: "schema"
+    title: "Container Build Configuration"
+    description: "Configuration options for container-build in forge.yaml"
+    url: "cmd/container-build/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

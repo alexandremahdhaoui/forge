@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "test-report"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Test Report Usage Guide"
+    description: "How to use test-report to manage test reports and artifacts"
+    url: "cmd/test-report/docs/usage.md"
+    tags: ["usage", "getting-started"]
+    required: true
+
+  - name: "schema"
+    title: "Test Report Configuration"
+    description: "Configuration options for test-report in forge.yaml"
+    url: "cmd/test-report/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -48,7 +49,7 @@ type ListInput struct {
 
 // runMCPServer starts the MCP server.
 func runMCPServer() error {
-	server := mcpserver.New("test-report", Version)
+	server := mcpserver.New(Name, Version)
 
 	// Register create tool (no-op for compatibility with test engine interface)
 	mcpserver.RegisterTool(server, &mcp.Tool{
@@ -73,6 +74,10 @@ func runMCPServer() error {
 		Name:        "list",
 		Description: "List test reports, optionally filtered by stage",
 	}, handleListTool)
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
+		return err
+	}
 
 	// Run the MCP server
 	return server.RunDefault()

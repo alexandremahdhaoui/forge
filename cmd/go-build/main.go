@@ -25,6 +25,7 @@ import (
 
 	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/util"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/flaterrors"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/caarlos0/env/v11"
@@ -39,6 +40,14 @@ var (
 	BuildTimestamp = "unknown"
 )
 
+// docsConfig is the configuration for the docs subcommand.
+var docsConfig = &enginedocs.Config{
+	EngineName:   Name,
+	LocalDir:     "cmd/go-build/docs",
+	BaseURL:      "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main",
+	RequiredDocs: []string{"usage", "schema"},
+}
+
 // ----------------------------------------------------- MAIN ------------------------------------------------------- //
 
 func main() {
@@ -51,6 +60,7 @@ func main() {
 		RunMCP:         runMCPServer,
 		SuccessHandler: printSuccess,
 		FailureHandler: printFailure,
+		DocsConfig:     docsConfig,
 	})
 }
 

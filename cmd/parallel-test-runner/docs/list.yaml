@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "parallel-test-runner"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Parallel Test Runner Usage Guide"
+    description: "How to use parallel-test-runner to execute multiple test runners concurrently"
+    url: "cmd/parallel-test-runner/docs/usage.md"
+    tags: ["usage", "getting-started"]
+    required: true
+
+  - name: "schema"
+    title: "Parallel Test Runner Configuration"
+    description: "Configuration options for parallel-test-runner in forge.yaml"
+    url: "cmd/parallel-test-runner/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

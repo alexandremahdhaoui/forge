@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "testenv-kind"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Testenv-Kind Usage Guide"
+    description: "How to use testenv-kind to create Kind clusters for test environments"
+    url: "cmd/testenv-kind/docs/usage.md"
+    tags: ["usage", "getting-started", "kind", "kubernetes"]
+    required: true
+
+  - name: "schema"
+    title: "Testenv-Kind Configuration"
+    description: "Configuration options for testenv-kind in forge.yaml"
+    url: "cmd/testenv-kind/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

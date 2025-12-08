@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
@@ -37,6 +38,10 @@ func runMCPServer() error {
 	}
 
 	if err := engineframework.RegisterTestEnvSubengineTools(server, config); err != nil {
+		return err
+	}
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
 

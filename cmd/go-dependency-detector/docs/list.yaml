@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "go-dependency-detector"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Go Dependency Detector Usage Guide"
+    description: "How to use go-dependency-detector for lazy rebuild optimization"
+    url: "cmd/go-dependency-detector/docs/usage.md"
+    tags: ["usage", "getting-started"]
+    required: true
+
+  - name: "schema"
+    title: "Go Dependency Detector Configuration"
+    description: "Configuration options for go-dependency-detector in forge.yaml"
+    url: "cmd/go-dependency-detector/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

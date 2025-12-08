@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "go-format"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Go Format Usage Guide"
+    description: "How to use go-format to format Go source code"
+    url: "cmd/go-format/docs/usage.md"
+    tags: ["usage", "getting-started"]
+    required: true
+
+  - name: "schema"
+    title: "Go Format Configuration"
+    description: "Configuration options for go-format in forge.yaml"
+    url: "cmd/go-format/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

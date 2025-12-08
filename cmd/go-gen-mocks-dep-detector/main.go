@@ -22,6 +22,7 @@ import (
 
 	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -36,6 +37,14 @@ var (
 	BuildTimestamp = "unknown"
 )
 
+// docsConfig is the configuration for the docs subcommand.
+var docsConfig = &enginedocs.Config{
+	EngineName:   Name,
+	LocalDir:     "cmd/go-gen-mocks-dep-detector/docs",
+	BaseURL:      "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main",
+	RequiredDocs: []string{"usage", "schema"},
+}
+
 // ----------------------------------------------------- MAIN ------------------------------------------------------- //
 
 func main() {
@@ -48,6 +57,7 @@ func main() {
 		RunMCP:         runMCPServer,
 		SuccessHandler: printSuccess,
 		FailureHandler: printFailure,
+		DocsConfig:     docsConfig,
 	})
 }
 
@@ -72,6 +82,10 @@ func runMCPServer() error {
 		Name:        "detectDependencies",
 		Description: "Detect dependencies for mockery mock generation",
 	}, handleDetectDependencies)
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
+		return err
+	}
 
 	return server.RunDefault()
 }

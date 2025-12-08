@@ -24,6 +24,7 @@ import (
 
 	"github.com/alexandremahdhaoui/forge/internal/cmdutil"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
@@ -31,17 +32,21 @@ import (
 
 // runMCPServer starts the generic-builder MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New("generic-builder", Version)
+	server := mcpserver.New(Name, Version)
 
 	// Configure builder with engineframework
 	config := engineframework.BuilderConfig{
-		Name:      "generic-builder",
+		Name:      Name,
 		Version:   Version,
 		BuildFunc: build,
 	}
 
 	// Register builder tools (registers both 'build' and 'buildBatch')
 	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+		return err
+	}
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
 

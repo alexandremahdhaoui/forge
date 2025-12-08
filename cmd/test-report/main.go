@@ -19,7 +19,10 @@ import (
 	"os"
 
 	"github.com/alexandremahdhaoui/forge/internal/cli"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 )
+
+const Name = "test-report"
 
 // Version information (set via ldflags during build)
 var (
@@ -27,6 +30,14 @@ var (
 	CommitSHA      = "unknown"
 	BuildTimestamp = "unknown"
 )
+
+// docsConfig is the configuration for the docs subcommand.
+var docsConfig = &enginedocs.Config{
+	EngineName:   Name,
+	LocalDir:     "cmd/test-report/docs",
+	BaseURL:      "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main",
+	RequiredDocs: []string{"usage", "schema"},
+}
 
 func main() {
 	// Check if running in direct CLI mode (test-report <command>)
@@ -75,11 +86,12 @@ func main() {
 
 	// Otherwise, use standard cli.Bootstrap for MCP mode and version handling
 	cli.Bootstrap(cli.Config{
-		Name:           "test-report",
+		Name:           Name,
 		Version:        Version,
 		CommitSHA:      CommitSHA,
 		BuildTimestamp: BuildTimestamp,
 		RunMCP:         runMCPServer,
+		DocsConfig:     docsConfig,
 	})
 }
 

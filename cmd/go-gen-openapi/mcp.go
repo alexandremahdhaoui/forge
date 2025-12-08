@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
@@ -29,15 +30,19 @@ import (
 
 // runMCPServer starts the go-gen-openapi MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New("go-gen-openapi", Version)
+	server := mcpserver.New(Name, Version)
 
 	config := engineframework.BuilderConfig{
-		Name:      "go-gen-openapi",
+		Name:      Name,
 		Version:   Version,
 		BuildFunc: build,
 	}
 
 	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+		return err
+	}
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
 

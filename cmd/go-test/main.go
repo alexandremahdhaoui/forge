@@ -16,7 +16,10 @@ package main
 
 import (
 	"github.com/alexandremahdhaoui/forge/internal/cli"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 )
+
+const Name = "go-test"
 
 // Version information (set via ldflags during build)
 var (
@@ -25,12 +28,21 @@ var (
 	BuildTimestamp = "unknown"
 )
 
+// docsConfig is the configuration for the docs subcommand.
+var docsConfig = &enginedocs.Config{
+	EngineName:   Name,
+	LocalDir:     "cmd/go-test/docs",
+	BaseURL:      "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main",
+	RequiredDocs: []string{"usage", "schema"},
+}
+
 func main() {
 	cli.Bootstrap(cli.Config{
-		Name:           "go-test",
+		Name:           Name,
 		Version:        Version,
 		CommitSHA:      CommitSHA,
 		BuildTimestamp: BuildTimestamp,
 		RunMCP:         runMCPServer,
+		DocsConfig:     docsConfig,
 	})
 }

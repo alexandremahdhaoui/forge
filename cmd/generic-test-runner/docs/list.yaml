@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "generic-test-runner"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Generic Test Runner Usage Guide"
+    description: "How to use generic-test-runner to execute arbitrary commands as tests"
+    url: "cmd/generic-test-runner/docs/usage.md"
+    tags: ["usage", "getting-started"]
+    required: true
+
+  - name: "schema"
+    title: "Generic Test Runner Configuration"
+    description: "Configuration options for generic-test-runner in forge.yaml"
+    url: "cmd/generic-test-runner/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

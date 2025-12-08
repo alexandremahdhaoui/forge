@@ -24,10 +24,13 @@ import (
 
 	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 )
+
+const Name = "go-lint"
 
 // Version information (set via ldflags during build)
 var (
@@ -36,26 +39,39 @@ var (
 	BuildTimestamp = "unknown"
 )
 
+// docsConfig is the configuration for the docs subcommand.
+var docsConfig = &enginedocs.Config{
+	EngineName:   Name,
+	LocalDir:     "cmd/go-lint/docs",
+	BaseURL:      "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main",
+	RequiredDocs: []string{"usage", "schema"},
+}
+
 func main() {
 	cli.Bootstrap(cli.Config{
-		Name:           "go-lint",
+		Name:           Name,
 		Version:        Version,
 		CommitSHA:      CommitSHA,
 		BuildTimestamp: BuildTimestamp,
 		RunMCP:         runMCPServer,
+		DocsConfig:     docsConfig,
 	})
 }
 
 func runMCPServer() error {
-	server := mcpserver.New("go-lint", Version)
+	server := mcpserver.New(Name, Version)
 
 	config := engineframework.TestRunnerConfig{
-		Name:        "go-lint",
+		Name:        Name,
 		Version:     Version,
 		RunTestFunc: runTests,
 	}
 
 	if err := engineframework.RegisterTestRunnerTools(server, config); err != nil {
+		return err
+	}
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
 

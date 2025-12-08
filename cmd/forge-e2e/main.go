@@ -26,7 +26,10 @@ import (
 
 	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/testutil"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 )
+
+const Name = "forge-e2e"
 
 // Version information (set via ldflags during build)
 var (
@@ -34,6 +37,14 @@ var (
 	CommitSHA      = "unknown"
 	BuildTimestamp = "unknown"
 )
+
+// docsConfig is the configuration for the docs subcommand.
+var docsConfig = &enginedocs.Config{
+	EngineName:   Name,
+	LocalDir:     "cmd/forge-e2e/docs",
+	BaseURL:      "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main",
+	RequiredDocs: []string{"usage", "schema"},
+}
 
 // TestCategory represents a category of tests
 type TestCategory string
@@ -612,12 +623,13 @@ func main() {
 
 	// Otherwise, use standard cli.Bootstrap for MCP mode and version handling
 	cli.Bootstrap(cli.Config{
-		Name:           "forge-e2e",
+		Name:           Name,
 		Version:        Version,
 		CommitSHA:      CommitSHA,
 		BuildTimestamp: BuildTimestamp,
 		RunCLI:         runAllTests,
 		RunMCP:         runMCPServer,
+		DocsConfig:     docsConfig,
 	})
 }
 

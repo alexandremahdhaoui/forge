@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "go-gen-mocks"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Go Gen Mocks Usage Guide"
+    description: "How to use go-gen-mocks to generate mock implementations"
+    url: "cmd/go-gen-mocks/docs/usage.md"
+    tags: ["usage", "getting-started"]
+    required: true
+
+  - name: "schema"
+    title: "Go Gen Mocks Configuration"
+    description: "Configuration options for go-gen-mocks in forge.yaml"
+    url: "cmd/go-gen-mocks/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

@@ -28,6 +28,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"gopkg.in/yaml.v3"
 )
@@ -236,6 +237,10 @@ func runMCPServer() error {
 	}
 
 	if err := engineframework.RegisterTestEnvSubengineTools(server, config); err != nil {
+		return err
+	}
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
 

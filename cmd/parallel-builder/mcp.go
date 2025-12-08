@@ -24,6 +24,7 @@ import (
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpcaller"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
@@ -47,15 +48,19 @@ type BuilderConfig struct {
 
 // runMCPServer starts the parallel-builder MCP server.
 func runMCPServer() error {
-	server := mcpserver.New("parallel-builder", Version)
+	server := mcpserver.New(Name, Version)
 
 	config := engineframework.BuilderConfig{
-		Name:      "parallel-builder",
+		Name:      Name,
 		Version:   Version,
 		BuildFunc: parallelBuild,
 	}
 
 	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+		return err
+	}
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
 

@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "testenv"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Testenv Usage Guide"
+    description: "How to use testenv to orchestrate test environments"
+    url: "cmd/testenv/docs/usage.md"
+    tags: ["usage", "getting-started"]
+    required: true
+
+  - name: "schema"
+    title: "Testenv Configuration"
+    description: "Configuration options for testenv in forge.yaml"
+    url: "cmd/testenv/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

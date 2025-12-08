@@ -47,3 +47,8 @@ tmp/
 /go-verify-license
 /go-test
 /parallel-*
+/generic-test-runner
+/go-lint
+/go-lint-licenses
+/go-lint-tags
+/test-report

@@ -20,6 +20,7 @@ import (
 	"log"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
@@ -27,15 +28,19 @@ import (
 
 // runMCPServer starts the go-test MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New("go-test", Version)
+	server := mcpserver.New(Name, Version)
 
 	config := engineframework.TestRunnerConfig{
-		Name:        "go-test",
+		Name:        Name,
 		Version:     Version,
 		RunTestFunc: runTestsWrapper,
 	}
 
 	if err := engineframework.RegisterTestRunnerTools(server, config); err != nil {
+		return err
+	}
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
 

@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "go-build"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Go Build Usage Guide"
+    description: "How to use go-build to compile Go binaries"
+    url: "cmd/go-build/docs/usage.md"
+    tags: ["usage", "getting-started"]
+    required: true
+
+  - name: "schema"
+    title: "Go Build Configuration"
+    description: "Configuration options for go-build in forge.yaml"
+    url: "cmd/go-build/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

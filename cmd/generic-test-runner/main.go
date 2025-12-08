@@ -22,7 +22,10 @@ import (
 	"strings"
 
 	"github.com/alexandremahdhaoui/forge/internal/cli"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 )
+
+const Name = "generic-test-runner"
 
 // Version information (set via ldflags during build)
 var (
@@ -30,6 +33,14 @@ var (
 	CommitSHA      = "unknown"
 	BuildTimestamp = "unknown"
 )
+
+// docsConfig is the configuration for the docs subcommand.
+var docsConfig = &enginedocs.Config{
+	EngineName:   Name,
+	LocalDir:     "cmd/generic-test-runner/docs",
+	BaseURL:      "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main",
+	RequiredDocs: []string{"usage", "schema"},
+}
 
 // ExecuteInput contains the parameters for command execution
 type ExecuteInput struct {
@@ -148,10 +159,11 @@ func executeCommand(input ExecuteInput) ExecuteOutput {
 
 func main() {
 	cli.Bootstrap(cli.Config{
-		Name:           "generic-test-runner",
+		Name:           Name,
 		Version:        Version,
 		CommitSHA:      CommitSHA,
 		BuildTimestamp: BuildTimestamp,
 		RunMCP:         runMCPServer,
+		DocsConfig:     docsConfig,
 	})
 }

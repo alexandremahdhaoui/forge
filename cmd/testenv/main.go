@@ -20,6 +20,7 @@ import (
 
 	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/version"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 )
 
 // Version information (set via ldflags during build)
@@ -31,6 +32,14 @@ var (
 
 // versionInfo holds testenv's version information
 var versionInfo *version.Info
+
+// docsConfig is the configuration for the docs subcommand.
+var docsConfig = &enginedocs.Config{
+	EngineName:   "testenv",
+	LocalDir:     "cmd/testenv/docs",
+	BaseURL:      "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main",
+	RequiredDocs: []string{"usage", "schema"},
+}
 
 func init() {
 	versionInfo = version.New("testenv")
@@ -86,6 +95,7 @@ func main() {
 		CommitSHA:      CommitSHA,
 		BuildTimestamp: BuildTimestamp,
 		RunMCP:         runMCPServer,
+		DocsConfig:     docsConfig,
 	})
 }
 

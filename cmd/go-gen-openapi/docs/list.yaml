@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "go-gen-openapi"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "OpenAPI Code Generator Usage Guide"
+    description: "How to use go-gen-openapi to generate Go client and server code from OpenAPI specs"
+    url: "cmd/go-gen-openapi/docs/usage.md"
+    tags: ["usage", "getting-started"]
+    required: true
+
+  - name: "schema"
+    title: "OpenAPI Code Generator Configuration"
+    description: "Configuration options for go-gen-openapi in forge.yaml"
+    url: "cmd/go-gen-openapi/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

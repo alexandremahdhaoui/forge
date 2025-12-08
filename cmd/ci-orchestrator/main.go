@@ -22,6 +22,7 @@ import (
 
 	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -32,6 +33,14 @@ var (
 	CommitSHA      = "unknown"
 	BuildTimestamp = "unknown"
 )
+
+// docsConfig is the configuration for the docs subcommand.
+var docsConfig = &enginedocs.Config{
+	EngineName:   "ci-orchestrator",
+	LocalDir:     "cmd/ci-orchestrator/docs",
+	BaseURL:      "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main",
+	RequiredDocs: []string{"usage", "schema"},
+}
 
 func main() {
 	// Check if user needs help
@@ -47,6 +56,7 @@ func main() {
 		CommitSHA:      CommitSHA,
 		BuildTimestamp: BuildTimestamp,
 		RunMCP:         runMCPServer,
+		DocsConfig:     docsConfig,
 	})
 }
 
@@ -77,6 +87,10 @@ func runMCPServer() error {
 		Name:        "run",
 		Description: "Run CI pipeline (not yet implemented)",
 	}, handleRunTool)
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
+		return err
+	}
 
 	return server.RunDefault()
 }

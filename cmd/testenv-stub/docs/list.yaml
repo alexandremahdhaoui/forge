@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "testenv-stub"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Testenv-Stub Usage Guide"
+    description: "How to use testenv-stub for lightweight test environment testing"
+    url: "cmd/testenv-stub/docs/usage.md"
+    tags: ["usage", "getting-started", "testing", "stub"]
+    required: true
+
+  - name: "schema"
+    title: "Testenv-Stub Configuration"
+    description: "Configuration options for testenv-stub in forge.yaml"
+    url: "cmd/testenv-stub/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

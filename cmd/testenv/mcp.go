@@ -20,6 +20,7 @@ import (
 	"log"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -52,6 +53,11 @@ func runMCPServer() error {
 
 	// NOTE: get/list are NOT implemented here
 	// forge handles get/list by reading the artifact store directly
+
+	// Register docs tools
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
+		return err
+	}
 
 	// Run the MCP server
 	return server.RunDefault()

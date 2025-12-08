@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "ci-orchestrator"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "CI-Orchestrator Usage Guide"
+    description: "How to use ci-orchestrator for CI/CD pipeline orchestration"
+    url: "cmd/ci-orchestrator/docs/usage.md"
+    tags: ["usage", "getting-started", "ci", "cd", "pipeline"]
+    required: true
+
+  - name: "schema"
+    title: "CI-Orchestrator Configuration"
+    description: "Configuration options for ci-orchestrator in forge.yaml"
+    url: "cmd/ci-orchestrator/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

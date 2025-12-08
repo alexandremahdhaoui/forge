@@ -23,6 +23,7 @@ import (
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpcaller"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
@@ -60,15 +61,19 @@ type runnerResult struct {
 
 // runMCPServer starts the parallel-test-runner MCP server.
 func runMCPServer() error {
-	server := mcpserver.New("parallel-test-runner", Version)
+	server := mcpserver.New(Name, Version)
 
 	config := engineframework.TestRunnerConfig{
-		Name:        "parallel-test-runner",
+		Name:        Name,
 		Version:     Version,
 		RunTestFunc: parallelRun,
 	}
 
 	if err := engineframework.RegisterTestRunnerTools(server, config); err != nil {
+		return err
+	}
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
 

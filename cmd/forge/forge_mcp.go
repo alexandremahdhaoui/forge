@@ -1014,15 +1014,17 @@ func handleConfigValidateTool(
 }
 
 // handleDocsListTool handles the "docs-list" tool call from MCP clients.
+// It returns aggregated documentation from both global forge docs and engine-specific docs.
 func handleDocsListTool(
 	ctx context.Context,
 	req *mcp.CallToolRequest,
 	input DocsListInput,
 ) (*mcp.CallToolResult, any, error) {
-	log.Printf("Listing available documentation")
+	log.Printf("Listing available documentation (aggregated)")
 
-	// Call docsList (note: it prints to stdout)
-	if err := docsList(); err != nil {
+	// Use aggregated docs list for MCP to get structured data
+	result, err := aggregateDocsList()
+	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
 				&mcp.TextContent{Text: fmt.Sprintf("Failed to list documentation: %v", err)},
@@ -1031,14 +1033,25 @@ func handleDocsListTool(
 		}, nil, nil
 	}
 
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: "Successfully listed documentation"},
-		},
-	}, nil, nil
+	// Calculate totals for summary
+	totalDocs := len(result.GlobalDocs) + len(result.EngineDocs)
+	errorCount := len(result.Errors)
+
+	summary := fmt.Sprintf("Found %d document(s): %d global, %d from engines",
+		totalDocs, len(result.GlobalDocs), len(result.EngineDocs))
+	if errorCount > 0 {
+		summary += fmt.Sprintf(" (%d engine(s) had errors)", errorCount)
+	}
+
+	// Return structured result with artifact
+	mcpResult, artifact := mcputil.SuccessResultWithArtifact(summary, result)
+	return mcpResult, artifact, nil
 }
 
 // handleDocsGetTool handles the "docs-get" tool call from MCP clients.
+// It routes to the correct engine based on the name format:
+// - "engine/docname" -> routes to engine-specific docs
+// - "docname" -> routes to global forge docs
 func handleDocsGetTool(
 	ctx context.Context,
 	req *mcp.CallToolRequest,
@@ -1046,8 +1059,9 @@ func handleDocsGetTool(
 ) (*mcp.CallToolResult, any, error) {
 	log.Printf("Getting documentation: %s", input.Name)
 
-	// Call docsGet (note: it prints to stdout)
-	if err := docsGet(input.Name); err != nil {
+	// Use aggregatedDocsGet for proper routing
+	content, err := aggregatedDocsGet(input.Name)
+	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
 				&mcp.TextContent{Text: fmt.Sprintf("Failed to get documentation: %v", err)},
@@ -1056,9 +1070,10 @@ func handleDocsGetTool(
 		}, nil, nil
 	}
 
+	// Return the document content
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
-			&mcp.TextContent{Text: fmt.Sprintf("Successfully retrieved documentation: %s", input.Name)},
+			&mcp.TextContent{Text: content},
 		},
 	}, nil, nil
 }

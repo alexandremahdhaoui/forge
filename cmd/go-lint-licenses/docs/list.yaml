@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "go-lint-licenses"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Go Lint Licenses Usage Guide"
+    description: "How to use go-lint-licenses to verify license headers on Go files"
+    url: "cmd/go-lint-licenses/docs/usage.md"
+    tags: ["usage", "getting-started"]
+    required: true
+
+  - name: "schema"
+    title: "Go Lint Licenses Configuration"
+    description: "Configuration options for go-lint-licenses in forge.yaml"
+    url: "cmd/go-lint-licenses/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

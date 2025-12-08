@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
@@ -77,6 +78,10 @@ func runMCPServer() error {
 		Name:        "list-image-pull-secrets",
 		Description: "List all image pull secrets created by testenv-lcr across all namespaces or in a specific namespace",
 	}, handleListImagePullSecretsTool)
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
+		return err
+	}
 
 	return server.RunDefault()
 }

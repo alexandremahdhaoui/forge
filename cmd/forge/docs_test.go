@@ -26,6 +26,8 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// Note: contains is defined in prompt_test.go
+
 // TestFetchDocsStore_Local tests reading docs store from local file
 func TestFetchDocsStore_Local(t *testing.T) {
 	// Create temporary directory structure
@@ -486,4 +488,560 @@ func TestDocsList_NoGitIgnoredFiles(t *testing.T) {
 	}
 
 	t.Logf("Verified %d docs - all are tracked by git", len(store.Docs))
+}
+
+// --- Aggregation Tests ---
+
+// setupTestProject creates a temporary directory with mock engine docs
+func setupTestProject(t *testing.T) (string, func()) {
+	t.Helper()
+	tmpDir := t.TempDir()
+
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to change to temp directory: %v", err)
+	}
+
+	return tmpDir, func() {
+		_ = os.Chdir(originalWd)
+	}
+}
+
+// createMockEngineDocs creates a mock engine docs directory structure
+func createMockEngineDocs(t *testing.T, baseDir, engineName string) {
+	t.Helper()
+	docsDir := filepath.Join(baseDir, "cmd", engineName, "docs")
+	if err := os.MkdirAll(docsDir, 0o755); err != nil {
+		t.Fatalf("Failed to create docs dir: %v", err)
+	}
+
+	listYAML := `version: "1.0"
+engine: "` + engineName + `"
+baseURL: "https://raw.githubusercontent.com/example/repo/main"
+docs:
+  - name: usage
+    title: "` + engineName + ` Usage Guide"
+    description: "How to use ` + engineName + `"
+    url: "cmd/` + engineName + `/docs/usage.md"
+  - name: schema
+    title: "` + engineName + ` Configuration Schema"
+    description: "Configuration options for ` + engineName + `"
+    url: "cmd/` + engineName + `/docs/schema.md"
+`
+	if err := os.WriteFile(filepath.Join(docsDir, "list.yaml"), []byte(listYAML), 0o644); err != nil {
+		t.Fatalf("Failed to write list.yaml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(docsDir, "usage.md"), []byte("# "+engineName+" Usage\n\nUsage guide content."), 0o644); err != nil {
+		t.Fatalf("Failed to write usage.md: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(docsDir, "schema.md"), []byte("# "+engineName+" Schema\n\nSchema content."), 0o644); err != nil {
+		t.Fatalf("Failed to write schema.md: %v", err)
+	}
+}
+
+// createMockGlobalDocs creates mock global docs for forge
+func createMockGlobalDocs(t *testing.T, baseDir string) {
+	t.Helper()
+	docsDir := filepath.Join(baseDir, "docs")
+	if err := os.MkdirAll(docsDir, 0o755); err != nil {
+		t.Fatalf("Failed to create global docs dir: %v", err)
+	}
+
+	listYAML := `version: "1.0"
+baseURL: "https://raw.githubusercontent.com/example/repo/main"
+docs:
+  - name: architecture
+    title: "Forge Architecture"
+    description: "Overview of forge architecture"
+    url: "docs/architecture.md"
+    tags: ["architecture", "overview"]
+`
+	if err := os.WriteFile(filepath.Join(docsDir, "docs-list.yaml"), []byte(listYAML), 0o644); err != nil {
+		t.Fatalf("Failed to write docs-list.yaml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(docsDir, "architecture.md"), []byte("# Forge Architecture\n\nArchitecture content."), 0o644); err != nil {
+		t.Fatalf("Failed to write architecture.md: %v", err)
+	}
+}
+
+func TestDiscoverEngineDocs(t *testing.T) {
+	// Cannot be parallel because changes working directory
+
+	t.Run("discovers engines with docs directories", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create mock cmd directory
+		if err := os.MkdirAll(filepath.Join(tmpDir, "cmd"), 0o755); err != nil {
+			t.Fatalf("Failed to create cmd dir: %v", err)
+		}
+
+		// Create mock engines with docs
+		createMockEngineDocs(t, tmpDir, "go-build")
+		createMockEngineDocs(t, tmpDir, "testenv")
+
+		// Create engine without docs
+		if err := os.MkdirAll(filepath.Join(tmpDir, "cmd", "no-docs-engine"), 0o755); err != nil {
+			t.Fatalf("Failed to create no-docs-engine dir: %v", err)
+		}
+
+		// Create forge (should be skipped)
+		if err := os.MkdirAll(filepath.Join(tmpDir, "cmd", "forge", "docs"), 0o755); err != nil {
+			t.Fatalf("Failed to create forge dir: %v", err)
+		}
+
+		engines, err := discoverEngineDocs()
+		if err != nil {
+			t.Fatalf("discoverEngineDocs failed: %v", err)
+		}
+
+		// Should find go-build and testenv, but not forge or no-docs-engine
+		if len(engines) != 2 {
+			t.Errorf("Expected 2 engines, got %d: %v", len(engines), engines)
+		}
+
+		goBuildFound := false
+		testenvFound := false
+		for _, e := range engines {
+			if e == filepath.Join("cmd", "go-build") {
+				goBuildFound = true
+			}
+			if e == filepath.Join("cmd", "testenv") {
+				testenvFound = true
+			}
+		}
+		if !goBuildFound {
+			t.Error("Expected to find go-build engine")
+		}
+		if !testenvFound {
+			t.Error("Expected to find testenv engine")
+		}
+	})
+
+	t.Run("returns empty list when no engines have docs", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create cmd directory without any engines having docs
+		if err := os.MkdirAll(filepath.Join(tmpDir, "cmd", "engine1"), 0o755); err != nil {
+			t.Fatalf("Failed to create engine1 dir: %v", err)
+		}
+		if err := os.MkdirAll(filepath.Join(tmpDir, "cmd", "engine2"), 0o755); err != nil {
+			t.Fatalf("Failed to create engine2 dir: %v", err)
+		}
+
+		engines, err := discoverEngineDocs()
+		if err != nil {
+			t.Fatalf("discoverEngineDocs failed: %v", err)
+		}
+		if len(engines) != 0 {
+			t.Errorf("Expected 0 engines, got %d", len(engines))
+		}
+	})
+
+	t.Run("returns error when cmd directory does not exist", func(t *testing.T) {
+		_, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		_, err := discoverEngineDocs()
+		if err == nil {
+			t.Error("Expected error when cmd directory doesn't exist, got nil")
+		}
+	})
+}
+
+func TestAggregateDocsList(t *testing.T) {
+	// Cannot be parallel because changes working directory
+
+	t.Run("aggregates global and engine docs", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create mock global docs
+		createMockGlobalDocs(t, tmpDir)
+
+		// Create mock cmd directory and engines
+		if err := os.MkdirAll(filepath.Join(tmpDir, "cmd"), 0o755); err != nil {
+			t.Fatalf("Failed to create cmd dir: %v", err)
+		}
+		createMockEngineDocs(t, tmpDir, "go-build")
+		createMockEngineDocs(t, tmpDir, "testenv")
+
+		result, err := aggregateDocsList()
+		if err != nil {
+			t.Fatalf("aggregateDocsList failed: %v", err)
+		}
+
+		// Should have global docs
+		if len(result.GlobalDocs) != 1 {
+			t.Errorf("Expected 1 global doc, got %d", len(result.GlobalDocs))
+		} else if result.GlobalDocs[0].Name != "architecture" {
+			t.Errorf("Expected global doc 'architecture', got '%s'", result.GlobalDocs[0].Name)
+		}
+
+		// Should have engine docs with prefixes
+		if len(result.EngineDocs) != 4 { // 2 engines * 2 docs each
+			t.Errorf("Expected 4 engine docs, got %d", len(result.EngineDocs))
+		}
+
+		// Check that engine docs have correct prefixes
+		engineDocNames := make(map[string]bool)
+		for _, doc := range result.EngineDocs {
+			engineDocNames[doc.Name] = true
+		}
+		expectedNames := []string{"go-build/usage", "go-build/schema", "testenv/usage", "testenv/schema"}
+		for _, name := range expectedNames {
+			if !engineDocNames[name] {
+				t.Errorf("Expected engine doc '%s' not found", name)
+			}
+		}
+	})
+
+	t.Run("continues with errors when some engines fail", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create mock global docs
+		createMockGlobalDocs(t, tmpDir)
+
+		// Create mock cmd directory
+		if err := os.MkdirAll(filepath.Join(tmpDir, "cmd"), 0o755); err != nil {
+			t.Fatalf("Failed to create cmd dir: %v", err)
+		}
+
+		// Create one valid engine
+		createMockEngineDocs(t, tmpDir, "go-build")
+
+		// Create engine with invalid list.yaml
+		invalidDocsDir := filepath.Join(tmpDir, "cmd", "invalid-engine", "docs")
+		if err := os.MkdirAll(invalidDocsDir, 0o755); err != nil {
+			t.Fatalf("Failed to create invalid-engine dir: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(invalidDocsDir, "list.yaml"), []byte("invalid: [yaml content"), 0o644); err != nil {
+			t.Fatalf("Failed to write invalid list.yaml: %v", err)
+		}
+
+		result, err := aggregateDocsList()
+		if err != nil {
+			t.Fatalf("aggregateDocsList failed: %v", err)
+		}
+
+		// Should have global docs
+		if len(result.GlobalDocs) != 1 {
+			t.Errorf("Expected 1 global doc, got %d", len(result.GlobalDocs))
+		}
+
+		// Should have valid engine docs
+		if len(result.EngineDocs) != 2 { // Only go-build's 2 docs
+			t.Errorf("Expected 2 engine docs, got %d", len(result.EngineDocs))
+		}
+
+		// Should have error for invalid engine
+		if len(result.Errors) != 1 {
+			t.Errorf("Expected 1 error, got %d", len(result.Errors))
+		} else {
+			if result.Errors[0].Engine != "invalid-engine" {
+				t.Errorf("Expected error for 'invalid-engine', got '%s'", result.Errors[0].Engine)
+			}
+			if !strings.Contains(result.Errors[0].Error, "parse") {
+				t.Errorf("Expected parse error, got '%s'", result.Errors[0].Error)
+			}
+		}
+	})
+
+	t.Run("returns empty engine docs when no engines have docs", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create mock global docs (global docs are loaded from localDocsList which is relative)
+		createMockGlobalDocs(t, tmpDir)
+
+		// Create empty cmd directory without any engine docs
+		if err := os.MkdirAll(filepath.Join(tmpDir, "cmd"), 0o755); err != nil {
+			t.Fatalf("Failed to create cmd dir: %v", err)
+		}
+
+		result, err := aggregateDocsList()
+		if err != nil {
+			t.Fatalf("aggregateDocsList failed: %v", err)
+		}
+
+		// Should have global docs (we created them)
+		if len(result.GlobalDocs) != 1 {
+			t.Errorf("Expected 1 global doc, got %d", len(result.GlobalDocs))
+		}
+
+		// Should have no engine docs
+		if len(result.EngineDocs) != 0 {
+			t.Errorf("Expected 0 engine docs, got %d", len(result.EngineDocs))
+		}
+
+		// Should have no errors
+		if len(result.Errors) != 0 {
+			t.Errorf("Expected 0 errors, got %d: %v", len(result.Errors), result.Errors)
+		}
+	})
+}
+
+func TestAggregatedDocsGet(t *testing.T) {
+	// Cannot be parallel because changes working directory
+
+	t.Run("routes to engine doc with prefix", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create mock cmd directory and engine
+		if err := os.MkdirAll(filepath.Join(tmpDir, "cmd"), 0o755); err != nil {
+			t.Fatalf("Failed to create cmd dir: %v", err)
+		}
+		createMockEngineDocs(t, tmpDir, "go-build")
+
+		content, err := aggregatedDocsGet("go-build/usage")
+		if err != nil {
+			t.Fatalf("aggregatedDocsGet failed: %v", err)
+		}
+		if !strings.Contains(content, "# go-build Usage") {
+			t.Errorf("Expected content to contain '# go-build Usage', got: %s", content)
+		}
+		if !strings.Contains(content, "Usage guide content.") {
+			t.Errorf("Expected content to contain 'Usage guide content.', got: %s", content)
+		}
+	})
+
+	t.Run("routes to global doc without prefix", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create mock global docs
+		createMockGlobalDocs(t, tmpDir)
+
+		content, err := aggregatedDocsGet("architecture")
+		if err != nil {
+			t.Fatalf("aggregatedDocsGet failed: %v", err)
+		}
+		if !strings.Contains(content, "# Forge Architecture") {
+			t.Errorf("Expected content to contain '# Forge Architecture', got: %s", content)
+		}
+		if !strings.Contains(content, "Architecture content.") {
+			t.Errorf("Expected content to contain 'Architecture content.', got: %s", content)
+		}
+	})
+
+	t.Run("returns error for non-existent engine", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create empty cmd directory
+		if err := os.MkdirAll(filepath.Join(tmpDir, "cmd"), 0o755); err != nil {
+			t.Fatalf("Failed to create cmd dir: %v", err)
+		}
+
+		_, err := aggregatedDocsGet("nonexistent/usage")
+		if err == nil {
+			t.Error("Expected error for non-existent engine, got nil")
+		}
+		if !strings.Contains(err.Error(), "nonexistent") {
+			t.Errorf("Expected error to mention 'nonexistent', got: %v", err)
+		}
+	})
+
+	t.Run("returns error for non-existent doc in engine", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create mock cmd directory and engine
+		if err := os.MkdirAll(filepath.Join(tmpDir, "cmd"), 0o755); err != nil {
+			t.Fatalf("Failed to create cmd dir: %v", err)
+		}
+		createMockEngineDocs(t, tmpDir, "go-build")
+
+		_, err := aggregatedDocsGet("go-build/nonexistent")
+		if err == nil {
+			t.Error("Expected error for non-existent doc, got nil")
+		}
+		if !strings.Contains(err.Error(), "not found") {
+			t.Errorf("Expected 'not found' error, got: %v", err)
+		}
+	})
+
+	t.Run("returns error for non-existent global doc", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create mock global docs
+		createMockGlobalDocs(t, tmpDir)
+
+		_, err := aggregatedDocsGet("nonexistent")
+		if err == nil {
+			t.Error("Expected error for non-existent doc, got nil")
+		}
+		if !strings.Contains(err.Error(), "not found") {
+			t.Errorf("Expected 'not found' error, got: %v", err)
+		}
+	})
+}
+
+func TestGetEngineDoc(t *testing.T) {
+	// Cannot be parallel because changes working directory
+
+	t.Run("retrieves doc from engine", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create mock cmd directory and engine
+		if err := os.MkdirAll(filepath.Join(tmpDir, "cmd"), 0o755); err != nil {
+			t.Fatalf("Failed to create cmd dir: %v", err)
+		}
+		createMockEngineDocs(t, tmpDir, "go-build")
+
+		content, err := getEngineDoc("go-build", "usage")
+		if err != nil {
+			t.Fatalf("getEngineDoc failed: %v", err)
+		}
+		if !strings.Contains(content, "# go-build Usage") {
+			t.Errorf("Expected content to contain '# go-build Usage', got: %s", content)
+		}
+	})
+
+	t.Run("returns error for non-existent engine", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create empty cmd directory
+		if err := os.MkdirAll(filepath.Join(tmpDir, "cmd"), 0o755); err != nil {
+			t.Fatalf("Failed to create cmd dir: %v", err)
+		}
+
+		_, err := getEngineDoc("nonexistent", "usage")
+		if err == nil {
+			t.Error("Expected error for non-existent engine, got nil")
+		}
+		if !strings.Contains(err.Error(), "not found or has no docs") {
+			t.Errorf("Expected 'not found or has no docs' error, got: %v", err)
+		}
+	})
+
+	t.Run("returns error for invalid list.yaml", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create engine with invalid list.yaml
+		invalidDocsDir := filepath.Join(tmpDir, "cmd", "invalid-engine", "docs")
+		if err := os.MkdirAll(invalidDocsDir, 0o755); err != nil {
+			t.Fatalf("Failed to create invalid-engine dir: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(invalidDocsDir, "list.yaml"), []byte("invalid: [yaml"), 0o644); err != nil {
+			t.Fatalf("Failed to write invalid list.yaml: %v", err)
+		}
+
+		_, err := getEngineDoc("invalid-engine", "usage")
+		if err == nil {
+			t.Error("Expected error for invalid list.yaml, got nil")
+		}
+		if !strings.Contains(err.Error(), "parse") {
+			t.Errorf("Expected 'parse' error, got: %v", err)
+		}
+	})
+}
+
+func TestDocsGetContent(t *testing.T) {
+	// Cannot be parallel because changes working directory
+
+	t.Run("retrieves global doc content", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create mock global docs
+		createMockGlobalDocs(t, tmpDir)
+
+		content, err := docsGetContent("architecture")
+		if err != nil {
+			t.Fatalf("docsGetContent failed: %v", err)
+		}
+		if !strings.Contains(content, "# Forge Architecture") {
+			t.Errorf("Expected content to contain '# Forge Architecture', got: %s", content)
+		}
+	})
+
+	t.Run("returns error for non-existent doc", func(t *testing.T) {
+		tmpDir, cleanup := setupTestProject(t)
+		defer cleanup()
+
+		// Create mock global docs
+		createMockGlobalDocs(t, tmpDir)
+
+		_, err := docsGetContent("nonexistent")
+		if err == nil {
+			t.Error("Expected error for non-existent doc, got nil")
+		}
+		if !strings.Contains(err.Error(), "not found") {
+			t.Errorf("Expected 'not found' error, got: %v", err)
+		}
+	})
+}
+
+func TestAggregatedDocEntry(t *testing.T) {
+	t.Parallel()
+
+	t.Run("AggregatedDocEntry embeds DocEntry correctly", func(t *testing.T) {
+		t.Parallel()
+
+		entry := AggregatedDocEntry{
+			DocEntry: DocEntry{
+				Name:        "go-build/usage",
+				Title:       "Usage Guide",
+				Description: "How to use go-build",
+				URL:         "cmd/go-build/docs/usage.md",
+				Tags:        []string{"usage", "guide"},
+			},
+			Engine: "go-build",
+		}
+
+		if entry.Name != "go-build/usage" {
+			t.Errorf("Expected name 'go-build/usage', got '%s'", entry.Name)
+		}
+		if entry.Title != "Usage Guide" {
+			t.Errorf("Expected title 'Usage Guide', got '%s'", entry.Title)
+		}
+		if entry.Engine != "go-build" {
+			t.Errorf("Expected engine 'go-build', got '%s'", entry.Engine)
+		}
+	})
+}
+
+func TestAggregatedDocsResult(t *testing.T) {
+	t.Parallel()
+
+	t.Run("AggregatedDocsResult contains all fields", func(t *testing.T) {
+		t.Parallel()
+
+		result := AggregatedDocsResult{
+			GlobalDocs: []DocEntry{
+				{Name: "architecture", Title: "Architecture"},
+			},
+			EngineDocs: []AggregatedDocEntry{
+				{
+					DocEntry: DocEntry{Name: "go-build/usage"},
+					Engine:   "go-build",
+				},
+			},
+			Errors: []AggregationError{
+				{Engine: "testenv", Error: "some error"},
+			},
+		}
+
+		if len(result.GlobalDocs) != 1 {
+			t.Errorf("Expected 1 global doc, got %d", len(result.GlobalDocs))
+		}
+		if len(result.EngineDocs) != 1 {
+			t.Errorf("Expected 1 engine doc, got %d", len(result.EngineDocs))
+		}
+		if len(result.Errors) != 1 {
+			t.Errorf("Expected 1 error, got %d", len(result.Errors))
+		}
+	})
 }

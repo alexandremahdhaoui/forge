@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
@@ -28,17 +29,21 @@ import (
 
 // runMCPServer starts the generic-test-runner MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New("generic-test-runner", Version)
+	server := mcpserver.New(Name, Version)
 
 	// Configure test runner with engineframework
 	config := engineframework.TestRunnerConfig{
-		Name:        "generic-test-runner",
+		Name:        Name,
 		Version:     Version,
 		RunTestFunc: runTests,
 	}
 
 	// Register test runner tools (registers 'run')
 	if err := engineframework.RegisterTestRunnerTools(server, config); err != nil {
+		return err
+	}
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
 

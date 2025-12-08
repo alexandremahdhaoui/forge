@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"sigs.k8s.io/yaml"
 )
 
@@ -182,4 +183,212 @@ func fetchDocsStore() (*DocStore, error) {
 	}
 
 	return &store, nil
+}
+
+// AggregatedDocEntry extends DocEntry with engine information
+type AggregatedDocEntry struct {
+	DocEntry
+	Engine string `yaml:"engine" json:"engine"`
+}
+
+// AggregatedDocsResult represents the combined result of all documentation sources
+type AggregatedDocsResult struct {
+	GlobalDocs []DocEntry           `json:"globalDocs"`
+	EngineDocs []AggregatedDocEntry `json:"engineDocs"`
+	Errors     []AggregationError   `json:"errors,omitempty"`
+}
+
+// AggregationError represents an error when loading docs from an engine
+type AggregationError struct {
+	Engine string `json:"engine"`
+	Error  string `json:"error"`
+}
+
+// aggregateDocsList scans cmd/*/docs/list.yaml files and returns aggregated documentation
+// It returns both global forge docs and engine-specific docs
+func aggregateDocsList() (*AggregatedDocsResult, error) {
+	result := &AggregatedDocsResult{
+		GlobalDocs: []DocEntry{},
+		EngineDocs: []AggregatedDocEntry{},
+		Errors:     []AggregationError{},
+	}
+
+	// Load global docs first
+	globalStore, err := fetchDocsStore()
+	if err != nil {
+		// Global docs are not required for aggregation to succeed
+		result.Errors = append(result.Errors, AggregationError{
+			Engine: "forge",
+			Error:  err.Error(),
+		})
+	} else {
+		result.GlobalDocs = globalStore.Docs
+	}
+
+	// Discover engine directories with docs
+	engineDirs, err := discoverEngineDocs()
+	if err != nil {
+		// Continue with global docs only
+		return result, nil
+	}
+
+	// Load docs from each engine
+	for _, engineDir := range engineDirs {
+		engineName := filepath.Base(engineDir)
+		listPath := filepath.Join(engineDir, "docs", "list.yaml")
+
+		content, err := os.ReadFile(listPath)
+		if err != nil {
+			result.Errors = append(result.Errors, AggregationError{
+				Engine: engineName,
+				Error:  fmt.Sprintf("failed to read list.yaml: %v", err),
+			})
+			continue
+		}
+
+		var store enginedocs.DocStore
+		if err := yaml.Unmarshal(content, &store); err != nil {
+			result.Errors = append(result.Errors, AggregationError{
+				Engine: engineName,
+				Error:  fmt.Sprintf("failed to parse list.yaml: %v", err),
+			})
+			continue
+		}
+
+		// Add engine docs with engine prefix
+		for _, doc := range store.Docs {
+			result.EngineDocs = append(result.EngineDocs, AggregatedDocEntry{
+				DocEntry: DocEntry{
+					Name:        engineName + "/" + doc.Name,
+					Title:       doc.Title,
+					Description: doc.Description,
+					URL:         doc.URL,
+					Tags:        doc.Tags,
+				},
+				Engine: engineName,
+			})
+		}
+	}
+
+	return result, nil
+}
+
+// discoverEngineDocs finds all engine directories that have docs/list.yaml
+func discoverEngineDocs() ([]string, error) {
+	var engines []string
+
+	// Look for cmd/*/docs/list.yaml
+	entries, err := os.ReadDir("cmd")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read cmd directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// Skip forge itself (it has global docs)
+		if entry.Name() == "forge" {
+			continue
+		}
+
+		listPath := filepath.Join("cmd", entry.Name(), "docs", "list.yaml")
+		if _, err := os.Stat(listPath); err == nil {
+			engines = append(engines, filepath.Join("cmd", entry.Name()))
+		}
+	}
+
+	return engines, nil
+}
+
+// aggregatedDocsGet retrieves a document by name, routing to the correct engine
+// For names like "go-build/usage", it reads from the go-build engine
+// For names without a prefix, it reads from global docs
+func aggregatedDocsGet(name string) (string, error) {
+	// Check if this is an engine-prefixed name
+	if strings.Contains(name, "/") {
+		parts := strings.SplitN(name, "/", 2)
+		if len(parts) != 2 {
+			return "", fmt.Errorf("invalid document name format: %s", name)
+		}
+		engineName := parts[0]
+		docName := parts[1]
+
+		return getEngineDoc(engineName, docName)
+	}
+
+	// Fall back to global docs
+	return docsGetContent(name)
+}
+
+// getEngineDoc retrieves a document from a specific engine
+func getEngineDoc(engineName, docName string) (string, error) {
+	listPath := filepath.Join("cmd", engineName, "docs", "list.yaml")
+
+	content, err := os.ReadFile(listPath)
+	if err != nil {
+		return "", fmt.Errorf("engine '%s' not found or has no docs: %w", engineName, err)
+	}
+
+	var store enginedocs.DocStore
+	if err := yaml.Unmarshal(content, &store); err != nil {
+		return "", fmt.Errorf("failed to parse list.yaml for engine '%s': %w", engineName, err)
+	}
+
+	// Find the document
+	var doc *enginedocs.DocEntry
+	for i := range store.Docs {
+		if store.Docs[i].Name == docName {
+			doc = &store.Docs[i]
+			break
+		}
+	}
+
+	if doc == nil {
+		return "", fmt.Errorf("document '%s' not found in engine '%s'\nRun 'forge docs list' to see available documentation", docName, engineName)
+	}
+
+	// Try to read from local file first
+	if docContent, err := os.ReadFile(doc.URL); err == nil {
+		return string(docContent), nil
+	}
+
+	// Fall back to remote URL if BaseURL is set
+	if store.BaseURL != "" {
+		docURL := store.BaseURL + "/" + doc.URL
+		return fetchURL(docURL)
+	}
+
+	return "", fmt.Errorf("document file not found: %s", doc.URL)
+}
+
+// docsGetContent retrieves a global document content by name
+// This is a helper that returns just the content without printing
+func docsGetContent(name string) (string, error) {
+	store, err := fetchDocsStore()
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch docs list: %w", err)
+	}
+
+	var doc *DocEntry
+	for i := range store.Docs {
+		if store.Docs[i].Name == name {
+			doc = &store.Docs[i]
+			break
+		}
+	}
+
+	if doc == nil {
+		return "", fmt.Errorf("document not found: %s\nRun 'forge docs list' to see available documentation", name)
+	}
+
+	// Try to read from local file first
+	if content, err := os.ReadFile(doc.URL); err == nil {
+		return string(content), nil
+	}
+
+	// Fall back to remote URL
+	docURL := store.BaseURL + "/" + doc.URL
+	return fetchURL(docURL)
 }

@@ -15,10 +15,12 @@
 package cli
 
 import (
+	"fmt"
 	"log"
 	"os"
 
 	"github.com/alexandremahdhaoui/forge/internal/version"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 )
 
 // Config holds the configuration for CLI bootstrap.
@@ -46,6 +48,10 @@ type Config struct {
 	// Receives the error and should print it appropriately
 	// Defaults to no-op if not provided
 	FailureHandler func(error)
+
+	// DocsConfig is the configuration for the docs subcommand (optional)
+	// If set and "docs" is the first argument, the docs command is handled internally
+	DocsConfig *enginedocs.Config
 }
 
 // Bootstrap provides a unified entry point for forge CLI commands.
@@ -65,6 +71,12 @@ func Bootstrap(cfg Config) {
 			versionInfo.Print()
 			os.Exit(0)
 		}
+	}
+
+	// Check for docs subcommand
+	if cfg.DocsConfig != nil && len(os.Args) > 1 && os.Args[1] == "docs" {
+		exitCode := handleDocsCommand(cfg.DocsConfig, os.Args[2:])
+		os.Exit(exitCode)
 	}
 
 	// Check for --mcp flag to run as MCP server
@@ -106,4 +118,51 @@ func BootstrapSimple(name, version, commitSHA, buildTimestamp string, runCLI fun
 		RunCLI:         runCLI,
 		RunMCP:         nil,
 	})
+}
+
+// handleDocsCommand processes the docs subcommand and returns the exit code.
+// It supports list, get <name>, and validate subcommands.
+func handleDocsCommand(cfg *enginedocs.Config, args []string) int {
+	switch {
+	case len(args) == 0 || args[0] == "list":
+		docs, err := enginedocs.DocsList(*cfg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error listing docs: %v\n", err)
+			return 1
+		}
+		for _, doc := range docs {
+			fmt.Printf("%s\t%s\t%s\n", doc.Name, doc.Title, doc.Description)
+		}
+		return 0
+
+	case args[0] == "get" && len(args) > 1:
+		content, err := enginedocs.DocsGet(*cfg, args[1])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error getting doc: %v\n", err)
+			return 1
+		}
+		fmt.Print(content)
+		return 0
+
+	case args[0] == "validate":
+		errs := enginedocs.Validate(*cfg)
+		if len(errs) == 0 {
+			fmt.Println("Validation passed: all checks passed")
+			return 0
+		}
+		fmt.Fprintf(os.Stderr, "Validation failed with %d error(s):\n", len(errs))
+		for _, err := range errs {
+			fmt.Fprintf(os.Stderr, "  - %v\n", err)
+		}
+		return 1
+
+	default:
+		fmt.Fprintln(os.Stderr, "Usage: <command> docs [list|get <name>|validate]")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Subcommands:")
+		fmt.Fprintln(os.Stderr, "  list              List all available documentation")
+		fmt.Fprintln(os.Stderr, "  get <name>        Get the content of a specific document")
+		fmt.Fprintln(os.Stderr, "  validate          Validate documentation completeness")
+		return 1
+	}
 }

@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "go-lint"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Go Lint Usage Guide"
+    description: "How to use go-lint to run golangci-lint on Go code"
+    url: "cmd/go-lint/docs/usage.md"
+    tags: ["usage", "getting-started"]
+    required: true
+
+  - name: "schema"
+    title: "Go Lint Configuration"
+    description: "Configuration options for go-lint in forge.yaml"
+    url: "cmd/go-lint/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true

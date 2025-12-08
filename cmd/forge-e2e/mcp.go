@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
@@ -28,15 +29,19 @@ import (
 
 // runMCPServer starts the forge-e2e MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New("forge-e2e", Version)
+	server := mcpserver.New(Name, Version)
 
 	config := engineframework.TestRunnerConfig{
-		Name:        "forge-e2e",
+		Name:        Name,
 		Version:     Version,
 		RunTestFunc: runTestsWrapper,
 	}
 
 	if err := engineframework.RegisterTestRunnerTools(server, config); err != nil {
+		return err
+	}
+
+	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
 

@@ -1,0 +1,18 @@
+version: "1.0"
+engine: "parallel-builder"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+
+docs:
+  - name: "usage"
+    title: "Parallel Builder Usage Guide"
+    description: "How to use parallel-builder to execute multiple builds concurrently"
+    url: "cmd/parallel-builder/docs/usage.md"
+    tags: ["usage", "getting-started"]
+    required: true
+
+  - name: "schema"
+    title: "Parallel Builder Configuration"
+    description: "Configuration options for parallel-builder in forge.yaml"
+    url: "cmd/parallel-builder/docs/schema.md"
+    tags: ["configuration", "schema"]
+    required: true
