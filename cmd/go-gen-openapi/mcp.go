@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/internal/version"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
@@ -110,7 +111,8 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 // to discover which files the OpenAPI generation depends on.
 func detectOpenAPIDependencies(ctx context.Context, specPaths []string, rootDir string) ([]forge.ArtifactDependency, error) {
 	// Resolve detector URI to command and args
-	cmd, args, err := engineframework.ResolveDetector("go://go-gen-openapi-dep-detector", Version)
+	// Use GetEffectiveVersion to handle both ldflags version and go run @version
+	cmd, args, err := engineframework.ResolveDetector("go://go-gen-openapi-dep-detector", version.GetEffectiveVersion(Version))
 	if err != nil {
 		return nil, err
 	}

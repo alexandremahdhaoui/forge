@@ -136,3 +136,26 @@ func New(toolName string) *Info {
 		BuildTimestamp: "unknown",
 	}
 }
+
+// GetEffectiveVersion returns the effective version of the running binary.
+// It first checks the provided version (from ldflags), and if it's "dev",
+// attempts to read the version from Go's build info (which contains the
+// module version when run via `go run module@version`).
+//
+// This is useful for tools that need to call other forge tools at the same
+// version, such as when an engine calls a dependency detector.
+func GetEffectiveVersion(ldflagsVersion string) string {
+	if ldflagsVersion != "" && ldflagsVersion != "dev" {
+		return ldflagsVersion
+	}
+
+	// Try to get version from build info (works with `go run module@version`)
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if info.Main.Version != "" && info.Main.Version != "(devel)" {
+			return info.Main.Version
+		}
+	}
+
+	// Return the original version (likely "dev" for local development)
+	return ldflagsVersion
+}

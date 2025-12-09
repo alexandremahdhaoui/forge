@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexandremahdhaoui/forge/internal/version"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
@@ -58,7 +59,8 @@ func detectDependenciesForArtifact(src string, artifact *forge.Artifact) error {
 	log.Printf("Detected main package in %s, attempting dependency detection", mainFile)
 
 	// Step 2: Resolve detector URI to command and args
-	cmd, args, err := engineframework.ResolveDetector("go://go-dependency-detector", Version)
+	// Use GetEffectiveVersion to handle both ldflags version and go run @version
+	cmd, args, err := engineframework.ResolveDetector("go://go-dependency-detector", version.GetEffectiveVersion(Version))
 	if err != nil {
 		// Resolution failed - graceful degradation
 		log.Printf("WARNING: failed to resolve detector: %v", err)

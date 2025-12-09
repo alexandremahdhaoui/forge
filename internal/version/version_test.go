@@ -131,3 +131,37 @@ func TestStringContainsToolName(t *testing.T) {
 		})
 	}
 }
+
+func TestGetEffectiveVersion(t *testing.T) {
+	tests := []struct {
+		name           string
+		ldflagsVersion string
+		expectOriginal bool // If true, expect the ldflags version returned
+	}{
+		{"returns ldflags version when set", "v1.0.0", true},
+		{"returns dev when ldflags is dev", "dev", true}, // build info not available in tests
+		{"returns empty when ldflags is empty", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := version.GetEffectiveVersion(tt.ldflagsVersion)
+
+			if tt.expectOriginal {
+				// In tests, build info is not typically available,
+				// so we expect the original version to be returned
+				if result != tt.ldflagsVersion {
+					t.Errorf("GetEffectiveVersion(%q) = %q, want %q", tt.ldflagsVersion, result, tt.ldflagsVersion)
+				}
+			}
+		})
+	}
+}
+
+func TestGetEffectiveVersion_NonDevVersion(t *testing.T) {
+	// When ldflags version is a valid semver, it should be returned directly
+	result := version.GetEffectiveVersion("v2.3.4")
+	if result != "v2.3.4" {
+		t.Errorf("GetEffectiveVersion('v2.3.4') = %q, want 'v2.3.4'", result)
+	}
+}
