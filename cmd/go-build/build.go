@@ -57,16 +57,16 @@ func detectDependenciesForArtifact(src string, artifact *forge.Artifact) error {
 
 	log.Printf("Detected main package in %s, attempting dependency detection", mainFile)
 
-	// Step 2: Check if go-dependency-detector is available (using shared helper)
-	detectorPath, err := engineframework.FindDetector("go-dependency-detector")
+	// Step 2: Resolve detector URI to command and args
+	cmd, args, err := engineframework.ResolveDetector("go://go-dependency-detector", Version)
 	if err != nil {
-		// Detector not found - graceful degradation
-		log.Printf("WARNING: %v", err)
+		// Resolution failed - graceful degradation
+		log.Printf("WARNING: failed to resolve detector: %v", err)
 		log.Printf("   Dependencies will not be tracked for %s (rebuild on every build)", artifact.Name)
 		return nil
 	}
 
-	log.Printf("Found dependency detector at: %s", detectorPath)
+	log.Printf("Resolved dependency detector: %s %v", cmd, args)
 
 	// Step 3: Prepare input for detector
 	input := map[string]any{
@@ -77,14 +77,14 @@ func detectDependenciesForArtifact(src string, artifact *forge.Artifact) error {
 
 	// Step 4: Call detector with retry logic (using shared helper)
 	ctx := context.Background()
-	dependencies, err := engineframework.CallDetector(ctx, detectorPath, "detectDependencies", input)
+	dependencies, err := engineframework.CallDetector(ctx, cmd, args, "detectDependencies", input)
 	if err != nil {
 		// First retry
 		log.Printf("WARNING: dependency detection failed (attempt 1/2): %v", err)
 		log.Printf("   Retrying after 100ms...")
 		time.Sleep(100 * time.Millisecond)
 
-		dependencies, err = engineframework.CallDetector(ctx, detectorPath, "detectDependencies", input)
+		dependencies, err = engineframework.CallDetector(ctx, cmd, args, "detectDependencies", input)
 		if err != nil {
 			// Second failure - fail the build
 			return fmt.Errorf("dependency detection failed after retry: %w", err)

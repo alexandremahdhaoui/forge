@@ -21,11 +21,51 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
+	"github.com/alexandremahdhaoui/forge/internal/forgepath"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// ResolveDetector parses a detector URI and returns the command and args to execute it.
+// Detectors only support go:// URIs.
+//
+// Parameters:
+//   - detectorURI: URI of the detector (e.g., "go://go-dependency-detector")
+//   - forgeVersion: Version of forge to use (e.g., "v0.9.0")
+//
+// Returns:
+//   - cmd: The command to execute (always "go")
+//   - args: Arguments for the command (e.g., ["run", "github.com/.../cmd/detector@v0.9.0"])
+//   - err: Error if the URI is invalid or resolution fails
+//
+// Example usage:
+//
+//	cmd, args, err := ResolveDetector("go://go-dependency-detector", "v0.9.0")
+//	// cmd = "go"
+//	// args = ["run", "github.com/alexandremahdhaoui/forge/cmd/go-dependency-detector@v0.9.0"]
+func ResolveDetector(detectorURI, forgeVersion string) (cmd string, args []string, err error) {
+	// Validate URI starts with go://
+	if !strings.HasPrefix(detectorURI, "go://") {
+		return "", nil, fmt.Errorf("unsupported detector protocol: %s (must start with go://)", detectorURI)
+	}
+
+	// Extract detector name from URI
+	detectorName := strings.TrimPrefix(detectorURI, "go://")
+	if detectorName == "" {
+		return "", nil, fmt.Errorf("empty detector name after go://")
+	}
+
+	// Build the go run command using forgepath
+	runArgs, err := forgepath.BuildGoRunCommand(detectorName, forgeVersion)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to build go run command for detector %s: %w", detectorName, err)
+	}
+
+	return "go", runArgs, nil
+}
 
 // FindDetector locates a dependency detector binary by name.
 // It searches in the following order:
@@ -33,6 +73,10 @@ import (
 //  2. ./build/bin directory (common for forge self-build)
 //
 // Returns the absolute path to the binary or an error if not found.
+//
+// Deprecated: FindDetector only works when CWD is the forge repository.
+// Use ResolveDetector() + CallDetector() instead, which works from any directory
+// by using `go run` with versioned module paths.
 func FindDetector(name string) (string, error) {
 	// Try to find in PATH
 	path, err := exec.LookPath(name)
@@ -59,18 +103,19 @@ func FindDetector(name string) (string, error) {
 //
 // Parameters:
 //   - ctx: context for the operation
-//   - detectorPath: absolute path to the detector binary
+//   - cmd: command to execute (e.g., "go")
+//   - args: arguments for the command (e.g., ["run", "github.com/.../cmd/detector@v0.9.0"])
 //   - toolName: name of the MCP tool to call (e.g., "detectDependencies")
 //   - input: input parameters for the tool (will be serialized to JSON)
 //
 // Returns:
 //   - []forge.ArtifactDependency: list of detected dependencies
 //   - error: if connection fails, tool call fails, or response parsing fails
-func CallDetector(ctx context.Context, detectorPath, toolName string, input any) ([]forge.ArtifactDependency, error) {
-	// Create command to spawn MCP server
-	cmd := exec.Command(detectorPath, "--mcp")
-	cmd.Env = os.Environ()
-	cmd.Stderr = os.Stderr // Forward logs
+func CallDetector(ctx context.Context, cmd string, args []string, toolName string, input any) ([]forge.ArtifactDependency, error) {
+	// Create command to spawn MCP server (append --mcp flag)
+	execCmd := exec.Command(cmd, append(args, "--mcp")...)
+	execCmd.Env = os.Environ()
+	execCmd.Stderr = os.Stderr // Forward logs
 
 	// Create MCP client
 	client := mcp.NewClient(&mcp.Implementation{
@@ -80,7 +125,7 @@ func CallDetector(ctx context.Context, detectorPath, toolName string, input any)
 
 	// Create command transport
 	transport := &mcp.CommandTransport{
-		Command: cmd,
+		Command: execCmd,
 	}
 
 	// Connect to the MCP server

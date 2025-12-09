@@ -109,8 +109,8 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 // detectOpenAPIDependencies calls the go-gen-openapi-dep-detector MCP server
 // to discover which files the OpenAPI generation depends on.
 func detectOpenAPIDependencies(ctx context.Context, specPaths []string, rootDir string) ([]forge.ArtifactDependency, error) {
-	// Find the detector binary
-	detectorPath, err := engineframework.FindDetector("go-gen-openapi-dep-detector")
+	// Resolve detector URI to command and args
+	cmd, args, err := engineframework.ResolveDetector("go://go-gen-openapi-dep-detector", Version)
 	if err != nil {
 		return nil, err
 	}
@@ -121,5 +121,5 @@ func detectOpenAPIDependencies(ctx context.Context, specPaths []string, rootDir 
 		"resolveRefs": false, // v1: no $ref resolution
 	}
 
-	return engineframework.CallDetector(ctx, detectorPath, "detectDependencies", input)
+	return engineframework.CallDetector(ctx, cmd, args, "detectDependencies", input)
 }

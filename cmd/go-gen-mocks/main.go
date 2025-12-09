@@ -115,8 +115,8 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 // detectMockDependencies calls the go-gen-mocks-dep-detector MCP server
 // to discover which files the mock generation depends on.
 func detectMockDependencies(ctx context.Context, rootDir string) ([]forge.ArtifactDependency, error) {
-	// Find the detector binary
-	detectorPath, err := engineframework.FindDetector("go-gen-mocks-dep-detector")
+	// Resolve detector URI to command and args
+	cmd, args, err := engineframework.ResolveDetector("go://go-gen-mocks-dep-detector", Version)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func detectMockDependencies(ctx context.Context, rootDir string) ([]forge.Artifa
 		"workDir": workDir,
 	}
 
-	return engineframework.CallDetector(ctx, detectorPath, "detectDependencies", input)
+	return engineframework.CallDetector(ctx, cmd, args, "detectDependencies", input)
 }
 
 func getMocksDir(mocksDir string) string {
