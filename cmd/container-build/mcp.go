@@ -25,6 +25,7 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"github.com/caarlos0/env/v11"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the container-build MCP server with stdio transport.
@@ -44,6 +45,12 @@ func runMCPServer() error {
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
+
+	// Register config-validate tool
+	mcpserver.RegisterTool(server, &mcp.Tool{
+		Name:        "config-validate",
+		Description: "Validate container-build engine configuration",
+	}, handleConfigValidate)
 
 	return server.RunDefault()
 }

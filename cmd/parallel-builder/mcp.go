@@ -28,6 +28,7 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // ParallelBuilderSpec defines the input specification for parallel builds.
@@ -63,6 +64,12 @@ func runMCPServer() error {
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
+
+	// Register config-validate tool
+	mcpserver.RegisterTool(server, &mcp.Tool{
+		Name:        "config-validate",
+		Description: "Validate parallel-builder configuration and recursively validate sub-builders",
+	}, handleConfigValidate)
 
 	return server.RunDefault()
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const Name = "go-gen-mocks"
@@ -74,6 +75,12 @@ func runMCPServer() error {
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
+
+	// Register config-validate tool
+	mcpserver.RegisterTool(server, &mcp.Tool{
+		Name:        "config-validate",
+		Description: "Validate go-gen-mocks configuration",
+	}, handleConfigValidate)
 
 	return server.RunDefault()
 }

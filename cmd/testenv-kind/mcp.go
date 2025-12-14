@@ -24,6 +24,7 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the testenv-kind MCP server with stdio transport.
@@ -40,6 +41,12 @@ func runMCPServer() error {
 	if err := engineframework.RegisterTestEnvSubengineTools(server, config); err != nil {
 		return err
 	}
+
+	// Register config-validate tool
+	mcpserver.RegisterTool(server, &mcp.Tool{
+		Name:        "config-validate",
+		Description: "Validate testenv-kind configuration",
+	}, handleConfigValidate)
 
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err

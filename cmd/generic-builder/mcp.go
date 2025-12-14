@@ -28,6 +28,7 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the generic-builder MCP server with stdio transport.
@@ -49,6 +50,12 @@ func runMCPServer() error {
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
+
+	// Register config-validate tool
+	mcpserver.RegisterTool(server, &mcp.Tool{
+		Name:        "config-validate",
+		Description: "Validate generic-builder configuration",
+	}, handleConfigValidate)
 
 	// Run the MCP server
 	return server.RunDefault()

@@ -51,6 +51,12 @@ func runMCPServer() error {
 		Description: "Delete a test environment by ID",
 	}, handleDeleteTool)
 
+	// Register config-validate tool
+	mcpserver.RegisterTool(server, &mcp.Tool{
+		Name:        "config-validate",
+		Description: "Validate testenv configuration and recursively validate subengines",
+	}, handleConfigValidate)
+
 	// NOTE: get/list are NOT implemented here
 	// forge handles get/list by reading the artifact store directly
 

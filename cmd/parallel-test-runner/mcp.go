@@ -27,6 +27,7 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // ParallelTestRunnerSpec defines the input specification for parallel test runner.
@@ -76,6 +77,12 @@ func runMCPServer() error {
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
+
+	// Register config-validate tool
+	mcpserver.RegisterTool(server, &mcp.Tool{
+		Name:        "config-validate",
+		Description: "Validate parallel-test-runner configuration and recursively validate sub-runners",
+	}, handleConfigValidate)
 
 	return server.RunDefault()
 }

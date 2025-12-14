@@ -984,33 +984,41 @@ func handlePromptGetTool(
 }
 
 // handleConfigValidateTool handles the "config-validate" tool call from MCP clients.
+// It returns structured ConfigValidateOutput for programmatic use by AI agents and MCP clients.
 func handleConfigValidateTool(
 	ctx context.Context,
 	req *mcp.CallToolRequest,
 	input ConfigValidateInput,
 ) (*mcp.CallToolResult, any, error) {
-	configPath := input.ConfigPath
-	if configPath == "" {
-		configPath = "forge.yaml"
+	cfgPath := input.ConfigPath
+	if cfgPath == "" {
+		cfgPath = "forge.yaml"
 	}
 
-	log.Printf("Validating config: %s", configPath)
+	log.Printf("Validating config: %s", cfgPath)
 
-	// Call runConfigValidate
-	if err := runConfigValidate([]string{configPath}); err != nil {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("Config validation failed: %v", err)},
-			},
-			IsError: true,
-		}, nil, nil
+	// Call validateConfig to get structured output
+	output := validateConfig(cfgPath)
+
+	// Return structured output with appropriate success/error status
+	if output.Valid {
+		result, artifact := mcputil.SuccessResultWithArtifact(
+			fmt.Sprintf("Configuration is valid: %s", cfgPath),
+			output,
+		)
+		return result, artifact, nil
 	}
 
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: fmt.Sprintf("Configuration is valid: %s", configPath)},
-		},
-	}, nil, nil
+	// Validation failed - return with error flag and structured output
+	errorCount := len(output.Errors)
+	if output.InfraError != "" {
+		errorCount = 1 // InfraError counts as one error
+	}
+	result, artifact := mcputil.ErrorResultWithArtifact(
+		fmt.Sprintf("Configuration validation failed with %d error(s)", errorCount),
+		output,
+	)
+	return result, artifact, nil
 }
 
 // handleDocsListTool handles the "docs-list" tool call from MCP clients.

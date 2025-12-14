@@ -83,6 +83,12 @@ func runMCPServer() error {
 		Description: "Detect dependencies for mockery mock generation",
 	}, handleDetectDependencies)
 
+	// Register config-validate tool
+	mcpserver.RegisterTool(server, &mcp.Tool{
+		Name:        "config-validate",
+		Description: "Validate go-gen-mocks-dep-detector configuration",
+	}, handleConfigValidate)
+
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}

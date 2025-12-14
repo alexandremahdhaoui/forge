@@ -68,6 +68,12 @@ func runMCPServer() error {
 		return err
 	}
 
+	// Register config-validate tool
+	mcpserver.RegisterTool(server, &mcp.Tool{
+		Name:        "config-validate",
+		Description: "Validate testenv-lcr configuration",
+	}, handleConfigValidate)
+
 	// Manually register additional tools specific to testenv-lcr
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "create-image-pull-secret",

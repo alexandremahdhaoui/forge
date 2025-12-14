@@ -75,6 +75,12 @@ func runMCPServer() error {
 		Description: "List test reports, optionally filtered by stage",
 	}, handleListTool)
 
+	// Register config-validate tool
+	mcpserver.RegisterTool(server, &mcp.Tool{
+		Name:        "config-validate",
+		Description: "Validate test-report configuration",
+	}, handleConfigValidate)
+
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}

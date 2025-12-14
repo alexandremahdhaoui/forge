@@ -86,6 +86,12 @@ func runMCPServer() error {
 		Description: "Detect all dependencies (local files and external packages) for a Go function",
 	}, handleDetectDependencies)
 
+	// Register config-validate tool
+	mcpserver.RegisterTool(server, &mcp.Tool{
+		Name:        "config-validate",
+		Description: "Validate go-dependency-detector configuration",
+	}, handleConfigValidate)
+
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
