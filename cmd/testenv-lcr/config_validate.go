@@ -50,7 +50,7 @@ func handleConfigValidate(
 	}
 
 	// Validation failed
-	result, artifact := mcputil.ErrorResultWithArtifact(
+	result, artifact := mcputil.SuccessResultWithArtifact(
 		fmt.Sprintf("Configuration validation failed with %d error(s)", len(output.Errors)),
 		output,
 	)

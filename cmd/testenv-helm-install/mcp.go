@@ -535,7 +535,10 @@ func resolveGitRef(chart ChartSpec) (ref string, refType string, err error) {
 			return "", "", fmt.Errorf("invalid git commit: too short (minimum 7 characters)")
 		}
 		for _, c := range chart.GitCommit {
-			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			isDigit := c >= '0' && c <= '9'
+			isLowerHex := c >= 'a' && c <= 'f'
+			isUpperHex := c >= 'A' && c <= 'F'
+			if !isDigit && !isLowerHex && !isUpperHex {
 				return "", "", fmt.Errorf("invalid git commit: contains non-hexadecimal character: %c", c)
 			}
 		}
@@ -740,7 +743,8 @@ func cloneGitRepository(chart ChartSpec, destDir string) (chartPath string, clea
 	}
 
 	// For commits and semver, need to checkout specific ref
-	if refType == "commit" {
+	switch refType {
+	case "commit":
 		// Checkout specific commit
 		checkoutCmd := exec.CommandContext(ctx, "git", "checkout", ref)
 		checkoutCmd.Dir = cloneDir
@@ -750,7 +754,7 @@ func cloneGitRepository(chart ChartSpec, destDir string) (chartPath string, clea
 			return "", nil, fmt.Errorf("failed to checkout commit %s: %w, output: %s", ref, err, string(output))
 		}
 		log.Printf("Checked out commit: %s", ref)
-	} else if refType == "semver" {
+	case "semver":
 		// Resolve semver to specific tag
 		tag, err := resolveSemVerTag(cloneDir, ref)
 		if err != nil {

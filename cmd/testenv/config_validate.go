@@ -48,20 +48,17 @@ func handleConfigValidate(
 	output := validateTestenvSpec(ctx, input)
 
 	// Return as structured MCP result
-	if output.Valid {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: "Configuration is valid"},
-			},
-		}, output, nil
+	// Note: We don't set IsError=true for validation failures.
+	// The Valid field in output indicates whether validation passed.
+	// IsError should only be used for infrastructure failures.
+	msg := "Configuration is valid"
+	if !output.Valid {
+		msg = fmt.Sprintf("Configuration validation failed with %d error(s)", len(output.Errors))
 	}
-
-	// Invalid - return errors
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
-			&mcp.TextContent{Text: "Configuration validation failed"},
+			&mcp.TextContent{Text: msg},
 		},
-		IsError: true,
 	}, output, nil
 }
 
@@ -425,6 +422,7 @@ type validationResult struct {
 }
 
 // aggregateResults combines validation results from multiple subengines into a single output.
+// It adds path context to help locate errors in the forge.yaml structure.
 func aggregateResults(results []validationResult) *mcptypes.ConfigValidateOutput {
 	combined := &mcptypes.ConfigValidateOutput{
 		Valid:    true,
@@ -437,6 +435,10 @@ func aggregateResults(results []validationResult) *mcptypes.ConfigValidateOutput
 			continue
 		}
 
+		// Build path context for this subengine
+		// SpecName is like "integration[2]" indicating stage and subengine index
+		basePath := []string{"testenv", r.Ref.SpecName, "spec"}
+
 		// Handle infrastructure errors
 		if r.Output.InfraError != "" {
 			combined.Valid = false
@@ -446,6 +448,7 @@ func aggregateResults(results []validationResult) *mcptypes.ConfigValidateOutput
 				Engine:   r.Ref.URI,
 				SpecType: r.Ref.SpecType,
 				SpecName: r.Ref.SpecName,
+				Path:     basePath,
 			})
 		}
 
@@ -460,6 +463,10 @@ func aggregateResults(results []validationResult) *mcptypes.ConfigValidateOutput
 				// Set spec context
 				err.SpecType = r.Ref.SpecType
 				err.SpecName = r.Ref.SpecName
+				// Prepend path context if not already set
+				if len(err.Path) == 0 {
+					err.Path = basePath
+				}
 				combined.Errors = append(combined.Errors, err)
 			}
 		}

@@ -45,7 +45,7 @@ func handleConfigValidate(
 		return result, artifact, nil
 	}
 
-	result, artifact := mcputil.ErrorResultWithArtifact(
+	result, artifact := mcputil.SuccessResultWithArtifact(
 		"Configuration validation failed",
 		output,
 	)

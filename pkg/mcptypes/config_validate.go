@@ -15,6 +15,9 @@
 package mcptypes
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
 
@@ -93,6 +96,17 @@ type ValidationError struct {
 	// SpecName is the name of the spec from forge.yaml.
 	// Propagated from ConfigValidateInput.SpecName.
 	SpecName string `json:"specName,omitempty"`
+
+	// Path provides the full path context from the root of forge.yaml.
+	// Each element is a path segment, e.g., ["engines", "2", "testenv", "2", "spec", "charts", "0"].
+	// When combined with Field, gives the complete location of the error.
+	// Set by orchestrators during aggregation.
+	Path []string `json:"path,omitempty"`
+
+	// Nested contains validation errors from sub-engines (recursive validation).
+	// For example, testenv may contain errors from testenv-kind, testenv-lcr, etc.
+	// This allows preserving the full error tree for detailed diagnostics.
+	Nested []ValidationError `json:"nested,omitempty"`
 }
 
 // ValidationWarning represents a non-fatal validation issue.
@@ -104,4 +118,77 @@ type ValidationWarning struct {
 
 	// Message is a human-readable warning description.
 	Message string `json:"message"`
+}
+
+// FullPath returns the complete path to the error, combining Path and Field.
+// Example: Path=["engines", "2", "testenv", "1"], Field="spec.charts[0].name"
+// Returns: "engines[2].testenv[1].spec.charts[0].name"
+func (e ValidationError) FullPath() string {
+	var parts []string
+
+	// Build path from Path slice
+	for i := 0; i < len(e.Path); i++ {
+		segment := e.Path[i]
+		// Check if this is an array index (numeric)
+		if i > 0 && isNumeric(segment) {
+			// Append as array index to previous part
+			if len(parts) > 0 {
+				parts[len(parts)-1] = parts[len(parts)-1] + "[" + segment + "]"
+			}
+		} else {
+			parts = append(parts, segment)
+		}
+	}
+
+	// Add the field if present
+	if e.Field != "" {
+		// Remove "spec." prefix if present since it's redundant with path
+		field := strings.TrimPrefix(e.Field, "spec.")
+		parts = append(parts, field)
+	}
+
+	return strings.Join(parts, ".")
+}
+
+// Location returns a human-readable location string.
+// Example: "[go://testenv-helm-install] engines[2].testenv[1].spec.charts[0].name"
+func (e ValidationError) Location() string {
+	path := e.FullPath()
+	if e.Engine != "" {
+		if path != "" {
+			return fmt.Sprintf("[%s] %s", e.Engine, path)
+		}
+		return fmt.Sprintf("[%s]", e.Engine)
+	}
+	return path
+}
+
+// String returns a formatted error message with full context.
+// Example: "[go://testenv-helm-install] engines[2].testenv[1].spec.charts[0].name: required field is missing"
+func (e ValidationError) String() string {
+	loc := e.Location()
+	if loc != "" {
+		return fmt.Sprintf("%s: %s", loc, e.Message)
+	}
+	return e.Message
+}
+
+// WithPath returns a copy of the error with the path prepended.
+// This is used by orchestrators to add context when aggregating errors.
+func (e ValidationError) WithPath(pathSegments ...string) ValidationError {
+	newPath := make([]string, 0, len(pathSegments)+len(e.Path))
+	newPath = append(newPath, pathSegments...)
+	newPath = append(newPath, e.Path...)
+	e.Path = newPath
+	return e
+}
+
+// isNumeric checks if a string contains only digits.
+func isNumeric(s string) bool {
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return len(s) > 0
 }

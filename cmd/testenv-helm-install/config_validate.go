@@ -51,7 +51,7 @@ func handleConfigValidate(
 	}
 
 	// Validation failed
-	result, artifact := mcputil.ErrorResultWithArtifact(
+	result, artifact := mcputil.SuccessResultWithArtifact(
 		fmt.Sprintf("testenv-helm-install configuration validation failed with %d error(s)", len(output.Errors)),
 		output,
 	)

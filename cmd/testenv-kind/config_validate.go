@@ -41,7 +41,7 @@ func handleConfigValidate(
 	}
 
 	// Validation failed
-	result, artifact := mcputil.ErrorResultWithArtifact(
+	result, artifact := mcputil.SuccessResultWithArtifact(
 		fmt.Sprintf("testenv-kind configuration validation failed with %d error(s)", len(output.Errors)),
 		output,
 	)

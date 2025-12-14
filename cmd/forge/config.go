@@ -132,22 +132,8 @@ func runConfigValidate(args []string) error {
 	fmt.Fprintf(os.Stderr, "Configuration is invalid\n\n")
 	fmt.Fprintf(os.Stderr, "Errors (%d):\n", len(combined.Errors))
 	for _, e := range combined.Errors {
-		// Format: [engine] (specType: specName) field: message
-		context := ""
-		if e.Engine != "" {
-			context = fmt.Sprintf("[%s]", e.Engine)
-		}
-		if e.SpecType != "" && e.SpecName != "" {
-			context += fmt.Sprintf(" (%s: %s)", e.SpecType, e.SpecName)
-		}
-		if e.Field != "" {
-			context += fmt.Sprintf(" %s:", e.Field)
-		}
-		if context != "" {
-			fmt.Fprintf(os.Stderr, "  - %s %s\n", context, e.Message)
-		} else {
-			fmt.Fprintf(os.Stderr, "  - %s\n", e.Message)
-		}
+		// Use the String() method which formats with full path context
+		fmt.Fprintf(os.Stderr, "  - %s\n", e.String())
 	}
 
 	// Print warnings if any

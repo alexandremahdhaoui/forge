@@ -205,7 +205,7 @@ type validationResult struct {
 //  1. Initializes combined output with Valid=true, empty Errors/Warnings
 //  2. For each result:
 //     a. If output.InfraError is set: creates ValidationError with Field="", Message=InfraError, Engine=ref.URI
-//     b. If output.Valid is false: sets Engine, SpecType, SpecName on each error
+//     b. If output.Valid is false: sets Engine, SpecType, SpecName, and Path on each error
 //     c. Collects all warnings from all engines
 //  3. Returns combined ConfigValidateOutput
 //
@@ -226,6 +226,10 @@ func aggregateResults(results []validationResult) *mcptypes.ConfigValidateOutput
 			continue
 		}
 
+		// Build path context based on spec type
+		// This helps users locate errors in forge.yaml
+		basePath := buildPathContext(r.Ref)
+
 		// Handle infrastructure errors
 		if r.Output.InfraError != "" {
 			combined.Valid = false
@@ -235,6 +239,7 @@ func aggregateResults(results []validationResult) *mcptypes.ConfigValidateOutput
 				Engine:   r.Ref.URI,
 				SpecType: r.Ref.SpecType,
 				SpecName: r.Ref.SpecName,
+				Path:     basePath,
 			})
 		}
 
@@ -249,6 +254,10 @@ func aggregateResults(results []validationResult) *mcptypes.ConfigValidateOutput
 				// Set spec context
 				err.SpecType = r.Ref.SpecType
 				err.SpecName = r.Ref.SpecName
+				// Prepend path context if not already set
+				if len(err.Path) == 0 {
+					err.Path = basePath
+				}
 				combined.Errors = append(combined.Errors, err)
 			}
 		}
@@ -258,4 +267,26 @@ func aggregateResults(results []validationResult) *mcptypes.ConfigValidateOutput
 	}
 
 	return combined
+}
+
+// buildPathContext creates a path slice for an engine reference.
+// This helps locate errors in the forge.yaml structure.
+func buildPathContext(ref engineReference) []string {
+	switch ref.SpecType {
+	case "build":
+		return []string{"build", ref.SpecName}
+	case "test":
+		return []string{"test", ref.SpecName}
+	case "testenv":
+		return []string{"test", ref.SpecName, "testenv"}
+	case "testenv-subengine":
+		// For testenv subengines, the path is more complex
+		// The SpecName might be like "integration[2]" indicating the subengine index
+		return []string{"testenv", ref.SpecName}
+	default:
+		if ref.SpecName != "" {
+			return []string{ref.SpecType, ref.SpecName}
+		}
+		return nil
+	}
 }
