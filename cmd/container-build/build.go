@@ -21,9 +21,10 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"time"
 
+	"github.com/alexandremahdhaoui/forge/internal/version"
+	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -50,26 +51,27 @@ func detectDependenciesFromSpec(dependsOn []forge.DependsOnSpec, spec forge.Buil
 	for i, detectorSpec := range dependsOn {
 		log.Printf("Running dependency detector %d/%d: %s", i+1, len(dependsOn), detectorSpec.Engine)
 
-		// Step 1: Resolve engine URI to binary path
-		detectorPath, err := findDependencyDetectorBinary(detectorSpec.Engine)
+		// Step 1: Resolve engine URI to command and args using go run pattern
+		// Use GetEffectiveVersion to handle both ldflags version and go run @version
+		cmd, args, err := engineframework.ResolveDetector(detectorSpec.Engine, version.GetEffectiveVersion(Version))
 		if err != nil {
-			// Detector not found - graceful degradation for this detector
-			log.Printf("⚠ Dependency detector not found: %v", err)
+			// Detector resolution failed - graceful degradation for this detector
+			log.Printf("⚠ Dependency detector resolution failed: %v", err)
 			log.Printf("   Skipping detector %s (continuing with others)", detectorSpec.Engine)
 			continue
 		}
 
-		log.Printf("Found dependency detector at: %s", detectorPath)
+		log.Printf("Resolved dependency detector: %s %v", cmd, args)
 
 		// Step 2: Call detector with retry logic
-		dependencies, err := callDependencyDetectorForContainer(detectorPath, spec, detectorSpec.Spec)
+		dependencies, err := callDependencyDetectorForContainer(cmd, args, spec, detectorSpec.Spec)
 		if err != nil {
 			// First retry
 			log.Printf("⚠ Dependency detection failed (attempt 1/2): %v", err)
 			log.Printf("   Retrying after 100ms...")
 			time.Sleep(100 * time.Millisecond)
 
-			dependencies, err = callDependencyDetectorForContainer(detectorPath, spec, detectorSpec.Spec)
+			dependencies, err = callDependencyDetectorForContainer(cmd, args, spec, detectorSpec.Spec)
 			if err != nil {
 				// Second failure - FAIL the build
 				return nil, nil, fmt.Errorf("dependency detection failed after retry for %s: %w", detectorSpec.Engine, err)
@@ -125,64 +127,13 @@ func deduplicateDependencies(deps []forge.ArtifactDependency) []forge.ArtifactDe
 	return result
 }
 
-// findDependencyDetectorBinary locates a dependency detector binary from engine URI.
-// Supports:
-//   - go://go-dependency-detector -> searches for "go-dependency-detector" binary
-//   - Other go:// URIs -> extracts binary name from last path component
-func findDependencyDetectorBinary(engineURI string) (string, error) {
-	// Parse engine URI to extract binary name
-	// For "go://go-dependency-detector" -> "go-dependency-detector"
-	// For "go://github.com/user/repo/cmd/detector" -> "detector"
-	binaryName := extractBinaryNameFromURI(engineURI)
-	if binaryName == "" {
-		return "", fmt.Errorf("could not extract binary name from engine URI: %s", engineURI)
-	}
-
-	// Try to find in PATH
-	path, err := exec.LookPath(binaryName)
-	if err == nil {
-		return path, nil
-	}
-
-	// Try in build directory (common for forge self-build)
-	buildPath := filepath.Join("./build/bin", binaryName)
-	if _, err := os.Stat(buildPath); err == nil {
-		absPath, err := filepath.Abs(buildPath)
-		if err != nil {
-			return "", fmt.Errorf("found detector at %s but failed to resolve absolute path: %w", buildPath, err)
-		}
-		return absPath, nil
-	}
-
-	return "", fmt.Errorf("%s not found in PATH or ./build/bin", binaryName)
-}
-
-// extractBinaryNameFromURI extracts the binary name from an engine URI.
-// Examples:
-//   - "go://go-dependency-detector" -> "go-dependency-detector"
-//   - "go://github.com/user/repo/cmd/detector" -> "detector"
-func extractBinaryNameFromURI(uri string) string {
-	// Remove "go://" prefix
-	if len(uri) > 5 && uri[:5] == "go://" {
-		uri = uri[5:]
-	}
-
-	// If it's a simple name (no slashes), return as-is
-	if filepath.Base(uri) == uri {
-		return uri
-	}
-
-	// Extract last path component
-	return filepath.Base(uri)
-}
-
 // callDependencyDetectorForContainer calls a dependency detector MCP server for container builds.
 // For containers, we pass the Containerfile path as the file to analyze.
-func callDependencyDetectorForContainer(detectorPath string, spec forge.BuildSpec, detectorSpec map[string]interface{}) ([]mcptypes.Dependency, error) {
-	// Create command to spawn MCP server
-	cmd := exec.Command(detectorPath, "--mcp")
-	cmd.Env = os.Environ()
-	cmd.Stderr = os.Stderr // Forward logs
+func callDependencyDetectorForContainer(cmdName string, cmdArgs []string, spec forge.BuildSpec, detectorSpec map[string]interface{}) ([]mcptypes.Dependency, error) {
+	// Create command to spawn MCP server (append --mcp flag)
+	execCmd := exec.Command(cmdName, append(cmdArgs, "--mcp")...)
+	execCmd.Env = os.Environ()
+	execCmd.Stderr = os.Stderr // Forward logs
 
 	// Create MCP client
 	client := mcp.NewClient(&mcp.Implementation{
@@ -192,7 +143,7 @@ func callDependencyDetectorForContainer(detectorPath string, spec forge.BuildSpe
 
 	// Create command transport
 	transport := &mcp.CommandTransport{
-		Command: cmd,
+		Command: execCmd,
 	}
 
 	// Connect to the MCP server
