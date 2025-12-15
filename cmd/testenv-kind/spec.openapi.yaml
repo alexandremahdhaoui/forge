@@ -1,0 +1,27 @@
+openapi: 3.0.3
+info:
+  title: testenv-kind Spec Schema
+  version: 0.15.0
+  description: Configuration schema for testenv-kind test environment subengine
+
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for testenv-kind. All fields are optional.
+      properties:
+        name:
+          type: string
+          description: Custom name suffix for the kind cluster (default uses test ID)
+        image:
+          type: string
+          description: Kind node image to use (e.g., kindest/node:v1.27.0)
+        config:
+          type: string
+          description: Path to kind config file for cluster customization
+        waitTimeout:
+          type: string
+          description: Timeout for waiting for cluster to be ready (e.g., 5m)
+        retain:
+          type: boolean
+          description: Whether to retain the cluster on failure for debugging

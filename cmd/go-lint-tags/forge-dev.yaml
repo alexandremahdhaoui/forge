@@ -1,0 +1,10 @@
+name: go-lint-tags
+type: test-runner
+version: 0.15.0
+description: Verify test files have proper build tags (unit, integration, e2e)
+
+openapi:
+  specPath: ./spec.openapi.yaml
+
+generate:
+  packageName: main

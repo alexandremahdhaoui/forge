@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: testenv-lcr Spec Schema
+  version: 0.15.0
+  description: Configuration schema for testenv-lcr test environment subengine
+
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for testenv-lcr. Controls local container registry behavior.
+      properties:
+        enabled:
+          type: boolean
+          description: Whether the local container registry is enabled
+        namespace:
+          type: string
+          description: Kubernetes namespace for the registry deployment
+        imagePullSecretNamespaces:
+          type: array
+          items:
+            type: string
+          description: List of namespaces to create image pull secrets in
+        imagePullSecretName:
+          type: string
+          description: Name of the image pull secret to create

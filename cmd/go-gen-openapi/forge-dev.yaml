@@ -1,0 +1,10 @@
+# forge-dev configuration for go-gen-openapi
+name: go-gen-openapi
+type: builder
+version: 0.15.0
+
+openapi:
+  specPath: ./spec.openapi.yaml
+
+generate:
+  packageName: main

@@ -20,7 +20,7 @@ import (
 	"testing"
 )
 
-func TestConfigValidate_ValidSpec(t *testing.T) {
+func TestValidateMap_ValidSpec(t *testing.T) {
 	// Valid spec with all fields
 	spec := map[string]interface{}{
 		"packages":     []interface{}{"./cmd/...", "./pkg/..."},
@@ -36,17 +36,17 @@ func TestConfigValidate_ValidSpec(t *testing.T) {
 		},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if !output.Valid {
-		t.Errorf("validateSpec() valid = %v, want true", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want true", output.Valid)
 	}
 	if len(output.Errors) != 0 {
-		t.Errorf("validateSpec() errors = %v, want none", output.Errors)
+		t.Errorf("ValidateMap() errors = %v, want none", output.Errors)
 	}
 }
 
-func TestConfigValidate_EmptySpec(t *testing.T) {
+func TestValidateMap_EmptySpec(t *testing.T) {
 	// Empty spec should be valid
 	tests := []struct {
 		name string
@@ -64,231 +64,199 @@ func TestConfigValidate_EmptySpec(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := validateSpec(tt.spec)
+			output := ValidateMap(tt.spec)
 
 			if !output.Valid {
-				t.Errorf("validateSpec() valid = %v, want true", output.Valid)
+				t.Errorf("ValidateMap() valid = %v, want true", output.Valid)
 			}
 			if len(output.Errors) != 0 {
-				t.Errorf("validateSpec() errors = %v, want none", output.Errors)
+				t.Errorf("ValidateMap() errors = %v, want none", output.Errors)
 			}
 		})
 	}
 }
 
-func TestConfigValidate_InvalidPackagesType(t *testing.T) {
+func TestValidateMap_InvalidPackagesType(t *testing.T) {
 	// packages is not an array (it's a string)
 	spec := map[string]interface{}{
 		"packages": "invalid-not-an-array",
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want false", output.Valid)
 	}
 	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
+		t.Fatalf("ValidateMap() errors count = %d, want 1", len(output.Errors))
 	}
-	if output.Errors[0].Field != "spec.packages" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.packages")
+	// Error comes from FromMap parsing
+	if output.Errors[0].Field != "spec" {
+		t.Errorf("ValidateMap() error field = %q, want %q", output.Errors[0].Field, "spec")
 	}
 }
 
-func TestConfigValidate_InvalidTagsType(t *testing.T) {
+func TestValidateMap_InvalidTagsType(t *testing.T) {
 	// tags is not an array (it's an int)
 	spec := map[string]interface{}{
 		"tags": 123,
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want false", output.Valid)
 	}
 	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.tags" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.tags")
+		t.Fatalf("ValidateMap() errors count = %d, want 1", len(output.Errors))
 	}
 }
 
-func TestConfigValidate_InvalidTimeoutType(t *testing.T) {
+func TestValidateMap_InvalidTimeoutType(t *testing.T) {
 	// timeout is not a string (it's an int)
 	spec := map[string]interface{}{
 		"timeout": 30,
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want false", output.Valid)
 	}
 	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.timeout" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.timeout")
+		t.Fatalf("ValidateMap() errors count = %d, want 1", len(output.Errors))
 	}
 }
 
-func TestConfigValidate_InvalidRaceType(t *testing.T) {
+func TestValidateMap_InvalidRaceType(t *testing.T) {
 	// race is not a bool (it's a string)
 	spec := map[string]interface{}{
 		"race": "true",
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want false", output.Valid)
 	}
 	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.race" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.race")
+		t.Fatalf("ValidateMap() errors count = %d, want 1", len(output.Errors))
 	}
 }
 
-func TestConfigValidate_InvalidCoverType(t *testing.T) {
+func TestValidateMap_InvalidCoverType(t *testing.T) {
 	// cover is not a bool (it's a string)
 	spec := map[string]interface{}{
 		"cover": "false",
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want false", output.Valid)
 	}
 	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.cover" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.cover")
+		t.Fatalf("ValidateMap() errors count = %d, want 1", len(output.Errors))
 	}
 }
 
-func TestConfigValidate_InvalidCoverprofileType(t *testing.T) {
+func TestValidateMap_InvalidCoverprofileType(t *testing.T) {
 	// coverprofile is not a string (it's a bool)
 	spec := map[string]interface{}{
 		"coverprofile": true,
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want false", output.Valid)
 	}
 	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.coverprofile" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.coverprofile")
+		t.Fatalf("ValidateMap() errors count = %d, want 1", len(output.Errors))
 	}
 }
 
-func TestConfigValidate_InvalidArgsType(t *testing.T) {
+func TestValidateMap_InvalidArgsType(t *testing.T) {
 	// args is not an array (it's a string)
 	spec := map[string]interface{}{
 		"args": "invalid-not-an-array",
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want false", output.Valid)
 	}
 	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.args" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.args")
+		t.Fatalf("ValidateMap() errors count = %d, want 1", len(output.Errors))
 	}
 }
 
-func TestConfigValidate_InvalidEnvType(t *testing.T) {
+func TestValidateMap_InvalidEnvType(t *testing.T) {
 	// env is not a map (it's a string)
 	spec := map[string]interface{}{
 		"env": "invalid-not-a-map",
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want false", output.Valid)
 	}
 	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.env" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.env")
+		t.Fatalf("ValidateMap() errors count = %d, want 1", len(output.Errors))
 	}
 }
 
-func TestConfigValidate_InvalidPackagesElement(t *testing.T) {
+func TestValidateMap_InvalidPackagesElement(t *testing.T) {
 	// packages array contains a non-string element
 	spec := map[string]interface{}{
 		"packages": []interface{}{"./cmd/...", 123, "./pkg/..."},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want false", output.Valid)
 	}
 	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	// The error should point to the specific array index
-	if output.Errors[0].Field != "spec.packages[1]" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.packages[1]")
+		t.Fatalf("ValidateMap() errors count = %d, want 1", len(output.Errors))
 	}
 }
 
-func TestConfigValidate_InvalidTagsElement(t *testing.T) {
+func TestValidateMap_InvalidTagsElement(t *testing.T) {
 	// tags array contains a non-string element
 	spec := map[string]interface{}{
 		"tags": []interface{}{"unit", true, "e2e"},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want false", output.Valid)
 	}
 	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	// The error should point to the specific array index
-	if output.Errors[0].Field != "spec.tags[1]" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.tags[1]")
+		t.Fatalf("ValidateMap() errors count = %d, want 1", len(output.Errors))
 	}
 }
 
-func TestConfigValidate_InvalidArgsElement(t *testing.T) {
+func TestValidateMap_InvalidArgsElement(t *testing.T) {
 	// args array contains a non-string element
 	spec := map[string]interface{}{
 		"args": []interface{}{"-v", 123, "-count=1"},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want false", output.Valid)
 	}
 	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	// The error should point to the specific array index
-	if output.Errors[0].Field != "spec.args[1]" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.args[1]")
+		t.Fatalf("ValidateMap() errors count = %d, want 1", len(output.Errors))
 	}
 }
 
-func TestConfigValidate_InvalidEnvValue(t *testing.T) {
+func TestValidateMap_InvalidEnvValue(t *testing.T) {
 	// env map contains a non-string value
 	spec := map[string]interface{}{
 		"env": map[string]interface{}{
@@ -297,110 +265,83 @@ func TestConfigValidate_InvalidEnvValue(t *testing.T) {
 		},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want false", output.Valid)
 	}
 	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	// The error should point to the specific map key
-	if output.Errors[0].Field != "spec.env.GOOS" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.env.GOOS")
+		t.Fatalf("ValidateMap() errors count = %d, want 1", len(output.Errors))
 	}
 }
 
-func TestConfigValidate_MultipleErrors(t *testing.T) {
-	// Multiple fields are invalid
-	spec := map[string]interface{}{
-		"packages": "invalid-not-an-array",
-		"tags":     123,
-		"timeout":  456,
-		"race":     "invalid",
-		"cover":    "invalid",
-		"args":     "invalid-not-an-array",
-		"env":      "invalid-not-a-map",
-	}
-
-	output := validateSpec(spec)
-
-	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
-	}
-	// We should have 7 errors (one for each invalid field)
-	if len(output.Errors) != 7 {
-		t.Errorf("validateSpec() errors count = %d, want 7", len(output.Errors))
-	}
-}
-
-func TestConfigValidate_ValidPackagesOnly(t *testing.T) {
+func TestValidateMap_ValidPackagesOnly(t *testing.T) {
 	// Valid packages without other fields
 	spec := map[string]interface{}{
 		"packages": []interface{}{"./cmd/...", "./pkg/..."},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if !output.Valid {
-		t.Errorf("validateSpec() valid = %v, want true", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want true", output.Valid)
 	}
 	if len(output.Errors) != 0 {
-		t.Errorf("validateSpec() errors = %v, want none", output.Errors)
+		t.Errorf("ValidateMap() errors = %v, want none", output.Errors)
 	}
 }
 
-func TestConfigValidate_ValidTagsOnly(t *testing.T) {
+func TestValidateMap_ValidTagsOnly(t *testing.T) {
 	// Valid tags without other fields
 	spec := map[string]interface{}{
 		"tags": []interface{}{"unit", "integration"},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if !output.Valid {
-		t.Errorf("validateSpec() valid = %v, want true", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want true", output.Valid)
 	}
 	if len(output.Errors) != 0 {
-		t.Errorf("validateSpec() errors = %v, want none", output.Errors)
+		t.Errorf("ValidateMap() errors = %v, want none", output.Errors)
 	}
 }
 
-func TestConfigValidate_ValidBooleanFields(t *testing.T) {
+func TestValidateMap_ValidBooleanFields(t *testing.T) {
 	// Valid boolean fields only
 	spec := map[string]interface{}{
 		"race":  false,
 		"cover": true,
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if !output.Valid {
-		t.Errorf("validateSpec() valid = %v, want true", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want true", output.Valid)
 	}
 	if len(output.Errors) != 0 {
-		t.Errorf("validateSpec() errors = %v, want none", output.Errors)
+		t.Errorf("ValidateMap() errors = %v, want none", output.Errors)
 	}
 }
 
-func TestConfigValidate_ValidStringFields(t *testing.T) {
+func TestValidateMap_ValidStringFields(t *testing.T) {
 	// Valid string fields only
 	spec := map[string]interface{}{
 		"timeout":      "10m",
 		"coverprofile": "/tmp/coverage.out",
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if !output.Valid {
-		t.Errorf("validateSpec() valid = %v, want true", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want true", output.Valid)
 	}
 	if len(output.Errors) != 0 {
-		t.Errorf("validateSpec() errors = %v, want none", output.Errors)
+		t.Errorf("ValidateMap() errors = %v, want none", output.Errors)
 	}
 }
 
-func TestConfigValidate_ValidEnvOnly(t *testing.T) {
+func TestValidateMap_ValidEnvOnly(t *testing.T) {
 	// Valid env without other fields
 	spec := map[string]interface{}{
 		"env": map[string]interface{}{
@@ -408,47 +349,149 @@ func TestConfigValidate_ValidEnvOnly(t *testing.T) {
 		},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if !output.Valid {
-		t.Errorf("validateSpec() valid = %v, want true", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want true", output.Valid)
 	}
 	if len(output.Errors) != 0 {
-		t.Errorf("validateSpec() errors = %v, want none", output.Errors)
+		t.Errorf("ValidateMap() errors = %v, want none", output.Errors)
 	}
 }
 
-func TestConfigValidate_ValidArgsOnly(t *testing.T) {
+func TestValidateMap_ValidArgsOnly(t *testing.T) {
 	// Valid args without other fields
 	spec := map[string]interface{}{
 		"args": []interface{}{"-v", "-count=1"},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if !output.Valid {
-		t.Errorf("validateSpec() valid = %v, want true", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want true", output.Valid)
 	}
 	if len(output.Errors) != 0 {
-		t.Errorf("validateSpec() errors = %v, want none", output.Errors)
+		t.Errorf("ValidateMap() errors = %v, want none", output.Errors)
 	}
 }
 
-func TestConfigValidate_InvalidCoverprofileNotString(t *testing.T) {
+func TestValidateMap_InvalidCoverprofileNotString(t *testing.T) {
 	// coverprofile is an array instead of string
 	spec := map[string]interface{}{
 		"coverprofile": []interface{}{"coverage1.out", "coverage2.out"},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
 	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
+		t.Errorf("ValidateMap() valid = %v, want false", output.Valid)
 	}
 	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
+		t.Fatalf("ValidateMap() errors count = %d, want 1", len(output.Errors))
 	}
-	if output.Errors[0].Field != "spec.coverprofile" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.coverprofile")
+}
+
+// Additional tests for FromMap and Spec conversion
+
+func TestFromMap_ValidSpec(t *testing.T) {
+	m := map[string]interface{}{
+		"packages":     []interface{}{"./cmd/...", "./pkg/..."},
+		"tags":         []interface{}{"unit"},
+		"timeout":      "30m",
+		"race":         true,
+		"cover":        true,
+		"coverprofile": "coverage.out",
+		"args":         []interface{}{"-v"},
+		"env": map[string]interface{}{
+			"CGO_ENABLED": "0",
+		},
+	}
+
+	spec, err := FromMap(m)
+	if err != nil {
+		t.Fatalf("FromMap() error = %v, want nil", err)
+	}
+
+	if len(spec.Packages) != 2 {
+		t.Errorf("FromMap() packages = %v, want 2 elements", spec.Packages)
+	}
+	if len(spec.Tags) != 1 {
+		t.Errorf("FromMap() tags = %v, want 1 element", spec.Tags)
+	}
+	if spec.Timeout != "30m" {
+		t.Errorf("FromMap() timeout = %v, want 30m", spec.Timeout)
+	}
+	if !spec.Race {
+		t.Errorf("FromMap() race = %v, want true", spec.Race)
+	}
+	if !spec.Cover {
+		t.Errorf("FromMap() cover = %v, want true", spec.Cover)
+	}
+	if spec.Coverprofile != "coverage.out" {
+		t.Errorf("FromMap() coverprofile = %v, want coverage.out", spec.Coverprofile)
+	}
+	if len(spec.Args) != 1 {
+		t.Errorf("FromMap() args = %v, want 1 element", spec.Args)
+	}
+	if len(spec.Env) != 1 {
+		t.Errorf("FromMap() env = %v, want 1 element", spec.Env)
+	}
+}
+
+func TestSpec_ToMap(t *testing.T) {
+	spec := &Spec{
+		Packages:     []string{"./cmd/..."},
+		Tags:         []string{"unit"},
+		Timeout:      "30m",
+		Race:         true,
+		Cover:        true,
+		Coverprofile: "coverage.out",
+		Args:         []string{"-v"},
+		Env:          map[string]string{"CGO_ENABLED": "0"},
+	}
+
+	m := spec.ToMap()
+
+	if m["packages"] == nil {
+		t.Error("ToMap() packages is nil, want non-nil")
+	}
+	if m["tags"] == nil {
+		t.Error("ToMap() tags is nil, want non-nil")
+	}
+	if m["timeout"] != "30m" {
+		t.Errorf("ToMap() timeout = %v, want 30m", m["timeout"])
+	}
+	if m["race"] != true {
+		t.Errorf("ToMap() race = %v, want true", m["race"])
+	}
+	if m["cover"] != true {
+		t.Errorf("ToMap() cover = %v, want true", m["cover"])
+	}
+	if m["coverprofile"] != "coverage.out" {
+		t.Errorf("ToMap() coverprofile = %v, want coverage.out", m["coverprofile"])
+	}
+	if m["args"] == nil {
+		t.Error("ToMap() args is nil, want non-nil")
+	}
+	if m["env"] == nil {
+		t.Error("ToMap() env is nil, want non-nil")
+	}
+}
+
+func TestFromMap_NilMap(t *testing.T) {
+	spec, err := FromMap(nil)
+	if err != nil {
+		t.Fatalf("FromMap(nil) error = %v, want nil", err)
+	}
+	if spec == nil {
+		t.Fatal("FromMap(nil) returned nil spec, want non-nil")
+	}
+}
+
+func TestSpec_ToMap_Nil(t *testing.T) {
+	var spec *Spec = nil
+	m := spec.ToMap()
+	if m != nil {
+		t.Errorf("nil.ToMap() = %v, want nil", m)
 	}
 }

@@ -1,0 +1,8 @@
+name: container-build
+type: builder
+version: 0.15.0
+description: Build container images using Docker, Podman, or Kaniko
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main

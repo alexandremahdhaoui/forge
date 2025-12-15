@@ -799,27 +799,31 @@ func runWithSingleTestRunner(
 		runnerParams[k] = v
 	}
 
+	// Build nested spec map for engine-specific configuration
+	// Engines expect config in input.Spec, not at top-level fields
+	specMap := make(map[string]any)
+
 	// Inject runner config if present (for alias:// runners)
 	if runnerConfig != nil && runnerConfig.Type == forge.TestRunnerEngineConfigType {
 		// For test-runner aliases, inject spec from engine definition
 		if len(runnerConfig.TestRunner) > 0 {
 			// The spec field in the engine definition contains config for the underlying engine
 			engineSpec := runnerConfig.TestRunner[0].Spec
-			// Inject all fields from the engine spec
+			// Inject all fields from the engine spec into nested spec map
 			if engineSpec.Command != "" {
-				runnerParams["command"] = engineSpec.Command
+				specMap["command"] = engineSpec.Command
 			}
 			if len(engineSpec.Args) > 0 {
-				runnerParams["args"] = engineSpec.Args
+				specMap["args"] = engineSpec.Args
 			}
 			if len(engineSpec.Env) > 0 {
-				runnerParams["env"] = engineSpec.Env
+				specMap["env"] = engineSpec.Env
 			}
 			if engineSpec.EnvFile != "" {
-				runnerParams["envFile"] = engineSpec.EnvFile
+				specMap["envFile"] = engineSpec.EnvFile
 			}
 			if engineSpec.WorkDir != "" {
-				runnerParams["workDir"] = engineSpec.WorkDir
+				specMap["workDir"] = engineSpec.WorkDir
 			}
 		}
 	}
@@ -828,8 +832,13 @@ func runWithSingleTestRunner(
 	// This allows test stage-level spec to override engine-level spec
 	if testSpec != nil && testSpec.Spec != nil {
 		for k, v := range testSpec.Spec {
-			runnerParams[k] = v
+			specMap[k] = v
 		}
+	}
+
+	// Set nested spec map if any config was added
+	if len(specMap) > 0 {
+		runnerParams["spec"] = specMap
 	}
 
 	// Call test runner

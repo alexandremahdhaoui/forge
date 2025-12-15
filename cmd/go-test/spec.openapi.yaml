@@ -1,0 +1,45 @@
+openapi: 3.0.3
+info:
+  title: go-test Spec Schema
+  version: 0.15.0
+  description: >
+    Schema for the go-test engine spec.
+    The go-test engine runs Go tests with coverage and JUnit reporting.
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for go-test engine
+      properties:
+        packages:
+          type: array
+          items:
+            type: string
+          description: Packages to test (optional, defaults to ./...)
+        tags:
+          type: array
+          items:
+            type: string
+          description: Build tags to use (optional)
+        timeout:
+          type: string
+          description: Test timeout (optional, e.g., "10m")
+        race:
+          type: boolean
+          description: Enable race detector (optional)
+        cover:
+          type: boolean
+          description: Enable coverage (optional)
+        coverprofile:
+          type: string
+          description: Coverage profile output path (optional)
+        args:
+          type: array
+          items:
+            type: string
+          description: Additional arguments to pass to go test (optional)
+        env:
+          type: object
+          additionalProperties:
+            type: string
+          description: Environment variables to set for tests (optional)

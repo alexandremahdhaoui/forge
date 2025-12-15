@@ -1,0 +1,88 @@
+// Copyright 2024 Alexandre Mahdhaoui
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package main
+
+import (
+	"bytes"
+	"fmt"
+	"go/format"
+)
+
+// MCPTemplateData contains the data passed to the mcp.go.tmpl templates.
+type MCPTemplateData struct {
+	// PackageName is the Go package name for the generated file.
+	PackageName string
+	// ChecksumHeader is the checksum header line.
+	ChecksumHeader string
+	// EngineName is the name of the engine.
+	EngineName string
+	// EngineType is the type of engine (builder, test-runner, testenv-subengine).
+	EngineType EngineType
+}
+
+// GenerateMCPFile generates the zz_generated.mcp.go file content.
+// It selects the appropriate template based on the engine type:
+// - builder: mcp_builder.go.tmpl
+// - test-runner: mcp_testrunner.go.tmpl
+// - testenv-subengine: mcp_testenv.go.tmpl
+func GenerateMCPFile(config *Config, checksum string) ([]byte, error) {
+	// Prepare template data
+	data := MCPTemplateData{
+		PackageName:    config.Generate.PackageName,
+		ChecksumHeader: ChecksumHeader(checksum),
+		EngineName:     config.Name,
+		EngineType:     config.Type,
+	}
+
+	// Select template based on engine type
+	templateName, err := mcpTemplateName(config.Type)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse and execute template
+	tmpl, err := parseTemplate(templateName)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return nil, err
+	}
+
+	// Format the generated code
+	formatted, err := format.Source(buf.Bytes())
+	if err != nil {
+		// Return unformatted code for debugging
+		return buf.Bytes(), err
+	}
+
+	return formatted, nil
+}
+
+// mcpTemplateName returns the template filename for the given engine type.
+func mcpTemplateName(engineType EngineType) (string, error) {
+	switch engineType {
+	case EngineTypeBuilder:
+		return "mcp_builder.go.tmpl", nil
+	case EngineTypeTestRunner:
+		return "mcp_testrunner.go.tmpl", nil
+	case EngineTypeTestEnvSubengine:
+		return "mcp_testenv.go.tmpl", nil
+	default:
+		return "", fmt.Errorf("unsupported engine type: %s", engineType)
+	}
+}

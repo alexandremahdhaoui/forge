@@ -19,11 +19,6 @@
 1. It must be extremely simple to implement an engine -> In this repo (i.e. a built-in) or in any other repo, we want user to be able to create engines very easily and create their own
 1. Developing engines must be easy. There must be some common packages/libaries or testing framework or something to easily tests the packages
 
-## forge config validate
-
-1. All engines should implement config validate to ensure their spec is properly implemented (the free form spec for each implementation must be validated for each specific engine)
-1. Config validate must be recursive, meaning that all mcp server of engines should have a config-validate tool to validate their own spec.
-
 ## forge docs get|list
 
 1. This command is not implemented correctly

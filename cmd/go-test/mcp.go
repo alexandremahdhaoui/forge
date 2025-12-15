@@ -19,25 +19,15 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
-	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the go-test MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New(Name, Version)
-
-	config := engineframework.TestRunnerConfig{
-		Name:        Name,
-		Version:     Version,
-		RunTestFunc: runTestsWrapper,
-	}
-
-	if err := engineframework.RegisterTestRunnerTools(server, config); err != nil {
+	server, err := SetupMCPServer(Name, Version, runTestsWithSpec)
+	if err != nil {
 		return err
 	}
 
@@ -45,17 +35,13 @@ func runMCPServer() error {
 		return err
 	}
 
-	// Register config-validate tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate go-test configuration",
-	}, handleConfigValidate)
-
+	// Run the MCP server
 	return server.RunDefault()
 }
 
-// runTestsWrapper implements the TestRunnerFunc for running Go tests
-func runTestsWrapper(ctx context.Context, input mcptypes.RunInput) (*forge.TestReport, error) {
+// runTestsWithSpec implements the TestRunnerFunc for running Go tests.
+// It implements the TestRunnerFunc signature defined in zz_generated.mcp.go.
+func runTestsWithSpec(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestReport, error) {
 	log.Printf("Running tests: stage=%s name=%s", input.Stage, input.Name)
 
 	// Run tests (pass tmpDir if provided, otherwise use current directory)

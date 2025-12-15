@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: container-build Spec Schema
+  version: 0.15.0
+  description: >
+    Schema for the container-build engine spec.
+    The container-build engine builds container images using Docker, Podman, or Kaniko.
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for container-build engine
+      properties:
+        dockerfile:
+          type: string
+          description: Path to Dockerfile (optional)
+        context:
+          type: string
+          description: Build context path (optional)
+        buildArgs:
+          type: object
+          additionalProperties:
+            type: string
+          description: Build arguments (optional)
+        tags:
+          type: array
+          items:
+            type: string
+          description: Image tags (optional)
+        target:
+          type: string
+          description: Build target stage (optional)
+        push:
+          type: boolean
+          description: Whether to push image (optional)
+        registry:
+          type: string
+          description: Registry URL (optional)

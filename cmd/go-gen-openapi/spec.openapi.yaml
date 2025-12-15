@@ -1,0 +1,15 @@
+openapi: 3.0.3
+info:
+  title: go-gen-openapi Spec Schema
+  version: 0.15.0
+  description: Configuration schema for go-gen-openapi builder
+
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for go-gen-openapi. Uses oapi-codegen for code generation.
+      properties:
+        oapiCodegenVersion:
+          type: string
+          description: Version of oapi-codegen to use (default v2.3.0)

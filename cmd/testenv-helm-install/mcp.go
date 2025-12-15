@@ -27,10 +27,8 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
 )
 
@@ -228,24 +226,10 @@ type ValueReference struct {
 
 // runMCPServer starts the testenv-helm-install MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New("testenv-helm-install", Version)
-
-	config := engineframework.TestEnvSubengineConfig{
-		Name:       "testenv-helm-install",
-		Version:    Version,
-		CreateFunc: installHelmCharts,
-		DeleteFunc: uninstallHelmCharts,
-	}
-
-	if err := engineframework.RegisterTestEnvSubengineTools(server, config); err != nil {
+	server, err := SetupMCPServer(Name, Version, installHelmCharts, uninstallHelmCharts)
+	if err != nil {
 		return err
 	}
-
-	// Register config-validate tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate testenv-helm-install configuration",
-	}, handleConfigValidate)
 
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
@@ -280,7 +264,8 @@ func resolveChartPath(chart ChartSpec, rootDir string) (string, error) {
 }
 
 // installHelmCharts implements the CreateFunc for installing Helm charts.
-func installHelmCharts(ctx context.Context, input engineframework.CreateInput) (*engineframework.TestEnvArtifact, error) {
+// The spec parameter is available but charts are parsed from input.Spec via parseChartsFromSpec.
+func installHelmCharts(ctx context.Context, input engineframework.CreateInput, _ *Spec) (*engineframework.TestEnvArtifact, error) {
 	log.Printf("Installing Helm charts: testID=%s, stage=%s", input.TestID, input.Stage)
 
 	// Parse charts from spec
@@ -412,7 +397,7 @@ func installHelmCharts(ctx context.Context, input engineframework.CreateInput) (
 }
 
 // uninstallHelmCharts implements the DeleteFunc for uninstalling Helm charts.
-func uninstallHelmCharts(ctx context.Context, input engineframework.DeleteInput) error {
+func uninstallHelmCharts(ctx context.Context, input engineframework.DeleteInput, _ *Spec) error {
 	log.Printf("Uninstalling Helm charts: testID=%s", input.TestID)
 
 	// Extract chart count from metadata

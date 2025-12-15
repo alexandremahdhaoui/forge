@@ -1,0 +1,10 @@
+# forge-dev configuration for testenv-lcr
+name: testenv-lcr
+type: testenv-subengine
+version: 0.15.0
+
+openapi:
+  specPath: ./spec.openapi.yaml
+
+generate:
+  packageName: main

@@ -1,0 +1,8 @@
+name: generic-builder
+type: builder
+version: 0.15.0
+description: Execute any command as a build step
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main

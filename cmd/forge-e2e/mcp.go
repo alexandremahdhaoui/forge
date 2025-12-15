@@ -20,33 +20,17 @@ import (
 	"log"
 	"time"
 
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
-	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the forge-e2e MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New(Name, Version)
-
-	config := engineframework.TestRunnerConfig{
-		Name:        Name,
-		Version:     Version,
-		RunTestFunc: runTestsWrapper,
-	}
-
-	if err := engineframework.RegisterTestRunnerTools(server, config); err != nil {
+	server, err := SetupMCPServer(Name, Version, runTestsWrapper)
+	if err != nil {
 		return err
 	}
-
-	// Register config-validate tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate forge-e2e configuration",
-	}, handleConfigValidate)
 
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
@@ -56,7 +40,7 @@ func runMCPServer() error {
 }
 
 // runTestsWrapper adapts the test execution to the framework's TestRunnerFunc signature.
-func runTestsWrapper(ctx context.Context, input mcptypes.RunInput) (*forge.TestReport, error) {
+func runTestsWrapper(ctx context.Context, input mcptypes.RunInput, _ *Spec) (*forge.TestReport, error) {
 	log.Printf("Running e2e tests: stage=%s, name=%s", input.Stage, input.Name)
 
 	// Run the actual tests

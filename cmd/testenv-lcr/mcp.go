@@ -31,6 +31,10 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// NOTE: This engine uses SetupMCPServer from zz_generated.mcp.go for the base
+// create/delete/config-validate tools, then manually registers additional tools
+// specific to testenv-lcr (create-image-pull-secret, list-image-pull-secrets).
+
 // activePortForwarders tracks active port-forwarders by testID for cleanup.
 var activePortForwarders = make(map[string]*PortForwarder)
 
@@ -54,25 +58,10 @@ type ListImagePullSecretsInput struct {
 
 // runMCPServer starts the testenv-lcr MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New(Name, Version)
-
-	// Use framework for standard create/delete tools
-	config := engineframework.TestEnvSubengineConfig{
-		Name:       Name,
-		Version:    Version,
-		CreateFunc: createLocalContainerRegistry,
-		DeleteFunc: deleteLocalContainerRegistry,
-	}
-
-	if err := engineframework.RegisterTestEnvSubengineTools(server, config); err != nil {
+	server, err := SetupMCPServer(Name, Version, createLocalContainerRegistry, deleteLocalContainerRegistry)
+	if err != nil {
 		return err
 	}
-
-	// Register config-validate tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate testenv-lcr configuration",
-	}, handleConfigValidate)
 
 	// Manually register additional tools specific to testenv-lcr
 	mcpserver.RegisterTool(server, &mcp.Tool{
@@ -93,7 +82,8 @@ func runMCPServer() error {
 }
 
 // createLocalContainerRegistry implements the CreateFunc for creating a local container registry.
-func createLocalContainerRegistry(ctx context.Context, input engineframework.CreateInput) (*engineframework.TestEnvArtifact, error) {
+// The spec parameter contains typed fields, but we also use input.Spec for images parsing.
+func createLocalContainerRegistry(ctx context.Context, input engineframework.CreateInput, spec *Spec) (*engineframework.TestEnvArtifact, error) {
 	log.Printf("Creating local container registry: testID=%s, stage=%s", input.TestID, input.Stage)
 
 	// RootDir is available via input.RootDir for resolving relative paths
@@ -353,7 +343,7 @@ func createLocalContainerRegistry(ctx context.Context, input engineframework.Cre
 }
 
 // deleteLocalContainerRegistry implements the DeleteFunc for deleting a local container registry.
-func deleteLocalContainerRegistry(ctx context.Context, input engineframework.DeleteInput) error {
+func deleteLocalContainerRegistry(ctx context.Context, input engineframework.DeleteInput, _ *Spec) error {
 	log.Printf("Deleting local container registry: testID=%s", input.TestID)
 
 	// Check if registry was enabled

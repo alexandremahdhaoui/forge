@@ -19,6 +19,8 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 )
 
+const Name = "testenv-kind"
+
 // Version information (set via ldflags during build)
 var (
 	Version        = "dev"
@@ -28,7 +30,7 @@ var (
 
 // docsConfig is the configuration for the docs subcommand.
 var docsConfig = &enginedocs.Config{
-	EngineName:   "testenv-kind",
+	EngineName:   Name,
 	LocalDir:     "cmd/testenv-kind/docs",
 	BaseURL:      "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main",
 	RequiredDocs: []string{"usage", "schema"},
@@ -36,7 +38,7 @@ var docsConfig = &enginedocs.Config{
 
 func main() {
 	cli.Bootstrap(cli.Config{
-		Name:           "testenv-kind",
+		Name:           Name,
 		Version:        Version,
 		CommitSHA:      CommitSHA,
 		BuildTimestamp: BuildTimestamp,

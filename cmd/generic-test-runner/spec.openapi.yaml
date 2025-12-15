@@ -1,0 +1,34 @@
+openapi: 3.0.3
+info:
+  title: generic-test-runner Spec Schema
+  version: 0.15.0
+  description: >
+    Schema for the generic-test-runner engine spec.
+    The generic-test-runner executes arbitrary commands as test steps.
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for generic-test-runner engine
+      properties:
+        command:
+          type: string
+          description: Command to execute (required)
+        args:
+          type: array
+          items:
+            type: string
+          description: Command arguments (optional)
+        env:
+          type: object
+          additionalProperties:
+            type: string
+          description: Environment variables (optional)
+        workDir:
+          type: string
+          description: Working directory (optional)
+        envFile:
+          type: string
+          description: Path to environment file (optional)
+      required:
+        - command

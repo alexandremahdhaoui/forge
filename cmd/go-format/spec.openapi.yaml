@@ -1,0 +1,16 @@
+openapi: 3.0.3
+info:
+  title: go-format Spec Schema
+  version: 0.15.0
+  description: >
+    Schema for the go-format engine spec.
+    The go-format engine formats Go source code using gofumpt.
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for go-format engine
+      properties:
+        path:
+          type: string
+          description: Path to format (optional, defaults to src or current directory)

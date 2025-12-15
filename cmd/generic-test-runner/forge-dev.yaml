@@ -1,0 +1,8 @@
+name: generic-test-runner
+type: test-runner
+version: 0.15.0
+description: Execute any command as a test step
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main

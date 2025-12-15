@@ -23,27 +23,15 @@ import (
 	"time"
 
 	"github.com/alexandremahdhaoui/forge/internal/cmdutil"
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
-	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the generic-builder MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New(Name, Version)
-
-	// Configure builder with engineframework
-	config := engineframework.BuilderConfig{
-		Name:      Name,
-		Version:   Version,
-		BuildFunc: build,
-	}
-
-	// Register builder tools (registers both 'build' and 'buildBatch')
-	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+	server, err := SetupMCPServer(Name, Version, build)
+	if err != nil {
 		return err
 	}
 
@@ -51,39 +39,59 @@ func runMCPServer() error {
 		return err
 	}
 
-	// Register config-validate tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate generic-builder configuration",
-	}, handleConfigValidate)
-
 	// Run the MCP server
 	return server.RunDefault()
 }
 
 // build is the core business logic for executing a shell command as a build step.
-// It implements engineframework.BuilderFunc.
-func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, error) {
-	log.Printf("Executing command: %s %v (workDir: %s)", input.Command, input.Args, input.WorkDir)
+// It implements the BuildFunc signature defined in zz_generated.mcp.go.
+func build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.Artifact, error) {
+	// Use spec values, falling back to input values for compatibility
+	command := spec.Command
+	if command == "" {
+		command = input.Command
+	}
+
+	args := spec.Args
+	if len(args) == 0 {
+		args = input.Args
+	}
+
+	env := spec.Env
+	if len(env) == 0 {
+		env = input.Env
+	}
+
+	envFile := spec.EnvFile
+	if envFile == "" {
+		envFile = input.EnvFile
+	}
+
+	workDir := spec.WorkDir
+	if workDir == "" {
+		workDir = input.WorkDir
+	}
+
+	log.Printf("Executing command: %s %v (workDir: %s)", command, args, workDir)
 
 	// Validate required fields
-	if input.Command == "" {
+	if command == "" {
 		return nil, fmt.Errorf("command is required")
 	}
 
 	// Process templated arguments
-	processedArgs, err := processTemplatedArgs(input.Args, input)
+	processedArgs, err := processTemplatedArgs(args, input)
 	if err != nil {
 		return nil, fmt.Errorf("template processing failed: %w", err)
 	}
 
-	// Convert BuildInput to ExecuteInput
+	// Convert to ExecuteInput
 	execInput := ExecuteInput{
-		Command: input.Command,
+		Command: command,
 		Args:    processedArgs,
-		Env:     input.Env,
-		EnvFile: input.EnvFile,
-		WorkDir: input.WorkDir,
+		Env:     env,
+		EnvFile: envFile,
+		WorkDir: workDir,
 	}
 
 	// Execute command
@@ -110,7 +118,7 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 	}
 
 	// Determine location (use WorkDir if specified, otherwise Src or ".")
-	location := input.WorkDir
+	location := workDir
 	if location == "" {
 		location = input.Src
 	}
@@ -124,7 +132,7 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 		Type:      "command-output",
 		Location:  location,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		Version:   fmt.Sprintf("%s-exit%d", input.Command, output.ExitCode),
+		Version:   fmt.Sprintf("%s-exit%d", command, output.ExitCode),
 	}
 
 	return artifact, nil

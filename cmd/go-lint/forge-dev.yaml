@@ -1,0 +1,8 @@
+name: go-lint
+type: test-runner
+version: 0.15.0
+description: Run golangci-lint for Go code linting
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main

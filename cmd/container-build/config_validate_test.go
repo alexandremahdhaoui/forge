@@ -18,6 +18,9 @@ package main
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfigValidate_ValidSpec(t *testing.T) {
@@ -35,18 +38,14 @@ func TestConfigValidate_ValidSpec(t *testing.T) {
 		"registry": "docker.io/myrepo",
 	}
 
-	output := validateContainerBuildSpec(spec)
+	output := ValidateMap(spec)
 
-	if !output.Valid {
-		t.Errorf("validateContainerBuildSpec() valid = %v, want true", output.Valid)
-	}
-	if len(output.Errors) != 0 {
-		t.Errorf("validateContainerBuildSpec() errors = %v, want none", output.Errors)
-	}
+	assert.True(t, output.Valid)
+	assert.Empty(t, output.Errors)
 }
 
 func TestConfigValidate_EmptySpec(t *testing.T) {
-	// Empty spec should be valid
+	// Empty spec should be valid (no required fields)
 	tests := []struct {
 		name string
 		spec map[string]interface{}
@@ -63,14 +62,10 @@ func TestConfigValidate_EmptySpec(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := validateContainerBuildSpec(tt.spec)
+			output := ValidateMap(tt.spec)
 
-			if !output.Valid {
-				t.Errorf("validateContainerBuildSpec() valid = %v, want true", output.Valid)
-			}
-			if len(output.Errors) != 0 {
-				t.Errorf("validateContainerBuildSpec() errors = %v, want none", output.Errors)
-			}
+			assert.True(t, output.Valid)
+			assert.Empty(t, output.Errors)
 		})
 	}
 }
@@ -81,17 +76,12 @@ func TestConfigValidate_InvalidDockerfileType(t *testing.T) {
 		"dockerfile": 123,
 	}
 
-	output := validateContainerBuildSpec(spec)
+	output := ValidateMap(spec)
 
-	if output.Valid {
-		t.Errorf("validateContainerBuildSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 1 {
-		t.Fatalf("validateContainerBuildSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.dockerfile" {
-		t.Errorf("validateContainerBuildSpec() error field = %q, want %q", output.Errors[0].Field, "spec.dockerfile")
-	}
+	assert.False(t, output.Valid)
+	require.Len(t, output.Errors, 1)
+	assert.Equal(t, "spec", output.Errors[0].Field)
+	assert.Contains(t, output.Errors[0].Message, "expected string")
 }
 
 func TestConfigValidate_InvalidContextType(t *testing.T) {
@@ -100,17 +90,12 @@ func TestConfigValidate_InvalidContextType(t *testing.T) {
 		"context": true,
 	}
 
-	output := validateContainerBuildSpec(spec)
+	output := ValidateMap(spec)
 
-	if output.Valid {
-		t.Errorf("validateContainerBuildSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 1 {
-		t.Fatalf("validateContainerBuildSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.context" {
-		t.Errorf("validateContainerBuildSpec() error field = %q, want %q", output.Errors[0].Field, "spec.context")
-	}
+	assert.False(t, output.Valid)
+	require.Len(t, output.Errors, 1)
+	assert.Equal(t, "spec", output.Errors[0].Field)
+	assert.Contains(t, output.Errors[0].Message, "expected string")
 }
 
 func TestConfigValidate_InvalidBuildArgsType(t *testing.T) {
@@ -119,17 +104,12 @@ func TestConfigValidate_InvalidBuildArgsType(t *testing.T) {
 		"buildArgs": "invalid-not-a-map",
 	}
 
-	output := validateContainerBuildSpec(spec)
+	output := ValidateMap(spec)
 
-	if output.Valid {
-		t.Errorf("validateContainerBuildSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 1 {
-		t.Fatalf("validateContainerBuildSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.buildArgs" {
-		t.Errorf("validateContainerBuildSpec() error field = %q, want %q", output.Errors[0].Field, "spec.buildArgs")
-	}
+	assert.False(t, output.Valid)
+	require.Len(t, output.Errors, 1)
+	assert.Equal(t, "spec", output.Errors[0].Field)
+	assert.Contains(t, output.Errors[0].Message, "expected map[string]string")
 }
 
 func TestConfigValidate_InvalidBuildArgsValue(t *testing.T) {
@@ -141,17 +121,12 @@ func TestConfigValidate_InvalidBuildArgsValue(t *testing.T) {
 		},
 	}
 
-	output := validateContainerBuildSpec(spec)
+	output := ValidateMap(spec)
 
-	if output.Valid {
-		t.Errorf("validateContainerBuildSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 1 {
-		t.Fatalf("validateContainerBuildSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.buildArgs.COUNT" {
-		t.Errorf("validateContainerBuildSpec() error field = %q, want %q", output.Errors[0].Field, "spec.buildArgs.COUNT")
-	}
+	assert.False(t, output.Valid)
+	require.Len(t, output.Errors, 1)
+	assert.Equal(t, "spec", output.Errors[0].Field)
+	assert.Contains(t, output.Errors[0].Message, "expected string")
 }
 
 func TestConfigValidate_InvalidTagsType(t *testing.T) {
@@ -160,17 +135,12 @@ func TestConfigValidate_InvalidTagsType(t *testing.T) {
 		"tags": "invalid-not-an-array",
 	}
 
-	output := validateContainerBuildSpec(spec)
+	output := ValidateMap(spec)
 
-	if output.Valid {
-		t.Errorf("validateContainerBuildSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 1 {
-		t.Fatalf("validateContainerBuildSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.tags" {
-		t.Errorf("validateContainerBuildSpec() error field = %q, want %q", output.Errors[0].Field, "spec.tags")
-	}
+	assert.False(t, output.Valid)
+	require.Len(t, output.Errors, 1)
+	assert.Equal(t, "spec", output.Errors[0].Field)
+	assert.Contains(t, output.Errors[0].Message, "expected []string")
 }
 
 func TestConfigValidate_InvalidTagsElement(t *testing.T) {
@@ -179,17 +149,12 @@ func TestConfigValidate_InvalidTagsElement(t *testing.T) {
 		"tags": []interface{}{"myimage:latest", 123, "myimage:v1"},
 	}
 
-	output := validateContainerBuildSpec(spec)
+	output := ValidateMap(spec)
 
-	if output.Valid {
-		t.Errorf("validateContainerBuildSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 1 {
-		t.Fatalf("validateContainerBuildSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.tags[1]" {
-		t.Errorf("validateContainerBuildSpec() error field = %q, want %q", output.Errors[0].Field, "spec.tags[1]")
-	}
+	assert.False(t, output.Valid)
+	require.Len(t, output.Errors, 1)
+	assert.Equal(t, "spec", output.Errors[0].Field)
+	assert.Contains(t, output.Errors[0].Message, "expected string")
 }
 
 func TestConfigValidate_InvalidTargetType(t *testing.T) {
@@ -198,17 +163,12 @@ func TestConfigValidate_InvalidTargetType(t *testing.T) {
 		"target": 456,
 	}
 
-	output := validateContainerBuildSpec(spec)
+	output := ValidateMap(spec)
 
-	if output.Valid {
-		t.Errorf("validateContainerBuildSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 1 {
-		t.Fatalf("validateContainerBuildSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.target" {
-		t.Errorf("validateContainerBuildSpec() error field = %q, want %q", output.Errors[0].Field, "spec.target")
-	}
+	assert.False(t, output.Valid)
+	require.Len(t, output.Errors, 1)
+	assert.Equal(t, "spec", output.Errors[0].Field)
+	assert.Contains(t, output.Errors[0].Message, "expected string")
 }
 
 func TestConfigValidate_InvalidPushType(t *testing.T) {
@@ -217,17 +177,12 @@ func TestConfigValidate_InvalidPushType(t *testing.T) {
 		"push": "yes",
 	}
 
-	output := validateContainerBuildSpec(spec)
+	output := ValidateMap(spec)
 
-	if output.Valid {
-		t.Errorf("validateContainerBuildSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 1 {
-		t.Fatalf("validateContainerBuildSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.push" {
-		t.Errorf("validateContainerBuildSpec() error field = %q, want %q", output.Errors[0].Field, "spec.push")
-	}
+	assert.False(t, output.Valid)
+	require.Len(t, output.Errors, 1)
+	assert.Equal(t, "spec", output.Errors[0].Field)
+	assert.Contains(t, output.Errors[0].Message, "expected bool")
 }
 
 func TestConfigValidate_InvalidRegistryType(t *testing.T) {
@@ -236,35 +191,12 @@ func TestConfigValidate_InvalidRegistryType(t *testing.T) {
 		"registry": []interface{}{"docker.io", "ghcr.io"},
 	}
 
-	output := validateContainerBuildSpec(spec)
+	output := ValidateMap(spec)
 
-	if output.Valid {
-		t.Errorf("validateContainerBuildSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 1 {
-		t.Fatalf("validateContainerBuildSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.registry" {
-		t.Errorf("validateContainerBuildSpec() error field = %q, want %q", output.Errors[0].Field, "spec.registry")
-	}
-}
-
-func TestConfigValidate_MultipleErrors(t *testing.T) {
-	// Multiple fields with invalid types
-	spec := map[string]interface{}{
-		"dockerfile": 123,            // invalid: number instead of string
-		"buildArgs":  "not-a-map",    // invalid: string instead of map
-		"tags":       "not-an-array", // invalid: string instead of array
-	}
-
-	output := validateContainerBuildSpec(spec)
-
-	if output.Valid {
-		t.Errorf("validateContainerBuildSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 3 {
-		t.Errorf("validateContainerBuildSpec() errors count = %d, want 3", len(output.Errors))
-	}
+	assert.False(t, output.Valid)
+	require.Len(t, output.Errors, 1)
+	assert.Equal(t, "spec", output.Errors[0].Field)
+	assert.Contains(t, output.Errors[0].Message, "expected string")
 }
 
 func TestConfigValidate_PartialValidSpec(t *testing.T) {
@@ -309,14 +241,59 @@ func TestConfigValidate_PartialValidSpec(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := validateContainerBuildSpec(tt.spec)
+			output := ValidateMap(tt.spec)
 
-			if !output.Valid {
-				t.Errorf("validateContainerBuildSpec() valid = %v, want true, errors: %v", output.Valid, output.Errors)
-			}
-			if len(output.Errors) != 0 {
-				t.Errorf("validateContainerBuildSpec() errors = %v, want none", output.Errors)
-			}
+			assert.True(t, output.Valid)
+			assert.Empty(t, output.Errors)
 		})
 	}
+}
+
+// TestFromMap tests that FromMap correctly parses a valid spec
+func TestFromMap_Valid(t *testing.T) {
+	spec := map[string]interface{}{
+		"dockerfile": "Dockerfile.custom",
+		"context":    "./build",
+		"buildArgs": map[string]interface{}{
+			"VERSION": "1.0.0",
+		},
+		"tags":     []interface{}{"myimage:latest"},
+		"target":   "production",
+		"push":     true,
+		"registry": "docker.io/myrepo",
+	}
+
+	s, err := FromMap(spec)
+	require.NoError(t, err)
+
+	assert.Equal(t, "Dockerfile.custom", s.Dockerfile)
+	assert.Equal(t, "./build", s.Context)
+	assert.Equal(t, map[string]string{"VERSION": "1.0.0"}, s.BuildArgs)
+	assert.Equal(t, []string{"myimage:latest"}, s.Tags)
+	assert.Equal(t, "production", s.Target)
+	assert.True(t, s.Push)
+	assert.Equal(t, "docker.io/myrepo", s.Registry)
+}
+
+// TestToMap tests that ToMap correctly serializes a Spec
+func TestToMap(t *testing.T) {
+	s := &Spec{
+		Dockerfile: "Dockerfile",
+		Context:    ".",
+		BuildArgs:  map[string]string{"VERSION": "1.0.0"},
+		Tags:       []string{"myimage:latest"},
+		Target:     "builder",
+		Push:       true,
+		Registry:   "docker.io",
+	}
+
+	m := s.ToMap()
+
+	assert.Equal(t, "Dockerfile", m["dockerfile"])
+	assert.Equal(t, ".", m["context"])
+	assert.Equal(t, map[string]string{"VERSION": "1.0.0"}, m["buildArgs"])
+	assert.Equal(t, []string{"myimage:latest"}, m["tags"])
+	assert.Equal(t, "builder", m["target"])
+	assert.Equal(t, true, m["push"])
+	assert.Equal(t, "docker.io", m["registry"])
 }

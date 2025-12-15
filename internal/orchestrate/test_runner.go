@@ -68,21 +68,26 @@ func (o *TestRunnerOrchestrator) Orchestrate(
 			runnerParams[k] = v
 		}
 
-		// Inject runner-specific config from EngineSpec
+		// Inject runner-specific config from EngineSpec into nested "spec" map
+		// This is required because engines look for config in input.Spec, not top-level fields
+		specMap := make(map[string]any)
 		if runnerSpec.Spec.Command != "" {
-			runnerParams["command"] = runnerSpec.Spec.Command
+			specMap["command"] = runnerSpec.Spec.Command
 		}
 		if len(runnerSpec.Spec.Args) > 0 {
-			runnerParams["args"] = runnerSpec.Spec.Args
+			specMap["args"] = runnerSpec.Spec.Args
 		}
 		if len(runnerSpec.Spec.Env) > 0 {
-			runnerParams["env"] = runnerSpec.Spec.Env
+			specMap["env"] = runnerSpec.Spec.Env
 		}
 		if runnerSpec.Spec.EnvFile != "" {
-			runnerParams["envFile"] = runnerSpec.Spec.EnvFile
+			specMap["envFile"] = runnerSpec.Spec.EnvFile
 		}
 		if runnerSpec.Spec.WorkDir != "" {
-			runnerParams["workDir"] = runnerSpec.Spec.WorkDir
+			specMap["workDir"] = runnerSpec.Spec.WorkDir
+		}
+		if len(specMap) > 0 {
+			runnerParams["spec"] = specMap
 		}
 
 		// Call test runner

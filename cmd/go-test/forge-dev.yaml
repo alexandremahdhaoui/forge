@@ -1,0 +1,8 @@
+name: go-test
+type: test-runner
+version: 0.15.0
+description: Go test runner with coverage and JUnit reporting
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main

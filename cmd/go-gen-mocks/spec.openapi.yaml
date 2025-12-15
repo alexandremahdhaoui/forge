@@ -1,0 +1,18 @@
+openapi: 3.0.3
+info:
+  title: go-gen-mocks Spec Schema
+  version: 0.15.0
+  description: Configuration schema for go-gen-mocks builder
+
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for go-gen-mocks. Uses mockery for mock generation.
+      properties:
+        mocksDir:
+          type: string
+          description: Directory where mocks should be generated (default from MOCKS_DIR env)
+        mockeryVersion:
+          type: string
+          description: Version of mockery to use (default v3.5.5)

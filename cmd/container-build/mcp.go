@@ -19,26 +19,17 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"github.com/caarlos0/env/v11"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the container-build MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New(Name, Version)
-
-	config := engineframework.BuilderConfig{
-		Name:      Name,
-		Version:   Version,
-		BuildFunc: build,
-	}
-
-	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+	server, err := SetupMCPServer(Name, Version, build)
+	if err != nil {
 		return err
 	}
 
@@ -46,18 +37,17 @@ func runMCPServer() error {
 		return err
 	}
 
-	// Register config-validate tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate container-build engine configuration",
-	}, handleConfigValidate)
-
 	return server.RunDefault()
 }
 
-// build implements the BuilderFunc for building container images
-func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, error) {
+// build implements the BuildFunc for building container images
+func build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.Artifact, error) {
 	log.Printf("Building container: %s from %s", input.Name, input.Src)
+
+	// Note: spec contains typed fields like Dockerfile, Context, BuildArgs, Tags, Target, Push, Registry
+	// These can be used in future iterations to enhance build functionality
+	// For now, the build uses input.Src as the Dockerfile path and input.Spec for dependsOn parsing
+	_ = spec // TODO: Use spec fields for enhanced build configuration
 
 	// Parse environment variables (CONTAINER_BUILD_ENGINE is required)
 	envs := Envs{} //nolint:exhaustruct
@@ -71,7 +61,7 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 	}
 
 	// Create BuildSpec from input (include Spec for dependsOn support)
-	spec := forge.BuildSpec{
+	buildSpec := forge.BuildSpec{
 		Name:   input.Name,
 		Src:    input.Src,
 		Dest:   input.Dest,
@@ -87,7 +77,7 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 
 	// Build the container (isMCPMode=true)
 	var store forge.ArtifactStore
-	if err := buildContainer(envs, spec, version, "", &store, true); err != nil {
+	if err := buildContainer(envs, buildSpec, version, "", &store, true); err != nil {
 		return nil, err
 	}
 

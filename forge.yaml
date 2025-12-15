@@ -314,6 +314,12 @@ build:
     src: ./cmd/go-gen-openapi-dep-detector
     dest: ./build/bin
     engine: go://go-build
+  - name: forge-dev
+    src: ./cmd/forge-dev
+    dest: ./build/bin
+    engine: go://go-build
+    spec:
+      ldflags: "-X main.Version={{.GitVersion}}"
 
   # Mock generation
   - name: generated-mocks

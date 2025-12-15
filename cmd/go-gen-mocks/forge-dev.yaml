@@ -1,0 +1,10 @@
+# forge-dev configuration for go-gen-mocks
+name: go-gen-mocks
+type: builder
+version: 0.15.0
+
+openapi:
+  specPath: ./spec.openapi.yaml
+
+generate:
+  packageName: main

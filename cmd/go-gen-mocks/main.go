@@ -22,13 +22,11 @@ import (
 	"os/exec"
 
 	"github.com/alexandremahdhaoui/forge/internal/cli"
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/internal/version"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const Name = "go-gen-mocks"
@@ -60,15 +58,8 @@ func main() {
 }
 
 func runMCPServer() error {
-	server := mcpserver.New(Name, Version)
-
-	config := engineframework.BuilderConfig{
-		Name:      Name,
-		Version:   Version,
-		BuildFunc: build,
-	}
-
-	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+	server, err := SetupMCPServer(Name, Version, build)
+	if err != nil {
 		return err
 	}
 
@@ -76,17 +67,11 @@ func runMCPServer() error {
 		return err
 	}
 
-	// Register config-validate tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate go-gen-mocks configuration",
-	}, handleConfigValidate)
-
 	return server.RunDefault()
 }
 
 // build implements the BuilderFunc for generating Go mocks using mockery
-func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, error) {
+func build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.Artifact, error) {
 	log.Printf("Generating mocks")
 
 	// Get mocksDir from environment variable

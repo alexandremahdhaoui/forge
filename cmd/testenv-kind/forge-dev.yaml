@@ -1,0 +1,10 @@
+name: testenv-kind
+type: testenv-subengine
+version: 0.15.0
+description: Kind (Kubernetes IN Docker) cluster manager for test environments
+
+openapi:
+  specPath: ./spec.openapi.yaml
+
+generate:
+  packageName: main

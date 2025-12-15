@@ -318,7 +318,7 @@ func TestBuilderOrchestrator_ConfigInjection(t *testing.T) {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	// Verify config was injected into params
+	// Verify config was injected into params (inside nested "spec" map)
 	if len(mockMCP.calls) != 1 {
 		t.Fatalf("Expected 1 call, got %d", len(mockMCP.calls))
 	}
@@ -326,8 +326,13 @@ func TestBuilderOrchestrator_ConfigInjection(t *testing.T) {
 	if !ok {
 		t.Fatal("Expected params to be map[string]any")
 	}
-	if params["command"] != "custom-command" {
-		t.Errorf("Expected command to be injected, got: %v", params["command"])
+	// Config is now injected into nested "spec" map
+	specMap, ok := params["spec"].(map[string]any)
+	if !ok {
+		t.Fatal("Expected spec to be map[string]any")
+	}
+	if specMap["command"] != "custom-command" {
+		t.Errorf("Expected command to be injected in spec, got: %v", specMap["command"])
 	}
 	if params["tmpDir"] != "/tmp" {
 		t.Errorf("Expected tmpDir to be injected, got: %v", params["tmpDir"])

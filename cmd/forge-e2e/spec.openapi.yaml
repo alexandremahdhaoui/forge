@@ -1,0 +1,18 @@
+openapi: 3.0.3
+info:
+  title: forge-e2e Spec Schema
+  version: 0.15.0
+  description: Configuration schema for forge-e2e test runner
+
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for forge-e2e test runner.
+      properties:
+        category:
+          type: string
+          description: Filter tests by category (build, testenv, test-runner, prompt, system, error, cleanup, mcp, performance, artifact-store)
+        namePattern:
+          type: string
+          description: Filter tests by name pattern (case-insensitive substring match)

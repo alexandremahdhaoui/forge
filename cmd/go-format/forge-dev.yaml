@@ -1,0 +1,8 @@
+name: go-format
+type: builder
+version: 0.15.0
+description: Format Go code using gofumpt
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main

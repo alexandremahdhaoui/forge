@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info:
+  title: go-lint Spec Schema
+  version: 0.15.0
+  description: >
+    Schema for the go-lint engine spec.
+    The go-lint engine runs golangci-lint for Go code linting.
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for go-lint engine
+      properties:
+        config:
+          type: string
+          description: Path to golangci-lint config file (optional)
+        args:
+          type: array
+          items:
+            type: string
+          description: Additional arguments to pass to golangci-lint (optional)

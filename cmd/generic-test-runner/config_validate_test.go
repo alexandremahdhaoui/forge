@@ -34,7 +34,7 @@ func TestConfigValidate_ValidSpec(t *testing.T) {
 		"envFile": ".env",
 	}
 
-	output := validateGenericTestRunnerSpec(spec)
+	output := ValidateMap(spec)
 
 	assert.True(t, output.Valid)
 	assert.Empty(t, output.Errors)
@@ -45,7 +45,7 @@ func TestConfigValidate_MissingCommand(t *testing.T) {
 		"args": []interface{}{"hello"},
 	}
 
-	output := validateGenericTestRunnerSpec(spec)
+	output := ValidateMap(spec)
 
 	assert.False(t, output.Valid)
 	require.Len(t, output.Errors, 1)
@@ -58,12 +58,12 @@ func TestConfigValidate_EmptyCommand(t *testing.T) {
 		"command": "",
 	}
 
-	output := validateGenericTestRunnerSpec(spec)
+	output := ValidateMap(spec)
 
 	assert.False(t, output.Valid)
 	require.Len(t, output.Errors, 1)
 	assert.Equal(t, "spec.command", output.Errors[0].Field)
-	assert.Equal(t, "required field cannot be empty", output.Errors[0].Message)
+	assert.Equal(t, "required field is missing", output.Errors[0].Message)
 }
 
 func TestConfigValidate_InvalidArgsType(t *testing.T) {
@@ -72,11 +72,11 @@ func TestConfigValidate_InvalidArgsType(t *testing.T) {
 		"args":    "not-an-array",
 	}
 
-	output := validateGenericTestRunnerSpec(spec)
+	output := ValidateMap(spec)
 
 	assert.False(t, output.Valid)
 	require.Len(t, output.Errors, 1)
-	assert.Equal(t, "spec.args", output.Errors[0].Field)
+	assert.Equal(t, "spec", output.Errors[0].Field)
 	assert.Contains(t, output.Errors[0].Message, "expected []string")
 }
 
@@ -86,11 +86,11 @@ func TestConfigValidate_InvalidEnvType(t *testing.T) {
 		"env":     "not-a-map",
 	}
 
-	output := validateGenericTestRunnerSpec(spec)
+	output := ValidateMap(spec)
 
 	assert.False(t, output.Valid)
 	require.Len(t, output.Errors, 1)
-	assert.Equal(t, "spec.env", output.Errors[0].Field)
+	assert.Equal(t, "spec", output.Errors[0].Field)
 	assert.Contains(t, output.Errors[0].Message, "expected map[string]string")
 }
 
@@ -100,11 +100,11 @@ func TestConfigValidate_InvalidWorkDirType(t *testing.T) {
 		"workDir": 123,
 	}
 
-	output := validateGenericTestRunnerSpec(spec)
+	output := ValidateMap(spec)
 
 	assert.False(t, output.Valid)
 	require.Len(t, output.Errors, 1)
-	assert.Equal(t, "spec.workDir", output.Errors[0].Field)
+	assert.Equal(t, "spec", output.Errors[0].Field)
 	assert.Contains(t, output.Errors[0].Message, "expected string")
 }
 
@@ -114,17 +114,19 @@ func TestConfigValidate_InvalidEnvFileType(t *testing.T) {
 		"envFile": true,
 	}
 
-	output := validateGenericTestRunnerSpec(spec)
+	output := ValidateMap(spec)
 
 	assert.False(t, output.Valid)
 	require.Len(t, output.Errors, 1)
-	assert.Equal(t, "spec.envFile", output.Errors[0].Field)
+	assert.Equal(t, "spec", output.Errors[0].Field)
 	assert.Contains(t, output.Errors[0].Message, "expected string")
 }
 
 func TestConfigValidate_NilSpec(t *testing.T) {
-	output := validateGenericTestRunnerSpec(nil)
+	output := ValidateMap(nil)
 
+	// With generated code, nil spec parses to empty Spec, which then fails
+	// validation because 'command' is required
 	assert.False(t, output.Valid)
 	require.Len(t, output.Errors, 1)
 	assert.Equal(t, "spec.command", output.Errors[0].Field)
@@ -134,7 +136,7 @@ func TestConfigValidate_NilSpec(t *testing.T) {
 func TestConfigValidate_EmptySpec(t *testing.T) {
 	spec := map[string]interface{}{}
 
-	output := validateGenericTestRunnerSpec(spec)
+	output := ValidateMap(spec)
 
 	assert.False(t, output.Valid)
 	require.Len(t, output.Errors, 1)
@@ -147,7 +149,7 @@ func TestConfigValidate_MinimalValidSpec(t *testing.T) {
 		"command": "ls",
 	}
 
-	output := validateGenericTestRunnerSpec(spec)
+	output := ValidateMap(spec)
 
 	assert.True(t, output.Valid)
 	assert.Empty(t, output.Errors)
@@ -159,11 +161,11 @@ func TestConfigValidate_InvalidArgsElementType(t *testing.T) {
 		"args":    []interface{}{"hello", 123},
 	}
 
-	output := validateGenericTestRunnerSpec(spec)
+	output := ValidateMap(spec)
 
 	assert.False(t, output.Valid)
 	require.Len(t, output.Errors, 1)
-	assert.Equal(t, "spec.args[1]", output.Errors[0].Field)
+	assert.Equal(t, "spec", output.Errors[0].Field)
 	assert.Contains(t, output.Errors[0].Message, "expected string")
 }
 
@@ -175,23 +177,51 @@ func TestConfigValidate_InvalidEnvValueType(t *testing.T) {
 		},
 	}
 
-	output := validateGenericTestRunnerSpec(spec)
+	output := ValidateMap(spec)
 
 	assert.False(t, output.Valid)
 	require.Len(t, output.Errors, 1)
-	assert.Equal(t, "spec.env.FOO", output.Errors[0].Field)
-	assert.Contains(t, output.Errors[0].Message, "expected string value")
+	assert.Equal(t, "spec", output.Errors[0].Field)
+	assert.Contains(t, output.Errors[0].Message, "expected string")
 }
 
-func TestConfigValidate_MultipleErrors(t *testing.T) {
+// TestFromMap_Valid tests that FromMap correctly parses a valid spec
+func TestFromMap_Valid(t *testing.T) {
 	spec := map[string]interface{}{
-		// command is missing
-		"args":    "not-an-array",
-		"workDir": 123,
+		"command": "echo",
+		"args":    []interface{}{"hello", "world"},
+		"env": map[string]interface{}{
+			"FOO": "bar",
+		},
+		"workDir": "/tmp",
+		"envFile": ".env",
 	}
 
-	output := validateGenericTestRunnerSpec(spec)
+	s, err := FromMap(spec)
+	require.NoError(t, err)
 
-	assert.False(t, output.Valid)
-	assert.Len(t, output.Errors, 3) // missing command, invalid args, invalid workDir
+	assert.Equal(t, "echo", s.Command)
+	assert.Equal(t, []string{"hello", "world"}, s.Args)
+	assert.Equal(t, map[string]string{"FOO": "bar"}, s.Env)
+	assert.Equal(t, "/tmp", s.WorkDir)
+	assert.Equal(t, ".env", s.EnvFile)
+}
+
+// TestToMap tests that ToMap correctly serializes a Spec
+func TestToMap(t *testing.T) {
+	s := &Spec{
+		Command: "echo",
+		Args:    []string{"hello"},
+		Env:     map[string]string{"FOO": "bar"},
+		WorkDir: "/tmp",
+		EnvFile: ".env",
+	}
+
+	m := s.ToMap()
+
+	assert.Equal(t, "echo", m["command"])
+	assert.Equal(t, []string{"hello"}, m["args"])
+	assert.Equal(t, map[string]string{"FOO": "bar"}, m["env"])
+	assert.Equal(t, "/tmp", m["workDir"])
+	assert.Equal(t, ".env", m["envFile"])
 }

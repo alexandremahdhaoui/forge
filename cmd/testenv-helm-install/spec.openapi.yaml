@@ -1,0 +1,16 @@
+openapi: 3.0.3
+info:
+  title: testenv-helm-install Spec Schema
+  version: 0.15.0
+  description: Configuration schema for testenv-helm-install test environment subengine
+
+components:
+  schemas:
+    Spec:
+      type: object
+      description: |
+        Configuration for testenv-helm-install.
+        The charts array contains ChartSpec objects that are parsed separately.
+        This Spec only captures top-level configuration options.
+      properties: {}
+      additionalProperties: true

@@ -22,25 +22,16 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the go-build MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New(Name, Version)
-
-	config := engineframework.BuilderConfig{
-		Name:      Name,
-		Version:   Version,
-		BuildFunc: build,
-	}
-
-	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+	server, err := SetupMCPServer(Name, Version, build)
+	if err != nil {
 		return err
 	}
 
@@ -48,21 +39,23 @@ func runMCPServer() error {
 		return err
 	}
 
-	// Register config-validate tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate go-build configuration",
-	}, handleConfigValidate)
-
 	return server.RunDefault()
 }
 
-// build implements the BuilderFunc for building Go binaries
-func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, error) {
+// build implements the BuildFunc for building Go binaries
+func build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.Artifact, error) {
 	log.Printf("Building binary: %s from %s", input.Name, input.Src)
 
-	// Extract build options from input
-	opts := extractBuildOptionsFromInput(input)
+	// Use spec values for custom args and env, falling back to input values
+	customArgs := spec.Args
+	if len(customArgs) == 0 {
+		customArgs = input.Args
+	}
+
+	customEnv := spec.Env
+	if len(customEnv) == 0 {
+		customEnv = input.Env
+	}
 
 	// Determine destination directory
 	dest := input.Dest
@@ -83,11 +76,9 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 	}
 
 	// Apply custom environment variables if provided
-	if opts != nil && len(opts.CustomEnv) > 0 {
-		for key, value := range opts.CustomEnv {
-			if err := os.Setenv(key, value); err != nil {
-				return nil, fmt.Errorf("failed to set environment variable %s: %w", key, err)
-			}
+	for key, value := range customEnv {
+		if err := os.Setenv(key, value); err != nil {
+			return nil, fmt.Errorf("failed to set environment variable %s: %w", key, err)
 		}
 	}
 
@@ -103,9 +94,7 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 	}
 
 	// Add custom args if provided
-	if opts != nil && len(opts.CustomArgs) > 0 {
-		args = append(args, opts.CustomArgs...)
-	}
+	args = append(args, customArgs...)
 
 	// Add source path
 	args = append(args, input.Src)
@@ -137,54 +126,4 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 	fmt.Fprintf(os.Stderr, "✅ Built binary: %s (version: %s)\n", input.Name, artifact.Version)
 
 	return artifact, nil
-}
-
-// extractBuildOptionsFromInput extracts BuildOptions from BuildInput fields.
-// It first checks the Spec field (from forge.yaml BuildSpec.Spec), then falls back to direct Args/Env fields.
-// Direct Args/Env fields take precedence over Spec if both are present.
-func extractBuildOptionsFromInput(input mcptypes.BuildInput) *BuildOptions {
-	opts := &BuildOptions{}
-
-	// First, try to extract from Spec field (from BuildSpec.Spec in forge.yaml)
-	if len(input.Spec) > 0 {
-		// Extract args from spec
-		if argsVal, ok := input.Spec["args"]; ok {
-			if args, ok := argsVal.([]interface{}); ok {
-				opts.CustomArgs = make([]string, 0, len(args))
-				for _, arg := range args {
-					if argStr, ok := arg.(string); ok {
-						opts.CustomArgs = append(opts.CustomArgs, argStr)
-					}
-				}
-			}
-		}
-
-		// Extract env from spec
-		if envVal, ok := input.Spec["env"]; ok {
-			if env, ok := envVal.(map[string]interface{}); ok {
-				opts.CustomEnv = make(map[string]string, len(env))
-				for key, val := range env {
-					if valStr, ok := val.(string); ok {
-						opts.CustomEnv[key] = valStr
-					}
-				}
-			}
-		}
-	}
-
-	// Direct Args/Env fields take precedence over Spec
-	if len(input.Args) > 0 {
-		opts.CustomArgs = input.Args
-	}
-
-	if len(input.Env) > 0 {
-		opts.CustomEnv = input.Env
-	}
-
-	// Return nil if no options were extracted
-	if len(opts.CustomArgs) == 0 && len(opts.CustomEnv) == 0 {
-		return nil
-	}
-
-	return opts
 }

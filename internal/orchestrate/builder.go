@@ -79,21 +79,26 @@ func (o *BuilderOrchestrator) Orchestrate(
 				clonedSpec[k] = v
 			}
 
-			// Inject builder-specific config from EngineSpec
+			// Inject builder-specific config from EngineSpec into nested "spec" map
+			// This is required because engines look for config in input.Spec, not top-level fields
+			specMap := make(map[string]any)
 			if builderSpec.Spec.Command != "" {
-				clonedSpec["command"] = builderSpec.Spec.Command
+				specMap["command"] = builderSpec.Spec.Command
 			}
 			if len(builderSpec.Spec.Args) > 0 {
-				clonedSpec["args"] = builderSpec.Spec.Args
+				specMap["args"] = builderSpec.Spec.Args
 			}
 			if len(builderSpec.Spec.Env) > 0 {
-				clonedSpec["env"] = builderSpec.Spec.Env
+				specMap["env"] = builderSpec.Spec.Env
 			}
 			if builderSpec.Spec.EnvFile != "" {
-				clonedSpec["envFile"] = builderSpec.Spec.EnvFile
+				specMap["envFile"] = builderSpec.Spec.EnvFile
 			}
 			if builderSpec.Spec.WorkDir != "" {
-				clonedSpec["workDir"] = builderSpec.Spec.WorkDir
+				specMap["workDir"] = builderSpec.Spec.WorkDir
+			}
+			if len(specMap) > 0 {
+				clonedSpec["spec"] = specMap
 			}
 
 			specsForBuilder[j] = clonedSpec

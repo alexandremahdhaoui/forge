@@ -21,26 +21,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/internal/version"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the go-gen-openapi MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New(Name, Version)
-
-	config := engineframework.BuilderConfig{
-		Name:      Name,
-		Version:   Version,
-		BuildFunc: build,
-	}
-
-	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+	server, err := SetupMCPServer(Name, Version, build)
+	if err != nil {
 		return err
 	}
 
@@ -48,17 +39,11 @@ func runMCPServer() error {
 		return err
 	}
 
-	// Register config-validate tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate go-gen-openapi configuration",
-	}, handleConfigValidate)
-
 	return server.RunDefault()
 }
 
 // build implements the BuilderFunc for generating OpenAPI client and server code
-func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, error) {
+func build(ctx context.Context, input mcptypes.BuildInput, _ *Spec) (*forge.Artifact, error) {
 	log.Printf("Generating OpenAPI code for: %s", input.Name)
 
 	// Extract OpenAPI config from BuildInput.Spec

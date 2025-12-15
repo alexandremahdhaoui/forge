@@ -52,3 +52,7 @@ tmp/
 /go-lint-licenses
 /go-lint-tags
 /test-report
+/forge-dev
+/generic-builder
+/go-format
+

@@ -20,33 +20,17 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the testenv-kind MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New("testenv-kind", Version)
-
-	config := engineframework.TestEnvSubengineConfig{
-		Name:       "testenv-kind",
-		Version:    Version,
-		CreateFunc: createKindCluster,
-		DeleteFunc: deleteKindCluster,
-	}
-
-	if err := engineframework.RegisterTestEnvSubengineTools(server, config); err != nil {
+	server, err := SetupMCPServer(Name, Version, createKindCluster, deleteKindCluster)
+	if err != nil {
 		return err
 	}
-
-	// Register config-validate tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate testenv-kind configuration",
-	}, handleConfigValidate)
 
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
@@ -56,7 +40,7 @@ func runMCPServer() error {
 }
 
 // createKindCluster implements the CreateFunc for creating kind clusters.
-func createKindCluster(ctx context.Context, input engineframework.CreateInput) (*engineframework.TestEnvArtifact, error) {
+func createKindCluster(ctx context.Context, input engineframework.CreateInput, spec *Spec) (*engineframework.TestEnvArtifact, error) {
 	log.Printf("Creating kind cluster: testID=%s, stage=%s", input.TestID, input.Stage)
 
 	// RootDir is available via input.RootDir for resolving relative paths
@@ -118,7 +102,7 @@ func createKindCluster(ctx context.Context, input engineframework.CreateInput) (
 }
 
 // deleteKindCluster implements the DeleteFunc for deleting kind clusters.
-func deleteKindCluster(ctx context.Context, input engineframework.DeleteInput) error {
+func deleteKindCluster(ctx context.Context, input engineframework.DeleteInput, _ *Spec) error {
 	log.Printf("Deleting kind cluster: testID=%s", input.TestID)
 
 	// Read forge.yaml configuration

@@ -1,0 +1,23 @@
+openapi: 3.0.3
+info:
+  title: go-build Spec Schema
+  version: 0.15.0
+  description: >
+    Schema for the go-build engine spec.
+    The go-build engine builds Go binaries with git versioning.
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for go-build engine
+      properties:
+        args:
+          type: array
+          items:
+            type: string
+          description: Additional arguments to pass to go build (optional)
+        env:
+          type: object
+          additionalProperties:
+            type: string
+          description: Environment variables to set for the build (optional)

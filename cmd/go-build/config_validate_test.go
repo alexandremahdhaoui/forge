@@ -18,6 +18,9 @@ package main
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfigValidate_ValidSpec(t *testing.T) {
@@ -30,18 +33,14 @@ func TestConfigValidate_ValidSpec(t *testing.T) {
 		},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
-	if !output.Valid {
-		t.Errorf("validateSpec() valid = %v, want true", output.Valid)
-	}
-	if len(output.Errors) != 0 {
-		t.Errorf("validateSpec() errors = %v, want none", output.Errors)
-	}
+	assert.True(t, output.Valid)
+	assert.Empty(t, output.Errors)
 }
 
 func TestConfigValidate_EmptySpec(t *testing.T) {
-	// Empty spec should be valid
+	// Empty spec should be valid (no required fields)
 	tests := []struct {
 		name string
 		spec map[string]interface{}
@@ -58,14 +57,10 @@ func TestConfigValidate_EmptySpec(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := validateSpec(tt.spec)
+			output := ValidateMap(tt.spec)
 
-			if !output.Valid {
-				t.Errorf("validateSpec() valid = %v, want true", output.Valid)
-			}
-			if len(output.Errors) != 0 {
-				t.Errorf("validateSpec() errors = %v, want none", output.Errors)
-			}
+			assert.True(t, output.Valid)
+			assert.Empty(t, output.Errors)
 		})
 	}
 }
@@ -76,17 +71,12 @@ func TestConfigValidate_InvalidArgsType(t *testing.T) {
 		"args": "invalid-not-an-array",
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
-	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.args" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.args")
-	}
+	assert.False(t, output.Valid)
+	require.Len(t, output.Errors, 1)
+	assert.Equal(t, "spec", output.Errors[0].Field)
+	assert.Contains(t, output.Errors[0].Message, "expected []string")
 }
 
 func TestConfigValidate_InvalidEnvType(t *testing.T) {
@@ -95,17 +85,12 @@ func TestConfigValidate_InvalidEnvType(t *testing.T) {
 		"env": "invalid-not-a-map",
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
-	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	if output.Errors[0].Field != "spec.env" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.env")
-	}
+	assert.False(t, output.Valid)
+	require.Len(t, output.Errors, 1)
+	assert.Equal(t, "spec", output.Errors[0].Field)
+	assert.Contains(t, output.Errors[0].Message, "expected map[string]string")
 }
 
 func TestConfigValidate_InvalidArgsElement(t *testing.T) {
@@ -114,18 +99,12 @@ func TestConfigValidate_InvalidArgsElement(t *testing.T) {
 		"args": []interface{}{"-tags=netgo", 123, "-ldflags=-w"},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
-	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	// The error should point to the specific array index
-	if output.Errors[0].Field != "spec.args[1]" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.args[1]")
-	}
+	assert.False(t, output.Valid)
+	require.Len(t, output.Errors, 1)
+	assert.Equal(t, "spec", output.Errors[0].Field)
+	assert.Contains(t, output.Errors[0].Message, "expected string")
 }
 
 func TestConfigValidate_InvalidEnvValue(t *testing.T) {
@@ -137,35 +116,12 @@ func TestConfigValidate_InvalidEnvValue(t *testing.T) {
 		},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
-	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 1 {
-		t.Fatalf("validateSpec() errors count = %d, want 1", len(output.Errors))
-	}
-	// The error should point to the specific map key
-	if output.Errors[0].Field != "spec.env.GOARCH" {
-		t.Errorf("validateSpec() error field = %q, want %q", output.Errors[0].Field, "spec.env.GOARCH")
-	}
-}
-
-func TestConfigValidate_MultipleErrors(t *testing.T) {
-	// Both args and env are invalid
-	spec := map[string]interface{}{
-		"args": "invalid-not-an-array",
-		"env":  "invalid-not-a-map",
-	}
-
-	output := validateSpec(spec)
-
-	if output.Valid {
-		t.Errorf("validateSpec() valid = %v, want false", output.Valid)
-	}
-	if len(output.Errors) != 2 {
-		t.Errorf("validateSpec() errors count = %d, want 2", len(output.Errors))
-	}
+	assert.False(t, output.Valid)
+	require.Len(t, output.Errors, 1)
+	assert.Equal(t, "spec", output.Errors[0].Field)
+	assert.Contains(t, output.Errors[0].Message, "expected string")
 }
 
 func TestConfigValidate_ValidArgsOnly(t *testing.T) {
@@ -174,14 +130,10 @@ func TestConfigValidate_ValidArgsOnly(t *testing.T) {
 		"args": []interface{}{"-tags=netgo"},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
-	if !output.Valid {
-		t.Errorf("validateSpec() valid = %v, want true", output.Valid)
-	}
-	if len(output.Errors) != 0 {
-		t.Errorf("validateSpec() errors = %v, want none", output.Errors)
-	}
+	assert.True(t, output.Valid)
+	assert.Empty(t, output.Errors)
 }
 
 func TestConfigValidate_ValidEnvOnly(t *testing.T) {
@@ -192,12 +144,37 @@ func TestConfigValidate_ValidEnvOnly(t *testing.T) {
 		},
 	}
 
-	output := validateSpec(spec)
+	output := ValidateMap(spec)
 
-	if !output.Valid {
-		t.Errorf("validateSpec() valid = %v, want true", output.Valid)
+	assert.True(t, output.Valid)
+	assert.Empty(t, output.Errors)
+}
+
+// TestFromMap tests that FromMap correctly parses a valid spec
+func TestFromMap_Valid(t *testing.T) {
+	spec := map[string]interface{}{
+		"args": []interface{}{"-tags=netgo"},
+		"env": map[string]interface{}{
+			"GOOS": "linux",
+		},
 	}
-	if len(output.Errors) != 0 {
-		t.Errorf("validateSpec() errors = %v, want none", output.Errors)
+
+	s, err := FromMap(spec)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"-tags=netgo"}, s.Args)
+	assert.Equal(t, map[string]string{"GOOS": "linux"}, s.Env)
+}
+
+// TestToMap tests that ToMap correctly serializes a Spec
+func TestToMap(t *testing.T) {
+	s := &Spec{
+		Args: []string{"-tags=netgo"},
+		Env:  map[string]string{"GOOS": "linux"},
 	}
+
+	m := s.ToMap()
+
+	assert.Equal(t, []string{"-tags=netgo"}, m["args"])
+	assert.Equal(t, map[string]string{"GOOS": "linux"}, m["env"])
 }
