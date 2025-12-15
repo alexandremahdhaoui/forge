@@ -26,13 +26,13 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// handleConfigValidate handles the config-validate MCP tool call.
+// handleRecursiveConfigValidate handles the config-validate MCP tool call.
 // It performs recursive validation by:
 // 1. Validating own spec structure (runners array with engine and name fields)
 // 2. Semantic validation (primaryCoverageRunner must match a runner name if set)
 // 3. Spawning each sub-runner MCP process and calling config-validate
 // 4. Aggregating all results
-func handleConfigValidate(
+func handleRecursiveConfigValidate(
 	ctx context.Context,
 	req *mcp.CallToolRequest,
 	input mcptypes.ConfigValidateInput,

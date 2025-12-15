@@ -1,0 +1,11 @@
+openapi: 3.0.3
+info:
+  title: go-dependency-detector Spec Schema
+  version: 0.15.0
+  description: Configuration schema for go-dependency-detector
+
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for go-dependency-detector (no configuration fields)

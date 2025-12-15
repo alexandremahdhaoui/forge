@@ -327,6 +327,74 @@ build:
     dest: ./internal/util/mocks
     engine: go://go-gen-mocks
 
+  # Code generation (forge-dev)
+  - name: gen-container-build
+    src: ./cmd/container-build
+    engine: go://forge-dev
+  - name: gen-forge-e2e
+    src: ./cmd/forge-e2e
+    engine: go://forge-dev
+  - name: gen-generic-builder
+    src: ./cmd/generic-builder
+    engine: go://forge-dev
+  - name: gen-generic-test-runner
+    src: ./cmd/generic-test-runner
+    engine: go://forge-dev
+  - name: gen-go-build
+    src: ./cmd/go-build
+    engine: go://forge-dev
+  - name: gen-go-dependency-detector
+    src: ./cmd/go-dependency-detector
+    engine: go://forge-dev
+  - name: gen-go-format
+    src: ./cmd/go-format
+    engine: go://forge-dev
+  - name: gen-go-gen-bpf
+    src: ./cmd/go-gen-bpf
+    engine: go://forge-dev
+  - name: gen-go-gen-mocks
+    src: ./cmd/go-gen-mocks
+    engine: go://forge-dev
+  - name: gen-go-gen-mocks-dep-detector
+    src: ./cmd/go-gen-mocks-dep-detector
+    engine: go://forge-dev
+  - name: gen-go-gen-openapi
+    src: ./cmd/go-gen-openapi
+    engine: go://forge-dev
+  - name: gen-go-gen-openapi-dep-detector
+    src: ./cmd/go-gen-openapi-dep-detector
+    engine: go://forge-dev
+  - name: gen-go-gen-protobuf
+    src: ./cmd/go-gen-protobuf
+    engine: go://forge-dev
+  - name: gen-go-lint
+    src: ./cmd/go-lint
+    engine: go://forge-dev
+  - name: gen-go-lint-licenses
+    src: ./cmd/go-lint-licenses
+    engine: go://forge-dev
+  - name: gen-go-lint-tags
+    src: ./cmd/go-lint-tags
+    engine: go://forge-dev
+  - name: gen-go-test
+    src: ./cmd/go-test
+    engine: go://forge-dev
+  - name: gen-parallel-builder
+    src: ./cmd/parallel-builder
+    engine: go://forge-dev
+  - name: gen-parallel-test-runner
+    src: ./cmd/parallel-test-runner
+    engine: go://forge-dev
+  - name: gen-testenv-helm-install
+    src: ./cmd/testenv-helm-install
+    engine: go://forge-dev
+  - name: gen-testenv-kind
+    src: ./cmd/testenv-kind
+    engine: go://forge-dev
+  - name: gen-testenv-lcr
+    src: ./cmd/testenv-lcr
+    engine: go://forge-dev
+
   # Containers
   - name: for-testing-purposes
     src: ./containers/for-testing-purposes/Containerfile

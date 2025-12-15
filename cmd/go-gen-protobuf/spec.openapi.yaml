@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: go-gen-protobuf Spec Schema
+  version: 0.15.0
+  description: Configuration schema for go-gen-protobuf builder
+
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for go-gen-protobuf engine
+      properties:
+        goOpt:
+          type: string
+          description: --go_opt value (default "paths=source_relative")
+        goGrpcOpt:
+          type: string
+          description: --go-grpc_opt value (default "paths=source_relative")
+        protoPath:
+          type: array
+          items:
+            type: string
+          description: Additional --proto_path values
+        plugin:
+          type: array
+          items:
+            type: string
+          description: --plugin values
+        extraArgs:
+          type: array
+          items:
+            type: string
+          description: Additional raw protoc arguments
+        protoDir:
+          type: string
+          description: Directory containing .proto files (optional)
+        outputDir:
+          type: string
+          description: Directory for generated Go code (optional)
+        includes:
+          type: array
+          items:
+            type: string
+          description: Additional include paths for protoc (optional)

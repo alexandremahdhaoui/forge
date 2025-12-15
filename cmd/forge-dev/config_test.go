@@ -113,6 +113,30 @@ generate:
 		}
 	})
 
+	t.Run("dependency-detector type", func(t *testing.T) {
+		dir := t.TempDir()
+		configContent := `name: go-dependency-detector
+type: dependency-detector
+version: 0.15.0
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main
+`
+		if err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte(configContent), 0o644); err != nil {
+			t.Fatalf("failed to write config file: %v", err)
+		}
+
+		config, err := ReadConfig(dir)
+		if err != nil {
+			t.Fatalf("ReadConfig failed: %v", err)
+		}
+
+		if config.Type != EngineTypeDependencyDetector {
+			t.Errorf("Type = %q, want %q", config.Type, EngineTypeDependencyDetector)
+		}
+	})
+
 	t.Run("missing file", func(t *testing.T) {
 		dir := t.TempDir()
 

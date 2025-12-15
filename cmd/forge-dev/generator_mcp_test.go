@@ -163,6 +163,55 @@ func TestGenerateMCPFile_TestEnvSubengine(t *testing.T) {
 	}
 }
 
+func TestGenerateMCPFile_DependencyDetector(t *testing.T) {
+	config := &Config{
+		Name:    "go-dependency-detector",
+		Type:    EngineTypeDependencyDetector,
+		Version: "1.0.0",
+		Generate: GenerateConfig{
+			PackageName: "main",
+		},
+	}
+
+	got, err := GenerateMCPFile(config, "sha256:depdetector123")
+	if err != nil {
+		t.Fatalf("GenerateMCPFile() error = %v", err)
+	}
+
+	code := string(got)
+
+	// Check for dependency-detector-specific content
+	wantContains := []string{
+		"func SetupMCPServerBase(",
+		"name string, version string",
+		"mcpserver.New(name, version)",
+		"config-validate",
+		"handleConfigValidate",
+		"ValidateMap(input.Spec)",
+		"sha256:depdetector123",
+	}
+
+	for _, want := range wantContains {
+		if !strings.Contains(code, want) {
+			t.Errorf("Generated dependency-detector code missing %q", want)
+		}
+	}
+
+	// Verify it does NOT contain SetupMCPServer (only SetupMCPServerBase)
+	// The dependency detector template should have SetupMCPServerBase, not SetupMCPServer
+	// We need to check that it's the Base variant
+	if strings.Contains(code, "func SetupMCPServer(") && !strings.Contains(code, "func SetupMCPServerBase(") {
+		t.Error("Generated dependency-detector code should have SetupMCPServerBase, not SetupMCPServer")
+	}
+
+	// Verify the generated code compiles
+	fset := token.NewFileSet()
+	_, parseErr := parser.ParseFile(fset, "mcp.go", got, parser.AllErrors)
+	if parseErr != nil {
+		t.Errorf("Generated dependency-detector code does not compile: %v\nCode:\n%s", parseErr, code)
+	}
+}
+
 func TestGenerateMCPFile_InvalidType(t *testing.T) {
 	config := &Config{
 		Name:    "invalid-engine",
@@ -191,6 +240,7 @@ func TestMcpTemplateName(t *testing.T) {
 		{EngineTypeBuilder, "mcp_builder.go.tmpl", false},
 		{EngineTypeTestRunner, "mcp_testrunner.go.tmpl", false},
 		{EngineTypeTestEnvSubengine, "mcp_testenv.go.tmpl", false},
+		{EngineTypeDependencyDetector, "mcp_dependency_detector.go.tmpl", false},
 		{EngineType("invalid"), "", true},
 	}
 

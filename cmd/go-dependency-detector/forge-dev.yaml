@@ -1,0 +1,8 @@
+name: go-dependency-detector
+type: dependency-detector
+version: 0.15.0
+description: Dependency detector for Go functions
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main

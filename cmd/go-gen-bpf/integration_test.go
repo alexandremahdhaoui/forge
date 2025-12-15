@@ -81,7 +81,12 @@ int minimal() {
 		},
 	}
 
-	artifact, err := build(context.Background(), input)
+	spec, err := FromMap(input.Spec)
+	if err != nil {
+		t.Fatalf("FromMap() failed: %v", err)
+	}
+
+	artifact, err := build(context.Background(), input, spec)
 	if err != nil {
 		t.Fatalf("build() failed: %v", err)
 	}
@@ -154,7 +159,8 @@ func TestBuildIntegrationMissingSrc(t *testing.T) {
 		},
 	}
 
-	_, err := build(context.Background(), input)
+	spec, _ := FromMap(input.Spec)
+	_, err := build(context.Background(), input, spec)
 	if err == nil {
 		t.Error("build() should fail when src is empty")
 	}
@@ -180,7 +186,8 @@ func TestBuildIntegrationMissingDest(t *testing.T) {
 		},
 	}
 
-	_, err := build(context.Background(), input)
+	spec, _ := FromMap(input.Spec)
+	_, err := build(context.Background(), input, spec)
 	if err == nil {
 		t.Error("build() should fail when dest is empty")
 	}
@@ -189,29 +196,24 @@ func TestBuildIntegrationMissingDest(t *testing.T) {
 	}
 }
 
-// TestBuildIntegrationMissingIdent tests that build fails when ident is missing.
+// TestBuildIntegrationMissingIdent tests that validation fails when ident is missing.
 func TestBuildIntegrationMissingIdent(t *testing.T) {
-	tmpDir := t.TempDir()
-	srcFile := filepath.Join(tmpDir, "test.c")
-	destDir := filepath.Join(tmpDir, "generated")
-
-	if err := os.WriteFile(srcFile, []byte("// test"), 0o644); err != nil {
-		t.Fatalf("Failed to write source file: %v", err)
-	}
-
+	// Test that the validation layer catches missing ident.
+	// The generated MCP wrapper validates before calling build().
 	input := mcptypes.BuildInput{
 		Name: "test-missing-ident",
-		Src:  srcFile,
-		Dest: destDir,
 		Spec: map[string]any{}, // Missing ident
 	}
 
-	_, err := build(context.Background(), input)
-	if err == nil {
-		t.Error("build() should fail when ident is missing")
+	spec, _ := FromMap(input.Spec)
+	output := Validate(spec)
+	if output.Valid {
+		t.Error("validation should fail when ident is missing")
 	}
-	if !strings.Contains(err.Error(), "ident") {
-		t.Errorf("unexpected error: %v", err)
+	if len(output.Errors) == 0 {
+		t.Error("validation should produce at least one error")
+	} else if !strings.Contains(output.Errors[0].Field, "ident") {
+		t.Errorf("expected error about ident, got: %v", output.Errors[0])
 	}
 }
 
@@ -229,7 +231,8 @@ func TestBuildIntegrationSourceNotFound(t *testing.T) {
 		},
 	}
 
-	_, err := build(context.Background(), input)
+	spec, _ := FromMap(input.Spec)
+	_, err := build(context.Background(), input, spec)
 	if err == nil {
 		t.Error("build() should fail when source file doesn't exist")
 	}
@@ -257,7 +260,8 @@ func TestBuildIntegrationSourceIsDirectory(t *testing.T) {
 		},
 	}
 
-	_, err := build(context.Background(), input)
+	spec, _ := FromMap(input.Spec)
+	_, err := build(context.Background(), input, spec)
 	if err == nil {
 		t.Error("build() should fail when source is a directory")
 	}
@@ -302,7 +306,12 @@ int full_options() { return 0; }
 		},
 	}
 
-	artifact, err := build(context.Background(), input)
+	spec, err := FromMap(input.Spec)
+	if err != nil {
+		t.Fatalf("FromMap() failed: %v", err)
+	}
+
+	artifact, err := build(context.Background(), input, spec)
 	if err != nil {
 		t.Fatalf("build() failed: %v", err)
 	}

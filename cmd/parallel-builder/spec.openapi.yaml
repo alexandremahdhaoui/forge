@@ -1,0 +1,19 @@
+openapi: 3.0.3
+info:
+  title: parallel-builder Spec Schema
+  version: 0.15.0
+  description: Configuration schema for parallel-builder engine
+
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for parallel-builder engine
+      required:
+        - builders
+      properties:
+        builders:
+          type: array
+          description: List of sub-builder configurations to run in parallel. Each item must be an object with 'engine' (required), 'name' (optional), and 'spec' (optional) fields.
+          items:
+            type: object

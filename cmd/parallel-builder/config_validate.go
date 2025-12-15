@@ -26,7 +26,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// handleConfigValidate handles the config-validate MCP tool for the parallel-builder.
+// handleRecursiveConfigValidate handles the config-validate MCP tool for the parallel-builder.
 // It performs recursive validation by:
 // 1. Validating its own spec structure (checking that builders array exists and has engine fields)
 // 2. For each builder in spec.builders:
@@ -35,7 +35,7 @@ import (
 //   - Calls sub-builder's config-validate with builder.spec
 //
 // 3. Aggregating all results
-func handleConfigValidate(
+func handleRecursiveConfigValidate(
 	ctx context.Context,
 	_ *mcp.CallToolRequest,
 	input mcptypes.ConfigValidateInput,

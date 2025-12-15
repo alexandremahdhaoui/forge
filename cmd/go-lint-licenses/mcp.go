@@ -21,26 +21,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
-	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"github.com/google/uuid"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the go-lint-licenses MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New(Name, Version)
-
-	config := engineframework.TestRunnerConfig{
-		Name:        Name,
-		Version:     Version,
-		RunTestFunc: runTestsWrapper,
-	}
-
-	if err := engineframework.RegisterTestRunnerTools(server, config); err != nil {
+	server, err := SetupMCPServer(Name, Version, runTestsWrapper)
+	if err != nil {
 		return err
 	}
 
@@ -48,17 +38,14 @@ func runMCPServer() error {
 		return err
 	}
 
-	// Register config-validate tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate go-lint-licenses configuration",
-	}, handleConfigValidate)
-
 	return server.RunDefault()
 }
 
-// runTestsWrapper implements the TestRunnerFunc for verifying license headers
-func runTestsWrapper(ctx context.Context, input mcptypes.RunInput) (*forge.TestReport, error) {
+// runTestsWrapper implements the TestRunnerFunc for verifying license headers.
+// NOTE: spec parameter is currently unused - using input.RootDir instead.
+// This is kept for API consistency with the generated TestRunnerFunc type.
+func runTestsWrapper(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestReport, error) {
+	_ = spec // unused for now, kept for API consistency
 	log.Printf("Verifying license headers: stage=%s", input.Stage)
 
 	startTime := time.Now()

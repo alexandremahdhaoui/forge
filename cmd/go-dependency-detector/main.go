@@ -78,19 +78,17 @@ func run() error {
 
 // runMCPServer starts the MCP server for dependency detection.
 func runMCPServer() error {
-	server := mcpserver.New(Name, Version)
+	// Use generated base setup (registers config-validate)
+	server, err := SetupMCPServerBase(Name, Version)
+	if err != nil {
+		return err
+	}
 
-	// Register detectDependencies tool
+	// Register detectDependencies tool manually (engine-specific input type)
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "detectDependencies",
 		Description: "Detect all dependencies (local files and external packages) for a Go function",
 	}, handleDetectDependencies)
-
-	// Register config-validate tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate go-dependency-detector configuration",
-	}, handleConfigValidate)
 
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err

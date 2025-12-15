@@ -24,25 +24,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
-	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the go-gen-bpf MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New(Name, Version)
-
-	config := engineframework.BuilderConfig{
-		Name:      Name,
-		Version:   Version,
-		BuildFunc: build,
-	}
-
-	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+	server, err := SetupMCPServer(Name, Version, build)
+	if err != nil {
 		return err
 	}
 
@@ -50,67 +40,7 @@ func runMCPServer() error {
 		return err
 	}
 
-	// Register config-validate tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate go-gen-bpf configuration",
-	}, handleConfigValidate)
-
 	return server.RunDefault()
-}
-
-// Bpf2goOptions holds configuration options extracted from BuildInput.Spec
-type Bpf2goOptions struct {
-	// Required
-	Ident string // Go identifier for generated types (required)
-
-	// Optional with defaults
-	Bpf2goVersion string   // Version of bpf2go tool (default: "latest")
-	GoPackage     string   // Go package name (default: basename of dest)
-	OutputStem    string   // Filename prefix (default: "zz_generated")
-	Tags          []string // Build tags (default: ["linux"])
-
-	// Optional, empty means not used
-	Types  []string // Specific types to generate (default: all)
-	CFlags []string // C compiler flags (default: none)
-	CC     string   // C compiler binary (default: bpf2go default)
-}
-
-// extractBpf2goOptions extracts bpf2go options from the BuildInput.Spec map.
-// Returns a Bpf2goOptions struct with defaults applied for missing values.
-// The goPackage default is set to the dest directory basename if not specified.
-func extractBpf2goOptions(spec map[string]any, dest string) (*Bpf2goOptions, error) {
-	// Required: ident
-	ident, err := engineframework.RequireString(spec, "ident")
-	if err != nil {
-		return nil, err
-	}
-
-	// Optional with defaults
-	bpf2goVersion := engineframework.ExtractStringWithDefault(spec, "bpf2goVersion", "latest")
-
-	// goPackage defaults to basename of dest directory
-	defaultGoPackage := filepath.Base(dest)
-	goPackage := engineframework.ExtractStringWithDefault(spec, "goPackage", defaultGoPackage)
-
-	outputStem := engineframework.ExtractStringWithDefault(spec, "outputStem", "zz_generated")
-	tags := engineframework.ExtractStringSliceWithDefault(spec, "tags", []string{"linux"})
-
-	// Optional, empty means not used
-	types, _ := engineframework.ExtractStringSlice(spec, "types")
-	cflags, _ := engineframework.ExtractStringSlice(spec, "cflags")
-	cc := engineframework.ExtractStringWithDefault(spec, "cc", "")
-
-	return &Bpf2goOptions{
-		Ident:         ident,
-		Bpf2goVersion: bpf2goVersion,
-		GoPackage:     goPackage,
-		OutputStem:    outputStem,
-		Tags:          tags,
-		Types:         types,
-		CFlags:        cflags,
-		CC:            cc,
-	}, nil
 }
 
 // buildBpf2goArgs constructs the bpf2go command line arguments.
@@ -123,45 +53,63 @@ func extractBpf2goOptions(spec map[string]any, dest string) (*Bpf2goOptions, err
 //  6. <ident>
 //  7. <src>
 //  8. -- <cflags...> (if any)
-func buildBpf2goArgs(src, dest string, opts *Bpf2goOptions) []string {
+func buildBpf2goArgs(src, dest string, spec *Spec) []string {
 	args := make([]string, 0)
 
+	// Compute goPackage with default
+	goPackage := spec.GoPackage
+	if goPackage == "" {
+		goPackage = filepath.Base(dest)
+	}
+
+	// Compute outputStem with default
+	outputStem := spec.OutputStem
+	if outputStem == "" {
+		outputStem = "zz_generated"
+	}
+
+	// Compute tags with default
+	tags := spec.Tags
+	if len(tags) == 0 {
+		tags = []string{"linux"}
+	}
+
 	// 1. Go package
-	args = append(args, "--go-package", opts.GoPackage)
+	args = append(args, "--go-package", goPackage)
 
 	// 2. Output directory
 	args = append(args, "--output-dir", dest)
 
 	// 3. Output stem
-	args = append(args, "--output-stem", opts.OutputStem)
+	args = append(args, "--output-stem", outputStem)
 
 	// 4. Tags (comma-joined)
-	if len(opts.Tags) > 0 {
-		args = append(args, "--tags", strings.Join(opts.Tags, ","))
+	if len(tags) > 0 {
+		args = append(args, "--tags", strings.Join(tags, ","))
 	}
 
 	// 5. Types (one --type flag per type)
-	for _, t := range opts.Types {
+	for _, t := range spec.Types {
 		args = append(args, "--type", t)
 	}
 
 	// 6. Ident
-	args = append(args, opts.Ident)
+	args = append(args, spec.Ident)
 
 	// 7. Source file
 	args = append(args, src)
 
 	// 8. C flags after "--" separator
-	if len(opts.CFlags) > 0 {
+	if len(spec.Cflags) > 0 {
 		args = append(args, "--")
-		args = append(args, opts.CFlags...)
+		args = append(args, spec.Cflags...)
 	}
 
 	return args
 }
 
-// build implements the BuilderFunc for generating Go code from BPF C source files
-func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, error) {
+// build implements the BuildFunc for generating Go code from BPF C source files
+func build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.Artifact, error) {
 	// 1. Log start
 	log.Printf("Generating BPF code for: %s", input.Name)
 
@@ -183,22 +131,21 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 	}
 	log.Printf("Source file: %s", input.Src)
 
-	// 4. Extract bpf2go options from spec
-	opts, err := extractBpf2goOptions(input.Spec, input.Dest)
-	if err != nil {
-		return nil, err
-	}
-
-	// 5. Create destination directory
+	// 4. Create destination directory
 	if err := os.MkdirAll(input.Dest, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create dest directory: %w", err)
 	}
 
-	// 6. Build bpf2go command arguments
-	bpf2goArgs := buildBpf2goArgs(input.Src, input.Dest, opts)
+	// 5. Build bpf2go command arguments using typed spec
+	bpf2goArgs := buildBpf2goArgs(input.Src, input.Dest, spec)
 
-	// 7. Execute bpf2go via "go run" (following go-gen-mocks pattern)
-	bpf2goTool := fmt.Sprintf("github.com/cilium/ebpf/cmd/bpf2go@%s", opts.Bpf2goVersion)
+	// 6. Execute bpf2go via "go run" (following go-gen-mocks pattern)
+	// Compute bpf2goVersion with default
+	bpf2goVersion := spec.Bpf2goVersion
+	if bpf2goVersion == "" {
+		bpf2goVersion = "latest"
+	}
+	bpf2goTool := fmt.Sprintf("github.com/cilium/ebpf/cmd/bpf2go@%s", bpf2goVersion)
 	args := []string{"run", bpf2goTool}
 	args = append(args, bpf2goArgs...)
 
@@ -209,21 +156,21 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 	cmd.Stderr = os.Stderr
 
 	// Set CC environment variable if specified (preserve existing environment)
-	if opts.CC != "" {
-		cmd.Env = append(os.Environ(), "BPF2GO_CC="+opts.CC)
+	if spec.Cc != "" {
+		cmd.Env = append(os.Environ(), "BPF2GO_CC="+spec.Cc)
 	}
 
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("bpf2go failed: %w", err)
 	}
 
-	// 8. Build dependencies
+	// 7. Build dependencies
 	deps, err := buildDependencies(input.Src, srcInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build dependencies: %w", err)
 	}
 
-	// 9. Create and return artifact
+	// 8. Create and return artifact
 	artifact := &forge.Artifact{
 		Name:                     input.Name,
 		Type:                     "bpf",

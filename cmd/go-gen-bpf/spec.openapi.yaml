@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: go-gen-bpf Spec Schema
+  version: 0.15.0
+  description: Configuration schema for go-gen-bpf builder
+
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for go-gen-bpf engine using bpf2go
+      required:
+        - ident
+      properties:
+        ident:
+          type: string
+          description: Go identifier for generated types (required)
+        bpf2goVersion:
+          type: string
+          description: Version of bpf2go tool (default "latest")
+        goPackage:
+          type: string
+          description: Go package name (default basename of dest)
+        outputStem:
+          type: string
+          description: Filename prefix (default "zz_generated")
+        tags:
+          type: array
+          items:
+            type: string
+          description: Build tags (default ["linux"])
+        types:
+          type: array
+          items:
+            type: string
+          description: Specific types to generate (default all)
+        cflags:
+          type: array
+          items:
+            type: string
+          description: C compiler flags
+        cc:
+          type: string
+          description: C compiler binary (default bpf2go default)
+        sourceDir:
+          type: string
+          description: Directory containing BPF C source files (optional)
+        outputDir:
+          type: string
+          description: Directory for generated Go code (optional)

@@ -1,0 +1,8 @@
+name: go-gen-mocks-dep-detector
+type: dependency-detector
+version: 0.15.0
+description: Dependency detector for mockery mock generation
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main

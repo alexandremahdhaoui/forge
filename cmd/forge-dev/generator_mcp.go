@@ -82,6 +82,8 @@ func mcpTemplateName(engineType EngineType) (string, error) {
 		return "mcp_testrunner.go.tmpl", nil
 	case EngineTypeTestEnvSubengine:
 		return "mcp_testenv.go.tmpl", nil
+	case EngineTypeDependencyDetector:
+		return "mcp_dependency_detector.go.tmpl", nil
 	default:
 		return "", fmt.Errorf("unsupported engine type: %s", engineType)
 	}

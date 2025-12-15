@@ -25,13 +25,13 @@ import (
 	"github.com/alexandremahdhaoui/forge/internal/mcpcaller"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
-	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // ParallelBuilderSpec defines the input specification for parallel builds.
+// This is kept for internal use as the generated Spec doesn't fully support nested object arrays.
 type ParallelBuilderSpec struct {
 	// Builders is the list of sub-builder configurations to run in parallel.
 	Builders []BuilderConfig `json:"builders"`
@@ -49,15 +49,9 @@ type BuilderConfig struct {
 
 // runMCPServer starts the parallel-builder MCP server.
 func runMCPServer() error {
-	server := mcpserver.New(Name, Version)
-
-	config := engineframework.BuilderConfig{
-		Name:      Name,
-		Version:   Version,
-		BuildFunc: parallelBuild,
-	}
-
-	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+	// Use generated MCP server setup (registers build, buildBatch, and config-validate tools)
+	server, err := SetupMCPServer(Name, Version, build)
+	if err != nil {
 		return err
 	}
 
@@ -65,28 +59,32 @@ func runMCPServer() error {
 		return err
 	}
 
-	// Register config-validate tool
+	// Override config-validate tool with custom recursive validation handler
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "config-validate",
 		Description: "Validate parallel-builder configuration and recursively validate sub-builders",
-	}, handleConfigValidate)
+	}, handleRecursiveConfigValidate)
 
 	return server.RunDefault()
 }
 
-// parallelBuild executes multiple builders in parallel.
-func parallelBuild(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, error) {
-	// Parse spec
-	var spec ParallelBuilderSpec
-	if err := mapToStruct(input.Spec, &spec); err != nil {
+// build implements the BuildFunc for executing multiple builders in parallel.
+// It uses the typed Spec provided by the generated MCP server setup.
+// Note: The generated Spec doesn't fully parse the builders array, so we parse
+// the original input.Spec to get the complete ParallelBuilderSpec.
+func build(ctx context.Context, input mcptypes.BuildInput, _ *Spec) (*forge.Artifact, error) {
+	// Parse spec - using manual ParallelBuilderSpec since generated Spec doesn't
+	// support nested object arrays
+	var pbSpec ParallelBuilderSpec
+	if err := mapToStruct(input.Spec, &pbSpec); err != nil {
 		return nil, fmt.Errorf("failed to parse spec: %w", err)
 	}
 
-	if len(spec.Builders) == 0 {
+	if len(pbSpec.Builders) == 0 {
 		return nil, fmt.Errorf("no builders specified in spec.builders")
 	}
 
-	log.Printf("parallel-builder: starting %d parallel builds", len(spec.Builders))
+	log.Printf("parallel-builder: starting %d parallel builds", len(pbSpec.Builders))
 
 	// Create MCP caller
 	caller := mcpcaller.NewCaller(Version)
@@ -97,13 +95,13 @@ func parallelBuild(ctx context.Context, input mcptypes.BuildInput) (*forge.Artif
 		err      error
 		name     string
 	}
-	results := make(chan result, len(spec.Builders))
+	results := make(chan result, len(pbSpec.Builders))
 
 	// WaitGroup for goroutines
 	var wg sync.WaitGroup
 
 	// Launch parallel builders
-	for _, builder := range spec.Builders {
+	for _, builder := range pbSpec.Builders {
 		wg.Add(1)
 		go func(b BuilderConfig) {
 			defer wg.Done()
@@ -165,7 +163,7 @@ func parallelBuild(ctx context.Context, input mcptypes.BuildInput) (*forge.Artif
 	// Return combined result
 	if len(errors) > 0 {
 		// Return combined artifact even with partial failures
-		errMsg := fmt.Sprintf("parallel-builder: %d/%d builders failed: ", len(errors), len(spec.Builders))
+		errMsg := fmt.Sprintf("parallel-builder: %d/%d builders failed: ", len(errors), len(pbSpec.Builders))
 		for i, err := range errors {
 			if i > 0 {
 				errMsg += "; "
@@ -175,7 +173,7 @@ func parallelBuild(ctx context.Context, input mcptypes.BuildInput) (*forge.Artif
 		return combinedArtifact, fmt.Errorf("%s", errMsg)
 	}
 
-	log.Printf("parallel-builder: all %d builds completed successfully", len(spec.Builders))
+	log.Printf("parallel-builder: all %d builds completed successfully", len(pbSpec.Builders))
 	return combinedArtifact, nil
 }
 

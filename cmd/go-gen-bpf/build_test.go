@@ -26,50 +26,32 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
 
-// TestExtractBpf2goOptions tests the extractBpf2goOptions function.
-func TestExtractBpf2goOptions(t *testing.T) {
+// TestFromMap tests the generated FromMap function.
+func TestFromMap(t *testing.T) {
 	tests := []struct {
 		name              string
 		spec              map[string]any
-		dest              string
 		wantIdent         string
 		wantBpf2goVersion string
 		wantGoPackage     string
 		wantOutputStem    string
 		wantTags          []string
 		wantTypes         []string
-		wantCFlags        []string
-		wantCC            string
+		wantCflags        []string
+		wantCc            string
 		wantErr           bool
 		wantErrSubstr     string
 	}{
 		{
-			name:              "minimal spec with just ident",
-			spec:              map[string]any{"ident": "myapp"},
-			dest:              "/output/bpf",
-			wantIdent:         "myapp",
-			wantBpf2goVersion: "latest",
-			wantGoPackage:     "bpf",
-			wantOutputStem:    "zz_generated",
-			wantTags:          []string{"linux"},
-			wantTypes:         nil,
-			wantCFlags:        nil,
-			wantCC:            "",
-			wantErr:           false,
+			name:      "minimal spec with just ident",
+			spec:      map[string]any{"ident": "myapp"},
+			wantIdent: "myapp",
+			wantErr:   false,
 		},
 		{
-			name:          "missing required ident returns error",
-			spec:          map[string]any{},
-			dest:          "/output/bpf",
-			wantErr:       true,
-			wantErrSubstr: "ident",
-		},
-		{
-			name:          "nil spec returns error",
-			spec:          nil,
-			dest:          "/output/bpf",
-			wantErr:       true,
-			wantErrSubstr: "ident",
+			name:    "nil spec returns empty spec",
+			spec:    nil,
+			wantErr: false,
 		},
 		{
 			name: "all fields populated",
@@ -83,31 +65,14 @@ func TestExtractBpf2goOptions(t *testing.T) {
 				"cflags":        []any{"-O2", "-g", "-Wall"},
 				"cc":            "clang-15",
 			},
-			dest:              "/output/pkg",
 			wantIdent:         "tracing",
 			wantBpf2goVersion: "v0.12.3",
 			wantGoPackage:     "bpftracing",
 			wantOutputStem:    "gen_bpf",
 			wantTags:          []string{"linux", "amd64"},
 			wantTypes:         []string{"event", "config"},
-			wantCFlags:        []string{"-O2", "-g", "-Wall"},
-			wantCC:            "clang-15",
-			wantErr:           false,
-		},
-		{
-			name: "goPackage defaults to dest basename",
-			spec: map[string]any{
-				"ident": "prog",
-			},
-			dest:              "/path/to/mypackage",
-			wantIdent:         "prog",
-			wantBpf2goVersion: "latest",
-			wantGoPackage:     "mypackage",
-			wantOutputStem:    "zz_generated",
-			wantTags:          []string{"linux"},
-			wantTypes:         nil,
-			wantCFlags:        nil,
-			wantCC:            "",
+			wantCflags:        []string{"-O2", "-g", "-Wall"},
+			wantCc:            "clang-15",
 			wantErr:           false,
 		},
 		{
@@ -116,36 +81,29 @@ func TestExtractBpf2goOptions(t *testing.T) {
 				"ident": "app",
 				"tags":  []string{"linux", "arm64"},
 			},
-			dest:              "/out",
-			wantIdent:         "app",
-			wantBpf2goVersion: "latest",
-			wantGoPackage:     "out",
-			wantOutputStem:    "zz_generated",
-			wantTags:          []string{"linux", "arm64"},
-			wantTypes:         nil,
-			wantCFlags:        nil,
-			wantCC:            "",
-			wantErr:           false,
+			wantIdent: "app",
+			wantTags:  []string{"linux", "arm64"},
+			wantErr:   false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := extractBpf2goOptions(tt.spec, tt.dest)
+			got, err := FromMap(tt.spec)
 
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("extractBpf2goOptions() expected error, got nil")
+					t.Errorf("FromMap() expected error, got nil")
 					return
 				}
 				if tt.wantErrSubstr != "" && !strings.Contains(err.Error(), tt.wantErrSubstr) {
-					t.Errorf("extractBpf2goOptions() error = %v, want error containing %q", err, tt.wantErrSubstr)
+					t.Errorf("FromMap() error = %v, want error containing %q", err, tt.wantErrSubstr)
 				}
 				return
 			}
 
 			if err != nil {
-				t.Errorf("extractBpf2goOptions() unexpected error: %v", err)
+				t.Errorf("FromMap() unexpected error: %v", err)
 				return
 			}
 
@@ -161,8 +119,8 @@ func TestExtractBpf2goOptions(t *testing.T) {
 			if got.OutputStem != tt.wantOutputStem {
 				t.Errorf("OutputStem = %q, want %q", got.OutputStem, tt.wantOutputStem)
 			}
-			if got.CC != tt.wantCC {
-				t.Errorf("CC = %q, want %q", got.CC, tt.wantCC)
+			if got.Cc != tt.wantCc {
+				t.Errorf("Cc = %q, want %q", got.Cc, tt.wantCc)
 			}
 
 			// Check tags
@@ -188,12 +146,12 @@ func TestExtractBpf2goOptions(t *testing.T) {
 			}
 
 			// Check cflags
-			if len(got.CFlags) != len(tt.wantCFlags) {
-				t.Errorf("CFlags length = %d, want %d", len(got.CFlags), len(tt.wantCFlags))
+			if len(got.Cflags) != len(tt.wantCflags) {
+				t.Errorf("Cflags length = %d, want %d", len(got.Cflags), len(tt.wantCflags))
 			} else {
-				for i, flag := range got.CFlags {
-					if flag != tt.wantCFlags[i] {
-						t.Errorf("CFlags[%d] = %q, want %q", i, flag, tt.wantCFlags[i])
+				for i, flag := range got.Cflags {
+					if flag != tt.wantCflags[i] {
+						t.Errorf("Cflags[%d] = %q, want %q", i, flag, tt.wantCflags[i])
 					}
 				}
 			}
@@ -207,7 +165,7 @@ func TestBuildBpf2goArgs(t *testing.T) {
 		name      string
 		src       string
 		dest      string
-		opts      *Bpf2goOptions
+		spec      *Spec
 		wantArgs  []string
 		checkArgs func(t *testing.T, args []string)
 	}{
@@ -215,15 +173,15 @@ func TestBuildBpf2goArgs(t *testing.T) {
 			name: "minimal options with defaults",
 			src:  "./bpf/prog.c",
 			dest: "./bpf",
-			opts: &Bpf2goOptions{
+			spec: &Spec{
 				Ident:         "prog",
 				Bpf2goVersion: "latest",
 				GoPackage:     "bpf",
 				OutputStem:    "zz_generated",
 				Tags:          []string{"linux"},
 				Types:         nil,
-				CFlags:        nil,
-				CC:            "",
+				Cflags:        nil,
+				Cc:            "",
 			},
 			wantArgs: []string{
 				"--go-package", "bpf",
@@ -238,15 +196,15 @@ func TestBuildBpf2goArgs(t *testing.T) {
 			name: "multiple tags joined with comma",
 			src:  "./bpf/app.c",
 			dest: "./output",
-			opts: &Bpf2goOptions{
+			spec: &Spec{
 				Ident:         "app",
 				Bpf2goVersion: "v0.12.3",
 				GoPackage:     "bpfapp",
 				OutputStem:    "gen",
 				Tags:          []string{"linux", "amd64", "cgo"},
 				Types:         nil,
-				CFlags:        nil,
-				CC:            "",
+				Cflags:        nil,
+				Cc:            "",
 			},
 			checkArgs: func(t *testing.T, args []string) {
 				// Find --tags and verify it's comma-joined
@@ -265,15 +223,15 @@ func TestBuildBpf2goArgs(t *testing.T) {
 			name: "types are added with --type flag each",
 			src:  "./bpf/trace.c",
 			dest: "./pkg/bpf",
-			opts: &Bpf2goOptions{
+			spec: &Spec{
 				Ident:         "trace",
 				Bpf2goVersion: "latest",
 				GoPackage:     "bpf",
 				OutputStem:    "generated",
 				Tags:          []string{"linux"},
 				Types:         []string{"event", "config", "stats"},
-				CFlags:        nil,
-				CC:            "",
+				Cflags:        nil,
+				Cc:            "",
 			},
 			checkArgs: func(t *testing.T, args []string) {
 				// Count --type flags
@@ -295,15 +253,15 @@ func TestBuildBpf2goArgs(t *testing.T) {
 			name: "cflags come after -- separator",
 			src:  "./bpf/app.c",
 			dest: "./out",
-			opts: &Bpf2goOptions{
+			spec: &Spec{
 				Ident:         "app",
 				Bpf2goVersion: "latest",
 				GoPackage:     "out",
 				OutputStem:    "gen",
 				Tags:          []string{"linux"},
 				Types:         nil,
-				CFlags:        []string{"-O2", "-g", "-I./include"},
-				CC:            "",
+				Cflags:        []string{"-O2", "-g", "-I./include"},
+				Cc:            "",
 			},
 			checkArgs: func(t *testing.T, args []string) {
 				// Find "--" separator
@@ -337,15 +295,15 @@ func TestBuildBpf2goArgs(t *testing.T) {
 			name: "ident and src come after all flags",
 			src:  "./bpf/myapp.c",
 			dest: "./output",
-			opts: &Bpf2goOptions{
+			spec: &Spec{
 				Ident:         "myapp",
 				Bpf2goVersion: "latest",
 				GoPackage:     "output",
 				OutputStem:    "zz_generated",
 				Tags:          []string{"linux"},
 				Types:         nil,
-				CFlags:        nil,
-				CC:            "",
+				Cflags:        nil,
+				Cc:            "",
 			},
 			checkArgs: func(t *testing.T, args []string) {
 				// Last two elements should be ident and src
@@ -365,15 +323,15 @@ func TestBuildBpf2goArgs(t *testing.T) {
 			name: "no cflags means no -- separator",
 			src:  "./bpf/simple.c",
 			dest: "./out",
-			opts: &Bpf2goOptions{
+			spec: &Spec{
 				Ident:         "simple",
 				Bpf2goVersion: "latest",
 				GoPackage:     "out",
 				OutputStem:    "gen",
 				Tags:          []string{"linux"},
 				Types:         nil,
-				CFlags:        nil,
-				CC:            "",
+				Cflags:        nil,
+				Cc:            "",
 			},
 			checkArgs: func(t *testing.T, args []string) {
 				for _, arg := range args {
@@ -384,32 +342,37 @@ func TestBuildBpf2goArgs(t *testing.T) {
 			},
 		},
 		{
-			name: "empty tags array means no --tags flag",
+			name: "empty tags array defaults to linux",
 			src:  "./bpf/notags.c",
 			dest: "./out",
-			opts: &Bpf2goOptions{
+			spec: &Spec{
 				Ident:         "notags",
 				Bpf2goVersion: "latest",
 				GoPackage:     "out",
 				OutputStem:    "gen",
 				Tags:          []string{},
 				Types:         nil,
-				CFlags:        nil,
-				CC:            "",
+				Cflags:        nil,
+				Cc:            "",
 			},
 			checkArgs: func(t *testing.T, args []string) {
-				for _, arg := range args {
-					if arg == "--tags" {
-						t.Errorf("found --tags flag when tags array is empty")
+				// Empty tags defaults to ["linux"], so --tags linux should be present
+				for i, arg := range args {
+					if arg == "--tags" && i+1 < len(args) {
+						if args[i+1] != "linux" {
+							t.Errorf("expected --tags linux when tags is empty, got --tags %s", args[i+1])
+						}
+						return
 					}
 				}
+				t.Errorf("expected --tags linux flag when tags array is empty (default applied)")
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildBpf2goArgs(tt.src, tt.dest, tt.opts)
+			got := buildBpf2goArgs(tt.src, tt.dest, tt.spec)
 
 			if tt.wantArgs != nil {
 				if len(got) != len(tt.wantArgs) {

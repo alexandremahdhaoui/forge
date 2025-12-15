@@ -31,6 +31,8 @@ type SpecTemplateData struct {
 	Properties []PropertySchema
 	// HasArrayOrMap indicates if any property is an array or map (needs fmt import).
 	HasArrayOrMap bool
+	// NeedsFmtImport indicates if the generated code needs the fmt import.
+	NeedsFmtImport bool
 }
 
 // GenerateSpecFile generates the zz_generated.spec.go file content.
@@ -46,6 +48,7 @@ func GenerateSpecFile(schema *SpecSchema, config *Config, checksum string) ([]by
 		EngineName:     config.Name,
 		Properties:     schema.Properties,
 		HasArrayOrMap:  hasArrayOrMapType(schema.Properties),
+		NeedsFmtImport: needsFmtImport(schema.Properties),
 	}
 
 	// Parse and execute template
@@ -78,6 +81,28 @@ func hasArrayOrMapType(properties []PropertySchema) bool {
 			return true
 		}
 		if len(goType) > 3 && goType[:3] == "map" {
+			return true
+		}
+	}
+	return false
+}
+
+// needsFmtImport checks if any property needs the fmt import.
+// Returns true only if at least one property has a supported type that
+// generates code using fmt.Errorf. Unsupported types like []interface{}
+// don't generate code that uses fmt.
+func needsFmtImport(properties []PropertySchema) bool {
+	supportedTypes := map[string]bool{
+		"string":            true,
+		"bool":              true,
+		"int":               true,
+		"float64":           true,
+		"[]string":          true,
+		"[]int":             true,
+		"map[string]string": true,
+	}
+	for _, p := range properties {
+		if supportedTypes[p.GoType()] {
 			return true
 		}
 	}

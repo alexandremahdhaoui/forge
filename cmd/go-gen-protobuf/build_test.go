@@ -377,8 +377,9 @@ func TestBuildDependencies(t *testing.T) {
 	}
 }
 
-// TestExtractProtocOptions tests the extractProtocOptions function.
-func TestExtractProtocOptions(t *testing.T) {
+// TestFromMap tests the generated FromMap function for parsing spec.
+// Note: The generated FromMap uses camelCase keys (goOpt, goGrpcOpt, protoPath, etc.)
+func TestFromMap(t *testing.T) {
 	tests := []struct {
 		name       string
 		spec       map[string]interface{}
@@ -387,33 +388,34 @@ func TestExtractProtocOptions(t *testing.T) {
 		wantPaths  []string
 		wantPlugin []string
 		wantExtra  []string
+		wantErr    bool
 	}{
 		{
-			name:       "nil spec returns defaults",
+			name:       "nil spec returns empty struct",
 			spec:       nil,
-			wantGoOpt:  "paths=source_relative",
-			wantGrpc:   "paths=source_relative",
-			wantPaths:  []string{},
-			wantPlugin: []string{},
-			wantExtra:  []string{},
+			wantGoOpt:  "",
+			wantGrpc:   "",
+			wantPaths:  nil,
+			wantPlugin: nil,
+			wantExtra:  nil,
 		},
 		{
-			name:       "empty spec returns defaults",
+			name:       "empty spec returns empty struct",
 			spec:       map[string]interface{}{},
-			wantGoOpt:  "paths=source_relative",
-			wantGrpc:   "paths=source_relative",
-			wantPaths:  []string{},
-			wantPlugin: []string{},
-			wantExtra:  []string{},
+			wantGoOpt:  "",
+			wantGrpc:   "",
+			wantPaths:  nil,
+			wantPlugin: nil,
+			wantExtra:  nil,
 		},
 		{
 			name: "all fields populated",
 			spec: map[string]interface{}{
-				"go_opt":      "module=github.com/example/api",
-				"go-grpc_opt": "module=github.com/example/api",
-				"proto_path":  []interface{}{"/usr/include", "/opt/proto"},
-				"plugin":      []interface{}{"protoc-gen-go=/usr/bin/protoc-gen-go"},
-				"extra_args":  []interface{}{"--experimental_allow_proto3_optional"},
+				"goOpt":     "module=github.com/example/api",
+				"goGrpcOpt": "module=github.com/example/api",
+				"protoPath": []interface{}{"/usr/include", "/opt/proto"},
+				"plugin":    []interface{}{"protoc-gen-go=/usr/bin/protoc-gen-go"},
+				"extraArgs": []interface{}{"--experimental_allow_proto3_optional"},
 			},
 			wantGoOpt:  "module=github.com/example/api",
 			wantGrpc:   "module=github.com/example/api",
@@ -422,69 +424,28 @@ func TestExtractProtocOptions(t *testing.T) {
 			wantExtra:  []string{"--experimental_allow_proto3_optional"},
 		},
 		{
-			name: "proto_path as single string",
+			name: "protoPath as []interface{}",
 			spec: map[string]interface{}{
-				"proto_path": "/usr/include",
+				"protoPath": []interface{}{"/path1", "/path2", "/path3"},
 			},
-			wantGoOpt:  "paths=source_relative",
-			wantGrpc:   "paths=source_relative",
-			wantPaths:  []string{"/usr/include"},
-			wantPlugin: []string{},
-			wantExtra:  []string{},
-		},
-		{
-			name: "proto_path as []interface{}",
-			spec: map[string]interface{}{
-				"proto_path": []interface{}{"/path1", "/path2", "/path3"},
-			},
-			wantGoOpt:  "paths=source_relative",
-			wantGrpc:   "paths=source_relative",
+			wantGoOpt:  "",
+			wantGrpc:   "",
 			wantPaths:  []string{"/path1", "/path2", "/path3"},
-			wantPlugin: []string{},
-			wantExtra:  []string{},
-		},
-		{
-			name: "invalid types ignored - don't crash",
-			spec: map[string]interface{}{
-				"go_opt":      123,         // Should be string, ignored
-				"go-grpc_opt": true,        // Should be string, ignored
-				"proto_path":  12345,       // Should be string or []interface{}, ignored
-				"plugin":      "not-array", // Should be []interface{}, ignored
-				"extra_args":  42,          // Should be []interface{}, ignored
-			},
-			wantGoOpt:  "paths=source_relative", // defaults preserved
-			wantGrpc:   "paths=source_relative", // defaults preserved
-			wantPaths:  []string{},
-			wantPlugin: []string{},
-			wantExtra:  []string{},
-		},
-		{
-			name: "empty string proto_path is ignored",
-			spec: map[string]interface{}{
-				"proto_path": "",
-			},
-			wantGoOpt:  "paths=source_relative",
-			wantGrpc:   "paths=source_relative",
-			wantPaths:  []string{},
-			wantPlugin: []string{},
-			wantExtra:  []string{},
-		},
-		{
-			name: "mixed valid and invalid in []interface{} are handled",
-			spec: map[string]interface{}{
-				"proto_path": []interface{}{"/valid", 123, "/also-valid", true},
-			},
-			wantGoOpt:  "paths=source_relative",
-			wantGrpc:   "paths=source_relative",
-			wantPaths:  []string{"/valid", "/also-valid"}, // Only strings extracted
-			wantPlugin: []string{},
-			wantExtra:  []string{},
+			wantPlugin: nil,
+			wantExtra:  nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := extractProtocOptions(tt.spec)
+			got, err := FromMap(tt.spec)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FromMap() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
 
 			if got.GoOpt != tt.wantGoOpt {
 				t.Errorf("GoOpt = %q, want %q", got.GoOpt, tt.wantGoOpt)
@@ -534,7 +495,7 @@ func TestBuildProtocCommand(t *testing.T) {
 		srcDir       string
 		dest         string
 		protoFiles   []string
-		opts         *ProtocOptions
+		spec         *Spec
 		wantFirstArg string // CRITICAL: verify --proto_path={srcDir} is FIRST
 		checkArgs    func(t *testing.T, args []string)
 	}{
@@ -543,7 +504,7 @@ func TestBuildProtocCommand(t *testing.T) {
 			srcDir:     "/src/proto",
 			dest:       "/out",
 			protoFiles: []string{"service.proto"},
-			opts: &ProtocOptions{
+			spec: &Spec{
 				GoOpt:     "paths=source_relative",
 				GoGrpcOpt: "paths=source_relative",
 				ProtoPath: []string{},
@@ -570,7 +531,7 @@ func TestBuildProtocCommand(t *testing.T) {
 			srcDir:     "/my/source/dir",
 			dest:       "/output",
 			protoFiles: []string{"api.proto"},
-			opts: &ProtocOptions{
+			spec: &Spec{
 				GoOpt:     "paths=source_relative",
 				GoGrpcOpt: "paths=source_relative",
 				ProtoPath: []string{"/additional/path"},
@@ -590,7 +551,7 @@ func TestBuildProtocCommand(t *testing.T) {
 			srcDir:     "/src",
 			dest:       "/dest",
 			protoFiles: []string{"a.proto", "b.proto"},
-			opts: &ProtocOptions{
+			spec: &Spec{
 				GoOpt:     "module=example.com/api",
 				GoGrpcOpt: "module=example.com/api",
 				ProtoPath: []string{"/extra/path1", "/extra/path2"},
@@ -642,7 +603,7 @@ func TestBuildProtocCommand(t *testing.T) {
 			srcDir:     "/src",
 			dest:       "/dest",
 			protoFiles: []string{"first.proto", "second.proto", "third.proto"},
-			opts: &ProtocOptions{
+			spec: &Spec{
 				GoOpt:     "paths=source_relative",
 				GoGrpcOpt: "paths=source_relative",
 				ProtoPath: []string{},
@@ -671,7 +632,7 @@ func TestBuildProtocCommand(t *testing.T) {
 			srcDir:     "/src",
 			dest:       "/dest",
 			protoFiles: []string{"test.proto"},
-			opts: &ProtocOptions{
+			spec: &Spec{
 				GoOpt:     "paths=source_relative",
 				GoGrpcOpt: "paths=source_relative",
 				ProtoPath: []string{},
@@ -687,7 +648,7 @@ func TestBuildProtocCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := buildProtocCommand(tt.srcDir, tt.dest, tt.protoFiles, tt.opts)
+			cmd := buildProtocCommand(tt.srcDir, tt.dest, tt.protoFiles, tt.spec)
 
 			// Verify command is protoc
 			if !strings.HasSuffix(cmd.Path, "protoc") && cmd.Path != "protoc" {

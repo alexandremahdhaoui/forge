@@ -24,14 +24,13 @@ import (
 	"github.com/alexandremahdhaoui/forge/internal/mcpcaller"
 	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
-	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // ParallelTestRunnerSpec defines the input specification for parallel test runner.
-// It is parsed from RunInput.Spec field.
+// This is kept for internal use as the generated Spec doesn't fully support nested object arrays.
 type ParallelTestRunnerSpec struct {
 	// PrimaryCoverageRunner is the name of the runner whose coverage is used.
 	// If not specified or runner not found, Coverage.Enabled=false in result.
@@ -62,15 +61,9 @@ type runnerResult struct {
 
 // runMCPServer starts the parallel-test-runner MCP server.
 func runMCPServer() error {
-	server := mcpserver.New(Name, Version)
-
-	config := engineframework.TestRunnerConfig{
-		Name:        Name,
-		Version:     Version,
-		RunTestFunc: parallelRun,
-	}
-
-	if err := engineframework.RegisterTestRunnerTools(server, config); err != nil {
+	// Use generated MCP server setup (registers run and config-validate tools)
+	server, err := SetupMCPServer(Name, Version, runTest)
+	if err != nil {
 		return err
 	}
 
@@ -78,24 +71,28 @@ func runMCPServer() error {
 		return err
 	}
 
-	// Register config-validate tool
+	// Override config-validate tool with custom recursive validation handler
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "config-validate",
 		Description: "Validate parallel-test-runner configuration and recursively validate sub-runners",
-	}, handleConfigValidate)
+	}, handleRecursiveConfigValidate)
 
 	return server.RunDefault()
 }
 
-// parallelRun executes multiple test runners in parallel.
-func parallelRun(ctx context.Context, input mcptypes.RunInput) (*forge.TestReport, error) {
-	// Parse spec from input
-	var spec ParallelTestRunnerSpec
-	if err := mapToStruct(input.Spec, &spec); err != nil {
+// runTest implements the TestRunnerFunc for executing multiple test runners in parallel.
+// It uses the typed Spec provided by the generated MCP server setup.
+// Note: The generated Spec doesn't fully parse the runners array, so we parse
+// the original input.Spec to get the complete ParallelTestRunnerSpec.
+func runTest(ctx context.Context, input mcptypes.RunInput, _ *Spec) (*forge.TestReport, error) {
+	// Parse spec - using manual ParallelTestRunnerSpec since generated Spec doesn't
+	// support nested object arrays
+	var ptrSpec ParallelTestRunnerSpec
+	if err := mapToStruct(input.Spec, &ptrSpec); err != nil {
 		return nil, fmt.Errorf("failed to parse spec: %w", err)
 	}
 
-	if len(spec.Runners) == 0 {
+	if len(ptrSpec.Runners) == 0 {
 		return nil, fmt.Errorf("no runners specified")
 	}
 
@@ -105,14 +102,14 @@ func parallelRun(ctx context.Context, input mcptypes.RunInput) (*forge.TestRepor
 	resolveEngine := caller.GetEngineResolver()
 
 	// Results channel
-	results := make(chan runnerResult, len(spec.Runners))
+	results := make(chan runnerResult, len(ptrSpec.Runners))
 
 	// WaitGroup for goroutines
 	var wg sync.WaitGroup
 	startTime := time.Now()
 
 	// Launch parallel runners
-	for _, runner := range spec.Runners {
+	for _, runner := range ptrSpec.Runners {
 		wg.Add(1)
 		go func(r RunnerConfig) {
 			defer wg.Done()
@@ -217,8 +214,8 @@ func parallelRun(ctx context.Context, input mcptypes.RunInput) (*forge.TestRepor
 
 	// Select coverage from primary runner only (NOT averaging)
 	// If no primary specified or not found, Coverage.Enabled stays false
-	if spec.PrimaryCoverageRunner != "" {
-		if primary, ok := reportByName[spec.PrimaryCoverageRunner]; ok {
+	if ptrSpec.PrimaryCoverageRunner != "" {
+		if primary, ok := reportByName[ptrSpec.PrimaryCoverageRunner]; ok {
 			aggregated.Coverage = primary.Coverage
 		}
 	}

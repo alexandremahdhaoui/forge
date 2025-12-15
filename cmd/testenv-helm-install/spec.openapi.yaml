@@ -13,4 +13,3 @@ components:
         The charts array contains ChartSpec objects that are parsed separately.
         This Spec only captures top-level configuration options.
       properties: {}
-      additionalProperties: true

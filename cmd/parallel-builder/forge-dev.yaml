@@ -1,0 +1,8 @@
+name: parallel-builder
+type: builder
+version: 0.15.0
+description: Parallel builder that runs multiple sub-builders concurrently
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main

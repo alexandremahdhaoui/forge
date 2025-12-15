@@ -40,6 +40,7 @@ func TestTemplatesFS_NotEmpty(t *testing.T) {
 		"mcp_builder.go.tmpl",
 		"mcp_testrunner.go.tmpl",
 		"mcp_testenv.go.tmpl",
+		"mcp_dependency_detector.go.tmpl",
 	}
 
 	foundTemplates := make(map[string]bool)
@@ -80,6 +81,10 @@ func TestTemplatesFS_ReadContent(t *testing.T) {
 			name:     "mcp_testenv.go.tmpl",
 			contains: []string{"type CreateFunc func(", "type DeleteFunc func(", "SetupMCPServer"},
 		},
+		{
+			name:     "mcp_dependency_detector.go.tmpl",
+			contains: []string{"SetupMCPServerBase", "handleConfigValidate", "config-validate"},
+		},
 	}
 
 	for _, tt := range templates {
@@ -110,6 +115,7 @@ func TestParseTemplate(t *testing.T) {
 		"mcp_builder.go.tmpl",
 		"mcp_testrunner.go.tmpl",
 		"mcp_testenv.go.tmpl",
+		"mcp_dependency_detector.go.tmpl",
 	}
 
 	for _, name := range templates {

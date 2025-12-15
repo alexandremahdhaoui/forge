@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: parallel-test-runner Spec Schema
+  version: 0.15.0
+  description: Configuration schema for parallel-test-runner engine
+
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for parallel-test-runner engine
+      required:
+        - runners
+      properties:
+        primaryCoverageRunner:
+          type: string
+          description: Name of the runner whose coverage is used. If not specified or runner not found, Coverage.Enabled=false in result.
+        runners:
+          type: array
+          description: List of test runners to execute in parallel. Each item must be an object with 'name' (required), 'engine' (required), and 'spec' (optional) fields.
+          items:
+            type: object

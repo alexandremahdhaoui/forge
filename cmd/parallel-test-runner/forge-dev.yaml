@@ -1,0 +1,8 @@
+name: parallel-test-runner
+type: test-runner
+version: 0.15.0
+description: Parallel test runner that runs multiple sub-runners concurrently
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main

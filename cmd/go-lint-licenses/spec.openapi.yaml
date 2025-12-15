@@ -1,0 +1,20 @@
+openapi: 3.0.3
+info:
+  title: go-lint-licenses Spec Schema
+  version: 0.15.0
+  description: Configuration schema for go-lint-licenses test runner
+
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for go-lint-licenses engine (fields currently unused - validation only)
+      properties:
+        rootDir:
+          type: string
+          description: Root directory to scan for Go files (optional, currently unused)
+        excludePatterns:
+          type: array
+          items:
+            type: string
+          description: Patterns to exclude from scanning (optional, currently unused)

@@ -1,0 +1,8 @@
+name: go-gen-openapi-dep-detector
+type: dependency-detector
+version: 0.15.0
+description: Dependency detector for OpenAPI code generation
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main

@@ -37,6 +37,8 @@ const (
 	EngineTypeTestRunner EngineType = "test-runner"
 	// EngineTypeTestEnvSubengine is for test environment subengines.
 	EngineTypeTestEnvSubengine EngineType = "testenv-subengine"
+	// EngineTypeDependencyDetector is for dependency detector engines.
+	EngineTypeDependencyDetector EngineType = "dependency-detector"
 )
 
 // ValidEngineTypes contains all valid engine types.
@@ -44,6 +46,7 @@ var ValidEngineTypes = []EngineType{
 	EngineTypeBuilder,
 	EngineTypeTestRunner,
 	EngineTypeTestEnvSubengine,
+	EngineTypeDependencyDetector,
 }
 
 // Config represents the forge-dev.yaml configuration file.

@@ -24,25 +24,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
-	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // runMCPServer starts the go-gen-protobuf MCP server with stdio transport.
 func runMCPServer() error {
-	server := mcpserver.New(Name, Version)
-
-	config := engineframework.BuilderConfig{
-		Name:      Name,
-		Version:   Version,
-		BuildFunc: build,
-	}
-
-	if err := engineframework.RegisterBuilderTools(server, config); err != nil {
+	// Use generated MCP server setup (registers build, buildBatch, and config-validate tools)
+	server, err := SetupMCPServer(Name, Version, build)
+	if err != nil {
 		return err
 	}
 
@@ -50,17 +41,12 @@ func runMCPServer() error {
 		return err
 	}
 
-	// Register config-validate tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate go-gen-protobuf configuration",
-	}, handleConfigValidate)
-
 	return server.RunDefault()
 }
 
-// build implements the BuilderFunc for compiling Protocol Buffer files to Go code
-func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, error) {
+// build implements the BuildFunc for compiling Protocol Buffer files to Go code.
+// It uses the typed Spec provided by the generated MCP server setup.
+func build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.Artifact, error) {
 	// 1. Log start
 	log.Printf("Generating protobuf code for: %s", input.Name)
 
@@ -88,22 +74,19 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 		return nil, fmt.Errorf("failed to build dependencies: %w", err)
 	}
 
-	// 5. Extract protoc options
-	opts := extractProtocOptions(input.Spec)
-
-	// 6. Build absolute proto file paths for protoc
+	// 5. Build absolute proto file paths for protoc
 	absProtoFiles := make([]string, len(protoFiles))
 	for i, pf := range protoFiles {
 		absProtoFiles[i] = filepath.Join(input.Src, pf)
 	}
 
-	// 7. Create destination directory
+	// 6. Create destination directory
 	if err := os.MkdirAll(input.Dest, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
-	// 8. Build and execute protoc command
-	cmd := buildProtocCommand(input.Src, input.Dest, absProtoFiles, opts)
+	// 7. Build and execute protoc command using typed Spec
+	cmd := buildProtocCommand(input.Src, input.Dest, absProtoFiles, spec)
 	cmd.Stdout = os.Stderr // MCP mode: redirect to stderr
 	cmd.Stderr = os.Stderr
 
@@ -111,7 +94,7 @@ func build(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, err
 		return nil, fmt.Errorf("protoc failed: %w", err)
 	}
 
-	// 9. Create artifact (DIRECTLY, not using engineframework.CreateArtifact)
+	// 8. Create artifact (DIRECTLY, not using engineframework.CreateArtifact)
 	artifact := &forge.Artifact{
 		Name:                     input.Name,
 		Type:                     "protobuf",
@@ -212,105 +195,18 @@ func buildDependencies(srcDir string, protoFiles []string) ([]forge.ArtifactDepe
 	return deps, nil
 }
 
-// ProtocOptions holds configuration options extracted from BuildInput.Spec
-type ProtocOptions struct {
-	GoOpt     string   // --go_opt value (default: "paths=source_relative")
-	GoGrpcOpt string   // --go-grpc_opt value (default: "paths=source_relative")
-	ProtoPath []string // --proto_path values (optional)
-	Plugin    []string // --plugin values (optional)
-	ExtraArgs []string // additional raw protoc arguments (optional)
-}
-
-// extractProtocOptions extracts protoc options from the BuildInput.Spec map.
-// Returns a ProtocOptions struct with defaults applied for missing values.
-func extractProtocOptions(spec map[string]interface{}) *ProtocOptions {
-	opts := &ProtocOptions{
-		GoOpt:     "paths=source_relative",
-		GoGrpcOpt: "paths=source_relative",
-		ProtoPath: []string{},
-		Plugin:    []string{},
-		ExtraArgs: []string{},
-	}
-
-	if spec == nil {
-		return opts
-	}
-
-	// Extract go_opt
-	if val, ok := spec["go_opt"]; ok {
-		if str, ok := val.(string); ok {
-			opts.GoOpt = str
-		}
-	}
-
-	// Extract go-grpc_opt
-	if val, ok := spec["go-grpc_opt"]; ok {
-		if str, ok := val.(string); ok {
-			opts.GoGrpcOpt = str
-		}
-	}
-
-	// Extract proto_path (can be string or []interface{})
-	if val, ok := spec["proto_path"]; ok {
-		switch v := val.(type) {
-		case string:
-			if v != "" {
-				opts.ProtoPath = []string{v}
-			}
-		case []interface{}:
-			for _, item := range v {
-				if str, ok := item.(string); ok {
-					opts.ProtoPath = append(opts.ProtoPath, str)
-				}
-			}
-		case []string:
-			opts.ProtoPath = v
-		}
-	}
-
-	// Extract plugin ([]interface{} or []string)
-	if val, ok := spec["plugin"]; ok {
-		switch v := val.(type) {
-		case []interface{}:
-			for _, item := range v {
-				if str, ok := item.(string); ok {
-					opts.Plugin = append(opts.Plugin, str)
-				}
-			}
-		case []string:
-			opts.Plugin = v
-		}
-	}
-
-	// Extract extra_args ([]interface{} or []string)
-	if val, ok := spec["extra_args"]; ok {
-		switch v := val.(type) {
-		case []interface{}:
-			for _, item := range v {
-				if str, ok := item.(string); ok {
-					opts.ExtraArgs = append(opts.ExtraArgs, str)
-				}
-			}
-		case []string:
-			opts.ExtraArgs = v
-		}
-	}
-
-	return opts
-}
-
 // buildProtocCommand constructs the protoc command with all arguments.
 // Arguments order:
 //  1. --proto_path={srcDir} (FIRST - required for import resolution)
 //  2. --go_out={dest}
-//  3. --go_opt={opts.GoOpt}
+//  3. --go_opt (default "paths=source_relative")
 //  4. --go-grpc_out={dest}
-//  5. --go-grpc_opt={opts.GoGrpcOpt}
+//  5. --go-grpc_opt (default "paths=source_relative")
 //  6. User proto_paths: --proto_path={path}
 //  7. Plugins: --plugin={plugin}
 //  8. Extra args
 //  9. Proto files (at the end)
-func buildProtocCommand(srcDir string, dest string, protoFiles []string, opts *ProtocOptions) *exec.Cmd {
+func buildProtocCommand(srcDir string, dest string, protoFiles []string, spec *Spec) *exec.Cmd {
 	args := make([]string, 0)
 
 	// 1. Source directory proto_path FIRST (required for import resolution)
@@ -319,27 +215,35 @@ func buildProtocCommand(srcDir string, dest string, protoFiles []string, opts *P
 	// 2. Go output directory
 	args = append(args, "--go_out="+dest)
 
-	// 3. Go options
-	args = append(args, "--go_opt="+opts.GoOpt)
+	// 3. Go options (default to "paths=source_relative")
+	goOpt := spec.GoOpt
+	if goOpt == "" {
+		goOpt = "paths=source_relative"
+	}
+	args = append(args, "--go_opt="+goOpt)
 
 	// 4. gRPC Go output directory
 	args = append(args, "--go-grpc_out="+dest)
 
-	// 5. gRPC Go options
-	args = append(args, "--go-grpc_opt="+opts.GoGrpcOpt)
+	// 5. gRPC Go options (default to "paths=source_relative")
+	goGrpcOpt := spec.GoGrpcOpt
+	if goGrpcOpt == "" {
+		goGrpcOpt = "paths=source_relative"
+	}
+	args = append(args, "--go-grpc_opt="+goGrpcOpt)
 
 	// 6. User-specified proto_paths
-	for _, protoPath := range opts.ProtoPath {
+	for _, protoPath := range spec.ProtoPath {
 		args = append(args, "--proto_path="+protoPath)
 	}
 
 	// 7. Plugins
-	for _, plugin := range opts.Plugin {
+	for _, plugin := range spec.Plugin {
 		args = append(args, "--plugin="+plugin)
 	}
 
 	// 8. Extra args
-	args = append(args, opts.ExtraArgs...)
+	args = append(args, spec.ExtraArgs...)
 
 	// 9. Proto files at the end
 	args = append(args, protoFiles...)

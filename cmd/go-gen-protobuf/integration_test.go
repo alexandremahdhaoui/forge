@@ -71,7 +71,12 @@ message TestMessage {
 		Dest: destDir,
 	}
 
-	artifact, err := build(context.Background(), input)
+	spec, err := FromMap(input.Spec)
+	if err != nil {
+		t.Fatalf("FromMap() failed: %v", err)
+	}
+
+	artifact, err := build(context.Background(), input, spec)
 	if err != nil {
 		t.Fatalf("build() failed: %v", err)
 	}
@@ -184,7 +189,12 @@ service TestService {
 		Dest: destDir,
 	}
 
-	artifact, err := build(context.Background(), input)
+	spec, err := FromMap(input.Spec)
+	if err != nil {
+		t.Fatalf("FromMap() failed: %v", err)
+	}
+
+	artifact, err := build(context.Background(), input, spec)
 	if err != nil {
 		t.Fatalf("build() failed: %v", err)
 	}
@@ -263,7 +273,12 @@ message Message2 {
 		Dest: destDir,
 	}
 
-	artifact, err := build(context.Background(), input)
+	spec, err := FromMap(input.Spec)
+	if err != nil {
+		t.Fatalf("FromMap() failed: %v", err)
+	}
+
+	artifact, err := build(context.Background(), input, spec)
 	if err != nil {
 		t.Fatalf("build() failed: %v", err)
 	}

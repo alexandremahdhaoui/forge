@@ -1,0 +1,23 @@
+openapi: 3.0.3
+info:
+  title: go-gen-openapi-dep-detector Spec Schema
+  version: 0.15.0
+  description: Configuration schema for go-gen-openapi-dep-detector
+
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for go-gen-openapi-dep-detector
+      properties:
+        specSources:
+          type: array
+          items:
+            type: string
+          description: OpenAPI spec file paths to scan
+        rootDir:
+          type: string
+          description: Root directory for resolving relative paths
+        resolveRefs:
+          type: boolean
+          description: Whether to resolve external references

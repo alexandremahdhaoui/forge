@@ -1,0 +1,8 @@
+name: go-gen-protobuf
+type: builder
+version: 0.15.0
+description: Protocol Buffer code generator for Go
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main
