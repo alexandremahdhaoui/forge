@@ -82,6 +82,46 @@ type OpenAPIConfig struct {
 type GenerateConfig struct {
 	// PackageName is the Go package name for generated code.
 	PackageName string `yaml:"packageName"`
+	// BuildFunc is the function name for builder engines (default: "Build").
+	BuildFunc string `yaml:"buildFunc,omitempty"`
+	// RunFunc is the function name for test-runner engines (default: "Run").
+	RunFunc string `yaml:"runFunc,omitempty"`
+	// CreateFunc is the function name for testenv-subengine create operation (default: "Create").
+	CreateFunc string `yaml:"createFunc,omitempty"`
+	// DeleteFunc is the function name for testenv-subengine delete operation (default: "Delete").
+	DeleteFunc string `yaml:"deleteFunc,omitempty"`
+}
+
+// GetBuildFunc returns the BuildFunc from config, or "Build" if not set.
+func (c *Config) GetBuildFunc() string {
+	if c.Generate.BuildFunc == "" {
+		return "Build"
+	}
+	return c.Generate.BuildFunc
+}
+
+// GetRunFunc returns the RunFunc from config, or "Run" if not set.
+func (c *Config) GetRunFunc() string {
+	if c.Generate.RunFunc == "" {
+		return "Run"
+	}
+	return c.Generate.RunFunc
+}
+
+// GetCreateFunc returns the CreateFunc from config, or "Create" if not set.
+func (c *Config) GetCreateFunc() string {
+	if c.Generate.CreateFunc == "" {
+		return "Create"
+	}
+	return c.Generate.CreateFunc
+}
+
+// GetDeleteFunc returns the DeleteFunc from config, or "Delete" if not set.
+func (c *Config) GetDeleteFunc() string {
+	if c.Generate.DeleteFunc == "" {
+		return "Delete"
+	}
+	return c.Generate.DeleteFunc
 }
 
 // ValidationError represents a single validation error.

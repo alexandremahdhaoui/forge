@@ -24,8 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alexandremahdhaoui/forge/internal/cli"
 	"github.com/alexandremahdhaoui/forge/internal/testutil"
+	"github.com/alexandremahdhaoui/forge/pkg/enginecli"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 )
 
@@ -622,7 +622,7 @@ func main() {
 	}
 
 	// Otherwise, use standard cli.Bootstrap for MCP mode and version handling
-	cli.Bootstrap(cli.Config{
+	enginecli.Bootstrap(enginecli.Config{
 		Name:           Name,
 		Version:        Version,
 		CommitSHA:      CommitSHA,

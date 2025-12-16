@@ -15,7 +15,7 @@
 // Package engineframework provides MCP tool registration utilities for forge engines.
 //
 // This package EXTENDS existing infrastructure:
-//   - Engines use internal/cli.Bootstrap for lifecycle management (main, version, --mcp flags)
+//   - Engines use pkg/enginecli.Bootstrap for lifecycle management (main, version, --mcp flags)
 //   - Engines use engineframework for MCP tool registration (build, run, create, delete tools)
 //
 // DO NOT use this package to replace cli.Bootstrap. Use it to simplify MCP tool registration.
@@ -24,7 +24,7 @@
 //
 // Forge engines have a two-layer architecture:
 //
-//  1. Lifecycle Layer (internal/cli.Bootstrap):
+//  1. Lifecycle Layer (pkg/enginecli.Bootstrap):
 //     - Handles main() function
 //     - Parses command-line flags (version, help, --mcp)
 //     - Manages MCP server lifecycle
@@ -81,8 +81,8 @@
 //	import (
 //	    "context"
 //	    "fmt"
-//	    "github.com/alexandremahdhaoui/forge/internal/cli"
-//	    "github.com/alexandremahdhaoui/forge/internal/mcpserver"
+//	    "github.com/alexandremahdhaoui/forge/pkg/enginecli"
+//	    "github.com/alexandremahdhaoui/forge/pkg/mcpserver"
 //	    "github.com/alexandremahdhaoui/forge/pkg/engineframework"
 //	    "github.com/alexandremahdhaoui/forge/pkg/forge"
 //	    "github.com/alexandremahdhaoui/forge/pkg/mcptypes"

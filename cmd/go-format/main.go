@@ -15,17 +15,8 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"log"
-	"os"
-	"os/exec"
-
-	"github.com/alexandremahdhaoui/forge/internal/cli"
+	"github.com/alexandremahdhaoui/forge/pkg/enginecli"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
-	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
-	"github.com/alexandremahdhaoui/forge/pkg/forge"
-	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 )
 
 const Name = "go-format"
@@ -46,7 +37,7 @@ var docsConfig = &enginedocs.Config{
 }
 
 func main() {
-	cli.Bootstrap(cli.Config{
+	enginecli.Bootstrap(enginecli.Config{
 		Name:           Name,
 		Version:        Version,
 		CommitSHA:      CommitSHA,
@@ -57,7 +48,7 @@ func main() {
 }
 
 func runMCPServer() error {
-	server, err := SetupMCPServer(Name, Version, build)
+	server, err := SetupMCPServer(Name, Version, Build)
 	if err != nil {
 		return err
 	}
@@ -67,52 +58,4 @@ func runMCPServer() error {
 	}
 
 	return server.RunDefault()
-}
-
-// build implements the BuildFunc for formatting Go code
-func build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.Artifact, error) {
-	// Use spec.Path if set, otherwise fall back to input.Path or input.Src
-	path := spec.Path
-	if path == "" {
-		path = input.Path
-	}
-	if path == "" && input.Src != "" {
-		path = input.Src
-	}
-	if path == "" {
-		path = "."
-	}
-
-	log.Printf("Formatting Go code at: %s", path)
-
-	if err := formatCode(path); err != nil {
-		return nil, fmt.Errorf("formatting failed: %w", err)
-	}
-
-	// Return artifact using CreateArtifact (formatted code has no version)
-	return engineframework.CreateArtifact(
-		"formatted-code",
-		"formatted",
-		path,
-	), nil
-}
-
-func formatCode(path string) error {
-	gofumptVersion := os.Getenv("GOFUMPT_VERSION")
-	if gofumptVersion == "" {
-		gofumptVersion = "v0.6.0"
-	}
-
-	gofumptPkg := fmt.Sprintf("mvdan.cc/gofumpt@%s", gofumptVersion)
-
-	cmd := exec.Command("go", "run", gofumptPkg, "-w", path)
-	cmd.Stdout = os.Stderr // Send to stderr to not interfere with MCP JSON-RPC on stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("gofumpt failed: %w", err)
-	}
-
-	fmt.Fprintf(os.Stderr, "✅ Formatted Go code at %s\n", path)
-	return nil
 }

@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
+	"github.com/alexandremahdhaoui/forge/pkg/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

@@ -26,10 +26,25 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 )
 
+// createRequiredDocs creates the required docs/usage.md file in the temp directory.
+func createRequiredDocs(t *testing.T, tmpDir string) {
+	t.Helper()
+	docsDir := filepath.Join(tmpDir, "docs")
+	if err := os.MkdirAll(docsDir, 0o755); err != nil {
+		t.Fatalf("creating docs dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(docsDir, "usage.md"), []byte("# Usage\n\nTest usage doc.\n"), 0o644); err != nil {
+		t.Fatalf("writing docs/usage.md: %v", err)
+	}
+}
+
 func TestGenerate(t *testing.T) {
 	t.Run("generates all three files", func(t *testing.T) {
 		// Create temp directory with test files
 		tmpDir := t.TempDir()
+
+		// Create required docs/usage.md
+		createRequiredDocs(t, tmpDir)
 
 		// Create forge-dev.yaml
 		configContent := `name: test-engine
@@ -132,6 +147,9 @@ components:
 	t.Run("skips regeneration when checksums match", func(t *testing.T) {
 		// Create temp directory with test files
 		tmpDir := t.TempDir()
+
+		// Create required docs/usage.md
+		createRequiredDocs(t, tmpDir)
 
 		// Create forge-dev.yaml
 		configContent := `name: idempotent-engine
@@ -270,6 +288,9 @@ version: not-semver
 	t.Run("errors on missing spec.openapi.yaml", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
+		// Create required docs/usage.md
+		createRequiredDocs(t, tmpDir)
+
 		// Create valid forge-dev.yaml
 		configContent := `name: test-engine
 type: builder
@@ -303,6 +324,9 @@ generate:
 func TestGenerateTestRunnerType(t *testing.T) {
 	t.Run("generates test-runner MCP template", func(t *testing.T) {
 		tmpDir := t.TempDir()
+
+		// Create required docs/usage.md
+		createRequiredDocs(t, tmpDir)
 
 		// Create forge-dev.yaml for test-runner
 		configContent := `name: test-runner-engine
@@ -364,6 +388,9 @@ components:
 func TestGenerateTestEnvSubengineType(t *testing.T) {
 	t.Run("generates testenv-subengine MCP template", func(t *testing.T) {
 		tmpDir := t.TempDir()
+
+		// Create required docs/usage.md
+		createRequiredDocs(t, tmpDir)
 
 		// Create forge-dev.yaml for testenv-subengine
 		configContent := `name: testenv-subengine-engine

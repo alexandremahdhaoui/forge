@@ -1,0 +1,19 @@
+# {{.EngineName}} Configuration
+
+{{.Description}}
+
+> Full OpenAPI specification: [spec.openapi.yaml]({{.SpecURL}})
+
+## Fields
+{{range .Properties}}
+### `{{.Name}}`
+
+- **Type:** `{{.Type}}`
+- **Required:** {{if .Required}}Yes{{else}}No{{end}}
+{{- if .Description}}
+- **Description:** {{.Description}}
+{{- end}}
+{{- if .Default}}
+- **Default:** `{{.Default}}`
+{{- end}}
+{{end}}

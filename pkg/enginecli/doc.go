@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package cli provides common CLI bootstrapping functionality for forge commands.
+// Package enginecli provides common CLI bootstrapping functionality for forge commands.
 //
 // This package eliminates duplicated main() function logic across 18+ command binaries
 // by providing a unified bootstrap mechanism that handles:
@@ -26,7 +26,7 @@
 //	package main
 //
 //	import (
-//	    "github.com/alexandremahdhaoui/forge/internal/cli"
+//	    "github.com/alexandremahdhaoui/forge/pkg/enginecli"
 //	)
 //
 //	// Version information (set via ldflags)
@@ -37,7 +37,7 @@
 //	)
 //
 //	func main() {
-//	    cli.Bootstrap(cli.Config{
+//	    enginecli.Bootstrap(enginecli.Config{
 //	        Name:           "my-command",
 //	        Version:        Version,
 //	        CommitSHA:      CommitSHA,
@@ -56,4 +56,4 @@
 //	    // Command-specific MCP server logic
 //	    return nil
 //	}
-package cli
+package enginecli

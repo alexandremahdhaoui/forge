@@ -20,7 +20,7 @@ import (
 	"os"
 
 	"github.com/alexandremahdhaoui/forge/internal/cmdutil"
-	"github.com/alexandremahdhaoui/forge/internal/version"
+	"github.com/alexandremahdhaoui/forge/pkg/engineversion"
 )
 
 // Version information (set via ldflags during build)
@@ -31,13 +31,13 @@ var (
 )
 
 // versionInfo holds forge's version information
-var versionInfo *version.Info
+var versionInfo *engineversion.Info
 
 // configPath is the path to the forge.yaml file
 var configPath string
 
 func init() {
-	versionInfo = version.New("forge")
+	versionInfo = engineversion.New("forge")
 	versionInfo.Version = Version
 	versionInfo.CommitSHA = CommitSHA
 	versionInfo.BuildTimestamp = BuildTimestamp

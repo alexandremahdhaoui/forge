@@ -17,7 +17,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/alexandremahdhaoui/forge/internal/cli"
+	"github.com/alexandremahdhaoui/forge/pkg/enginecli"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 )
 
@@ -40,7 +40,7 @@ var docsConfig = &enginedocs.Config{
 }
 
 func main() {
-	cli.Bootstrap(cli.Config{
+	enginecli.Bootstrap(enginecli.Config{
 		Name:           Name,
 		Version:        Version,
 		CommitSHA:      CommitSHA,

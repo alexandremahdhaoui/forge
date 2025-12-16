@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cli
+package enginecli
 
 import (
 	"fmt"
 	"log"
 	"os"
 
-	"github.com/alexandremahdhaoui/forge/internal/version"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
+	"github.com/alexandremahdhaoui/forge/pkg/engineversion"
 )
 
 // Config holds the configuration for CLI bootstrap.
@@ -60,7 +60,7 @@ type Config struct {
 // This function will call os.Exit and never return.
 func Bootstrap(cfg Config) {
 	// Initialize version information
-	versionInfo := version.New(cfg.Name)
+	versionInfo := engineversion.New(cfg.Name)
 	versionInfo.Version = cfg.Version
 	versionInfo.CommitSHA = cfg.CommitSHA
 	versionInfo.BuildTimestamp = cfg.BuildTimestamp

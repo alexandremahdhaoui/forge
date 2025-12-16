@@ -49,6 +49,7 @@ func runTestsWrapper(ctx context.Context, input mcptypes.RunInput, _ *Spec) (*fo
 	// Convert DetailedTestReport to forge.TestReport
 	duration := time.Duration(detailedReport.Duration * float64(time.Second))
 	forgeReport := &forge.TestReport{
+		ID:           input.ID,
 		Stage:        input.Stage,
 		Status:       detailedReport.Status,
 		ErrorMessage: detailedReport.ErrorMessage,

@@ -129,6 +129,7 @@ func runTestsWithSpec(ctx context.Context, input mcptypes.RunInput, spec *Spec) 
 
 	// Convert local TestReport to forge.TestReport
 	forgeReport := &forge.TestReport{
+		ID:           input.ID,
 		Stage:        report.Stage,
 		Status:       report.Status,
 		ErrorMessage: report.ErrorMessage,

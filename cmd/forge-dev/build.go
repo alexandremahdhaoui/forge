@@ -31,6 +31,8 @@ const (
 	GeneratedSpecFile     = "zz_generated.spec.go"
 	GeneratedValidateFile = "zz_generated.validate.go"
 	GeneratedMCPFile      = "zz_generated.mcp.go"
+	GeneratedMainFile     = "zz_generated.main.go"
+	GeneratedDocsFile     = "zz_generated.docs.go"
 )
 
 // generate is the main code generation function for forge-dev.
@@ -63,6 +65,12 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	// Validate configuration
 	if errs := ValidateConfig(config); len(errs) > 0 {
 		return nil, fmt.Errorf("invalid forge-dev.yaml: %v", errs[0])
+	}
+
+	// Validate docs/usage.md exists (required, not generated)
+	usagePath := filepath.Join(srcDir, "docs", "usage.md")
+	if _, err := os.Stat(usagePath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("docs/usage.md is required but not found at %s", usagePath)
 	}
 
 	// Step 2: Resolve spec.openapi.yaml path (relative to forge-dev.yaml location)
@@ -137,6 +145,60 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	}
 	generatedFiles = append(generatedFiles, GeneratedMCPFile)
 	log.Printf("forge-dev: generated %s", mcpFilePath)
+
+	// Generate zz_generated.main.go
+	mainFilePath := filepath.Join(srcDir, GeneratedMainFile)
+	mainContent, err := GenerateMainFile(config, checksum)
+	if err != nil {
+		return nil, fmt.Errorf("generating main file: %w", err)
+	}
+	if err := os.WriteFile(mainFilePath, mainContent, 0o644); err != nil {
+		return nil, fmt.Errorf("writing main file: %w", err)
+	}
+	generatedFiles = append(generatedFiles, GeneratedMainFile)
+	log.Printf("forge-dev: generated %s", mainFilePath)
+
+	// Generate zz_generated.docs.go
+	docsFilePath := filepath.Join(srcDir, GeneratedDocsFile)
+	docsContent, err := GenerateDocsFile(config, checksum)
+	if err != nil {
+		return nil, fmt.Errorf("generating docs file: %w", err)
+	}
+	if err := os.WriteFile(docsFilePath, docsContent, 0o644); err != nil {
+		return nil, fmt.Errorf("writing docs file: %w", err)
+	}
+	generatedFiles = append(generatedFiles, GeneratedDocsFile)
+	log.Printf("forge-dev: generated %s", docsFilePath)
+
+	// Ensure docs/ directory exists for schema.md and list.yaml
+	docsDir := filepath.Join(srcDir, "docs")
+	if err := os.MkdirAll(docsDir, 0o755); err != nil {
+		return nil, fmt.Errorf("creating docs directory: %w", err)
+	}
+
+	// Generate docs/schema.md
+	schemaMDPath := filepath.Join(docsDir, "schema.md")
+	schemaMDContent, err := GenerateSchemaMD(schema, config)
+	if err != nil {
+		return nil, fmt.Errorf("generating schema.md: %w", err)
+	}
+	if err := os.WriteFile(schemaMDPath, schemaMDContent, 0o644); err != nil {
+		return nil, fmt.Errorf("writing schema.md: %w", err)
+	}
+	generatedFiles = append(generatedFiles, "docs/schema.md")
+	log.Printf("forge-dev: generated %s", schemaMDPath)
+
+	// Generate docs/list.yaml
+	listYAMLPath := filepath.Join(docsDir, "list.yaml")
+	listYAMLContent, err := GenerateListYAML(config, checksum)
+	if err != nil {
+		return nil, fmt.Errorf("generating list.yaml: %w", err)
+	}
+	if err := os.WriteFile(listYAMLPath, listYAMLContent, 0o644); err != nil {
+		return nil, fmt.Errorf("writing list.yaml: %w", err)
+	}
+	generatedFiles = append(generatedFiles, "docs/list.yaml")
+	log.Printf("forge-dev: generated %s", listYAMLPath)
 
 	log.Printf("forge-dev: successfully generated %d files for %s", len(generatedFiles), config.Name)
 

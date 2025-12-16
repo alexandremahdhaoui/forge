@@ -20,9 +20,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/alexandremahdhaoui/forge/internal/cli"
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginecli"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
+	"github.com/alexandremahdhaoui/forge/pkg/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -50,7 +50,7 @@ func main() {
 	}
 
 	// Otherwise, use standard cli.Bootstrap for MCP mode and version handling
-	cli.Bootstrap(cli.Config{
+	enginecli.Bootstrap(enginecli.Config{
 		Name:           "ci-orchestrator",
 		Version:        Version,
 		CommitSHA:      CommitSHA,

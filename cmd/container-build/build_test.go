@@ -17,84 +17,104 @@
 package main
 
 import (
+	"strings"
 	"testing"
-
-	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
 
-func TestDeduplicateDependencies(t *testing.T) {
+func TestValidateContainerEngine(t *testing.T) {
+	tests := []struct {
+		name    string
+		engine  string
+		wantErr bool
+	}{
+		{"valid docker", "docker", false},
+		{"valid kaniko", "kaniko", false},
+		{"valid podman", "podman", false},
+		{"invalid empty", "", true},
+		{"invalid unknown", "containerd", true},
+		{"invalid case", "Docker", true}, // case-sensitive
+		{"invalid buildkit", "buildkit", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateContainerEngine(tt.engine)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateContainerEngine() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil && !strings.Contains(err.Error(), "invalid CONTAINER_BUILD_ENGINE") {
+				t.Errorf("validateContainerEngine() error should mention CONTAINER_BUILD_ENGINE, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestExpandPath(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    []forge.ArtifactDependency
-		expected int // expected number of unique dependencies
+		path     string
+		checkFn  func(string) bool
+		wantDesc string
 	}{
 		{
-			name:     "empty slice",
-			input:    []forge.ArtifactDependency{},
-			expected: 0,
+			name: "with tilde",
+			path: "~/cache",
+			checkFn: func(got string) bool {
+				return !strings.Contains(got, "~") && len(got) > 7
+			},
+			wantDesc: "should expand ~ and return non-empty path",
 		},
 		{
-			name: "no duplicates",
-			input: []forge.ArtifactDependency{
-				{Type: "file", FilePath: "/path/to/file1.go"},
-				{Type: "file", FilePath: "/path/to/file2.go"},
-				{Type: "externalPackage", ExternalPackage: "github.com/foo/bar"},
+			name: "without tilde",
+			path: "/absolute/path",
+			checkFn: func(got string) bool {
+				return got == "/absolute/path"
 			},
-			expected: 3,
+			wantDesc: "should return path unchanged",
 		},
 		{
-			name: "duplicate files",
-			input: []forge.ArtifactDependency{
-				{Type: "file", FilePath: "/path/to/file1.go", Timestamp: "2025-11-23T10:00:00Z"},
-				{Type: "file", FilePath: "/path/to/file1.go", Timestamp: "2025-11-23T11:00:00Z"}, // duplicate
-				{Type: "file", FilePath: "/path/to/file2.go"},
+			name: "relative path",
+			path: "relative/path",
+			checkFn: func(got string) bool {
+				return got == "relative/path"
 			},
-			expected: 2,
+			wantDesc: "should return path unchanged",
 		},
 		{
-			name: "duplicate external packages",
-			input: []forge.ArtifactDependency{
-				{Type: "externalPackage", ExternalPackage: "github.com/foo/bar", Semver: "v1.0.0"},
-				{Type: "externalPackage", ExternalPackage: "github.com/foo/bar", Semver: "v1.1.0"}, // duplicate
-				{Type: "externalPackage", ExternalPackage: "github.com/baz/qux"},
+			name: "tilde in middle",
+			path: "/path/~/cache",
+			checkFn: func(got string) bool {
+				return got == "/path/~/cache"
 			},
-			expected: 2,
-		},
-		{
-			name: "mixed duplicates",
-			input: []forge.ArtifactDependency{
-				{Type: "file", FilePath: "/path/to/file1.go"},
-				{Type: "file", FilePath: "/path/to/file1.go"}, // duplicate
-				{Type: "externalPackage", ExternalPackage: "github.com/foo/bar"},
-				{Type: "externalPackage", ExternalPackage: "github.com/foo/bar"}, // duplicate
-				{Type: "file", FilePath: "/path/to/file2.go"},
-			},
-			expected: 3,
+			wantDesc: "should only expand ~ at start",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := deduplicateDependencies(tt.input)
-			if len(result) != tt.expected {
-				t.Errorf("deduplicateDependencies() returned %d dependencies, expected %d", len(result), tt.expected)
-			}
-
-			// Verify no duplicates in result
-			seen := make(map[string]bool)
-			for _, dep := range result {
-				var key string
-				if dep.Type == "file" {
-					key = "file:" + dep.FilePath
-				} else {
-					key = "external:" + dep.ExternalPackage
-				}
-
-				if seen[key] {
-					t.Errorf("duplicate dependency found in result: %s", key)
-				}
-				seen[key] = true
+			got := expandPath(tt.path)
+			if !tt.checkFn(got) {
+				t.Errorf("expandPath() = %v, %s", got, tt.wantDesc)
 			}
 		})
+	}
+}
+
+func TestEnvsStructTags(t *testing.T) {
+	// Verify that the Envs struct has correct field tags
+	// This is a compile-time check more than a runtime test,
+	// but we can verify the struct exists and has expected fields
+
+	envs := Envs{}
+
+	// Verify zero values
+	if envs.BuildEngine != "" {
+		t.Error("BuildEngine should have empty zero value")
+	}
+
+	// envs.BuildArgs can be nil (valid zero value for slice)
+
+	if envs.KanikoCacheDir != "" {
+		t.Error("KanikoCacheDir should have empty zero value")
 	}
 }

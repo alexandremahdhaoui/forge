@@ -261,7 +261,7 @@ func generateMCPFile(config Config, checksum string) string {
 	"context"
 	"fmt"
 
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"

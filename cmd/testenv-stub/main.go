@@ -24,10 +24,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/alexandremahdhaoui/forge/internal/cli"
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginecli"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
+	"github.com/alexandremahdhaoui/forge/pkg/mcpserver"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -47,7 +47,7 @@ var docsConfig = &enginedocs.Config{
 }
 
 func main() {
-	cli.Bootstrap(cli.Config{
+	enginecli.Bootstrap(enginecli.Config{
 		Name:           "testenv-stub",
 		Version:        Version,
 		CommitSHA:      CommitSHA,

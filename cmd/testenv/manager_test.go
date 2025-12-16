@@ -87,7 +87,8 @@ func TestCmdCreate_Integration(t *testing.T) {
 		t.Fatalf("Failed to find forge repository: %v", err)
 	}
 
-	// Set FORGE_REPO_PATH so engines can be resolved from temp directory
+	// Set FORGE_RUN_LOCAL_ENABLED and FORGE_REPO_PATH so engines can be resolved from local source
+	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
 	t.Setenv("FORGE_REPO_PATH", forgeRepoPath)
 
 	// Create temporary directory for test

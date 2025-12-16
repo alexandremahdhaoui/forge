@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/alexandremahdhaoui/forge/internal/cli"
-	"github.com/alexandremahdhaoui/forge/internal/version"
+	"github.com/alexandremahdhaoui/forge/pkg/enginecli"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
+	"github.com/alexandremahdhaoui/forge/pkg/engineversion"
 )
 
 // Version information (set via ldflags during build)
@@ -31,7 +31,7 @@ var (
 )
 
 // versionInfo holds testenv's version information
-var versionInfo *version.Info
+var versionInfo *engineversion.Info
 
 // docsConfig is the configuration for the docs subcommand.
 var docsConfig = &enginedocs.Config{
@@ -42,7 +42,7 @@ var docsConfig = &enginedocs.Config{
 }
 
 func init() {
-	versionInfo = version.New("testenv")
+	versionInfo = engineversion.New("testenv")
 	versionInfo.Version = Version
 	versionInfo.CommitSHA = CommitSHA
 	versionInfo.BuildTimestamp = BuildTimestamp
@@ -89,7 +89,7 @@ func main() {
 	}
 
 	// Otherwise, use standard cli.Bootstrap for MCP mode and version handling
-	cli.Bootstrap(cli.Config{
+	enginecli.Bootstrap(enginecli.Config{
 		Name:           "testenv",
 		Version:        Version,
 		CommitSHA:      CommitSHA,

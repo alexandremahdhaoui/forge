@@ -15,9 +15,9 @@
 package main
 
 import (
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
+	"github.com/alexandremahdhaoui/forge/pkg/mcpserver"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

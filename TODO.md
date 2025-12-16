@@ -1,22 +1,21 @@
 # TODOs
 
-## forge-dev and OpenAPI based framework is not complete
+- [ ] [0005] Fix documentation in this repo: documentation in this repo is a bit strange
 
-1. The forge-dev and framework uses packages that are inside the ./internal folder, that will not work easily
-1. The main.go could also be generated (zz_generated.main.go) or something -> most of the code can be generated it's very simple
-1. The forge-dev and framework could also ensure that mandatory tools like `validate` (or config validate I forgot) and `docs` are already implemented (generated).
-    1. E.g.: for docs user will just have to add docs in the `<path>/docs` and an entry for this doc in `<path>/docs/list.yaml`; actually the list.yaml could also be generated
-    1. The mandatory doc `schema.md` could be generated from the open api spec and with some info from the forge-dev.yaml; the generated `schema.md` should also reference the link to the openapi spec for users to check the spec directly.
-    1. The mandatory doc `usage.md` cannot be generated, but must be present.
-    1. NB: validate might already be implemented but not docs I think
-
-## Refactor forge into packages/libraries to provide common libraries for engine creation
-
-1. Libraries must be well documented
-1. Process of creating an engine using the libraries must be well documented too
-1. The engines (especially the built-ins) must almost only implement their "business logic" -> All commonalities must be abstraced into public libraries/packages
-1. It must be extremely simple to implement an engine -> In this repo (i.e. a built-in) or in any other repo, we want user to be able to create engines very easily and create their own
-1. Developing engines must be easy. There must be some common packages/libaries or testing framework or something to easily tests the packages
+- [ ] [0004] forge-dev and OpenAPI based framework is not complete
+    1. The forge-dev and framework uses packages that are inside the ./internal folder, that will not work easily
+    1. The main.go could also be generated (zz_generated.main.go) or something -> most of the code can be generated it's very simple
+    1. The forge-dev and framework could also ensure that mandatory tools like `validate` (or config validate I forgot) and `docs` are already implemented (generated).
+        1. E.g.: for docs user will just have to add docs in the `<path>/docs` and an entry for this doc in `<path>/docs/list.yaml`; actually the list.yaml could also be generated
+        1. The mandatory doc `schema.md` could be generated from the open api spec and with some info from the forge-dev.yaml; the generated `schema.md` should also reference the link to the openapi spec for users to check the spec directly.
+        1. The mandatory doc `usage.md` cannot be generated, but must be present.
+        1. NB: validate might already be implemented but not docs I think
+    1. NB: about common libraries/packages/framework:
+        1. Libraries must be well documented
+        1. Process of creating an engine using the libraries must be well documented too
+        1. The engines (especially the built-ins) must almost only implement their "business logic" -> All commonalities must be abstraced into generated code and public libraries/packages if applicable
+        1. It must be extremely simple to implement an engine -> In this repo (i.e. a built-in) or in any other repo, we want user to be able to create engines very easily and create their own
+        1. Developing engines must be easy. There must be some common packages/libaries or testing framework or something to easily tests the engine
 
 ## forge docs get|list
 

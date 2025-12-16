@@ -20,9 +20,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/alexandremahdhaoui/forge/internal/cli"
-	"github.com/alexandremahdhaoui/forge/internal/mcpserver"
+	"github.com/alexandremahdhaoui/forge/pkg/enginecli"
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
+	"github.com/alexandremahdhaoui/forge/pkg/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -48,7 +48,7 @@ var docsConfig = &enginedocs.Config{
 // ----------------------------------------------------- MAIN ------------------------------------------------------- //
 
 func main() {
-	cli.Bootstrap(cli.Config{
+	enginecli.Bootstrap(enginecli.Config{
 		Name:           Name,
 		Version:        Version,
 		CommitSHA:      CommitSHA,

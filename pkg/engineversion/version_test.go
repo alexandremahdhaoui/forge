@@ -14,17 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package version_test
+package engineversion_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/alexandremahdhaoui/forge/internal/version"
+	"github.com/alexandremahdhaoui/forge/pkg/engineversion"
 )
 
 func TestNew(t *testing.T) {
-	info := version.New("test-tool")
+	info := engineversion.New("test-tool")
 	if info.ToolName != "test-tool" {
 		t.Errorf("Expected ToolName 'test-tool', got '%s'", info.ToolName)
 	}
@@ -40,7 +40,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	info := version.New("test-tool")
+	info := engineversion.New("test-tool")
 	info.Version = "v1.0.0"
 	info.CommitSHA = "abc1234"
 	info.BuildTimestamp = "2025-01-01T00:00:00Z"
@@ -58,7 +58,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	info := version.New("test-tool")
+	info := engineversion.New("test-tool")
 	info.Version = "v1.2.3"
 
 	str := info.String()
@@ -71,7 +71,7 @@ func TestString(t *testing.T) {
 func TestGetWithBuildInfo(t *testing.T) {
 	// This test verifies that Get() works with default values
 	// and attempts to read from build info
-	info := version.New("test-tool")
+	info := engineversion.New("test-tool")
 
 	v, c, ts := info.Get()
 
@@ -90,7 +90,7 @@ func TestGetWithBuildInfo(t *testing.T) {
 func TestPrint(t *testing.T) {
 	// This is a basic test that Print() doesn't panic
 	// Actual output verification would require capturing stdout
-	info := version.New("test-tool")
+	info := engineversion.New("test-tool")
 	info.Version = "v1.0.0"
 	info.CommitSHA = "abc1234"
 	info.BuildTimestamp = "2025-01-01T00:00:00Z"
@@ -118,7 +118,7 @@ func TestStringContainsToolName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			info := version.New(tt.toolName)
+			info := engineversion.New(tt.toolName)
 			info.Version = tt.version
 
 			str := info.String()
@@ -145,7 +145,7 @@ func TestGetEffectiveVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := version.GetEffectiveVersion(tt.ldflagsVersion)
+			result := engineversion.GetEffectiveVersion(tt.ldflagsVersion)
 
 			if tt.expectOriginal {
 				// In tests, build info is not typically available,
@@ -160,7 +160,7 @@ func TestGetEffectiveVersion(t *testing.T) {
 
 func TestGetEffectiveVersion_NonDevVersion(t *testing.T) {
 	// When ldflags version is a valid semver, it should be returned directly
-	result := version.GetEffectiveVersion("v2.3.4")
+	result := engineversion.GetEffectiveVersion("v2.3.4")
 	if result != "v2.3.4" {
 		t.Errorf("GetEffectiveVersion('v2.3.4') = %q, want 'v2.3.4'", result)
 	}
