@@ -19,12 +19,6 @@ docs:
     tags: ["architecture", "testenv", "design"]
 
   # User Guides and Usage
-  - name: "readme"
-    title: "Forge README"
-    description: "Main project overview and getting started guide"
-    url: "README.md"
-    tags: ["getting-started", "overview"]
-
   - name: "getting-started"
     title: "Getting Started"
     description: "Build your project with forge in 5 minutes"
@@ -110,16 +104,3 @@ docs:
     description: "Provision specific resources for test environments"
     url: "docs/dev/creating-testenv-subengine.md"
     tags: ["development", "testenv", "subengine"]
-
-  # Reference Documentation
-  - name: "built-in-tools"
-    title: "Built-in Tools Reference"
-    description: "Reference guide for all built-in forge tools and engines"
-    url: "docs/user/built-in-tools.md"
-    tags: ["reference", "tools", "engines"]
-
-  - name: "architecture-overview"
-    title: "Forge Architecture Overview"
-    description: "How forge orchestrates builds and tests"
-    url: "docs/architecture/overview.md"
-    tags: ["architecture", "overview"]
