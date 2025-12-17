@@ -456,6 +456,223 @@ Configuration validation failed: <error details>
 
 ---
 
+### `docs-list`
+
+List available documentation. Supports three modes: list engines, list docs for an engine, or list all docs.
+
+**Input Schema:**
+```json
+{
+  "engine": "string (optional)"  // Engine name, "all" for all docs, empty for engines list
+}
+```
+
+**Modes:**
+- `engine=""` (empty or omitted): Returns list of engines with documentation
+- `engine="all"`: Returns all docs from all engines
+- `engine="<name>"`: Returns docs for a specific engine (e.g., "forge", "go-build")
+
+**Output (engines list mode):**
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "Found 4 engine(s) with documentation"
+  }],
+  "artifact": {
+    "engines": [
+      {"name": "forge", "docCount": 5},
+      {"name": "go-build", "docCount": 2},
+      {"name": "testenv", "docCount": 3}
+    ]
+  }
+}
+```
+
+**Output (docs for engine mode):**
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "Found 2 doc(s) for engine 'go-build'"
+  }],
+  "artifact": {
+    "engine": "go-build",
+    "docs": [
+      {
+        "engine": "go-build",
+        "name": "usage",
+        "title": "Go Build Usage Guide",
+        "description": "How to use go-build",
+        "path": "cmd/go-build/docs/usage.md",
+        "tags": ["usage", "guide"]
+      },
+      {
+        "engine": "go-build",
+        "name": "schema",
+        "title": "Configuration Schema",
+        "description": "Configuration options for go-build",
+        "path": "cmd/go-build/docs/schema.md"
+      }
+    ]
+  }
+}
+```
+
+**Output (all docs mode):**
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "Found 10 doc(s) across all engines"
+  }],
+  "artifact": {
+    "docs": [
+      {
+        "engine": "forge",
+        "name": "architecture",
+        "title": "Forge Architecture",
+        "description": "System architecture overview",
+        "path": "docs/architecture.md"
+      },
+      {
+        "engine": "go-build",
+        "name": "usage",
+        "title": "Go Build Usage Guide",
+        "description": "How to use go-build",
+        "path": "cmd/go-build/docs/usage.md"
+      }
+    ]
+  }
+}
+```
+
+**Example (list engines):**
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "docs-list",
+    "arguments": {}
+  }
+}
+```
+
+**Example (list docs for engine):**
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "docs-list",
+    "arguments": {
+      "engine": "go-build"
+    }
+  }
+}
+```
+
+**Example (list all docs):**
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "docs-list",
+    "arguments": {
+      "engine": "all"
+    }
+  }
+}
+```
+
+---
+
+### `docs-get`
+
+Retrieve the content of a specific documentation file.
+
+**Input Schema:**
+```json
+{
+  "name": "string (required)"  // Document name, optionally prefixed with engine (e.g., "go-build/usage")
+}
+```
+
+**Output:**
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "# Go Build Usage Guide\n\n..."
+  }]
+}
+```
+
+**Example:**
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "docs-get",
+    "arguments": {
+      "name": "go-build/usage"
+    }
+  }
+}
+```
+
+---
+
+### `list`
+
+List available build targets and test stages defined in forge.yaml.
+
+**Input Schema:**
+```json
+{
+  "category": "string (optional)"  // "build" or "test" - if omitted, lists both
+}
+```
+
+**Output:**
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "Build targets:\n- myapp\n- mylib\n\nTest stages:\n- unit\n- integration"
+  }],
+  "artifact": {
+    "build": ["myapp", "mylib"],
+    "test": ["unit", "integration"]
+  }
+}
+```
+
+---
+
+### `prompt-list`
+
+List all available documentation prompts.
+
+**Input Schema:**
+```json
+{}  // No parameters
+```
+
+---
+
+### `prompt-get`
+
+Get a specific documentation prompt by name.
+
+**Input Schema:**
+```json
+{
+  "name": "string (required)"  // Prompt name
+}
+```
+
+---
+
 ## How It Works
 
 1. Loads forge.yaml configuration from current directory

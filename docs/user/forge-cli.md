@@ -5,6 +5,7 @@ This guide provides practical examples and workflows for using the forge CLI too
 ## Table of Contents
 
 - [Quick Start](#quick-start)
+- [Documentation Commands](#documentation-commands)
 - [Building Artifacts](#building-artifacts)
 - [Code Quality](#code-quality)
   - [Code Formatting](#code-formatting)
@@ -95,6 +96,113 @@ forge --help
 forge build --help
 forge test --help
 ```
+
+## Documentation Commands
+
+Forge provides built-in documentation for the CLI and all engines. Use `forge docs` to discover and read documentation.
+
+### List Engines with Documentation
+
+```bash
+# List all engines that have documentation
+forge docs list
+
+# Output as JSON
+forge docs list -o json
+
+# Output as YAML
+forge docs list --format=yaml
+```
+
+**Example output:**
+```
+ENGINE         DOCS
+------         ----
+forge          5
+go-build       2
+container-build 1
+testenv        3
+
+Total: 4 engine(s)
+
+Usage: forge docs list <engine>  # List docs for an engine
+       forge docs list all       # List all docs
+```
+
+### List Docs for a Specific Engine
+
+```bash
+# List docs for forge (global docs)
+forge docs list forge
+
+# List docs for go-build engine
+forge docs list go-build
+
+# Output as JSON
+forge docs list testenv -o json
+```
+
+**Example output:**
+```
+Engine: go-build
+
+NAME      TITLE
+----      -----
+usage     Go Build Usage Guide
+schema    Configuration Schema
+
+Total: 2 doc(s)
+
+Usage: forge docs get <engine>/<name>  # Get a document
+```
+
+### List All Docs from All Engines
+
+```bash
+# List all docs from all engines
+forge docs list all
+
+# Output as YAML
+forge docs list all --format=yaml
+```
+
+**Example output:**
+```
+ENGINE          NAME            TITLE
+------          ----            -----
+forge           architecture    Forge Architecture
+forge           usage           Forge Usage Guide
+go-build        usage           Go Build Usage Guide
+go-build        schema          Configuration Schema
+testenv         usage           Test Environment Usage
+
+Total: 5 doc(s)
+
+Usage: forge docs get <engine>/<name>  # Get a document
+```
+
+### Get a Document
+
+```bash
+# Get a global forge doc
+forge docs get forge-usage
+
+# Get an engine-specific doc (engine/name format)
+forge docs get go-build/usage
+```
+
+### Output Format Options
+
+All `forge docs list` commands support output format flags:
+
+| Flag | Description |
+|------|-------------|
+| `-o json` or `-ojson` | Output as JSON |
+| `-o yaml` or `-oyaml` | Output as YAML |
+| `-o table` or `-otable` | Output as table (default) |
+| `--format=json` | Output as JSON |
+| `--format=yaml` | Output as YAML |
+| `--format=table` | Output as table (default) |
 
 ## Building Artifacts
 

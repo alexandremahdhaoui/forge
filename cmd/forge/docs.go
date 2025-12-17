@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -53,17 +54,41 @@ type DocEntry struct {
 	Tags        []string `yaml:"tags"`
 }
 
+// Engine represents an engine with documentation
+type Engine struct {
+	Name     string `json:"name" yaml:"name"`
+	DocCount int    `json:"docCount" yaml:"docCount"`
+}
+
+// EngineDoc represents a document with its parent engine
+type EngineDoc struct {
+	Engine      string   `json:"engine" yaml:"engine"`
+	Name        string   `json:"name" yaml:"name"`
+	Title       string   `json:"title" yaml:"title"`
+	Description string   `json:"description" yaml:"description"`
+	Path        string   `json:"path" yaml:"path"`
+	Tags        []string `json:"tags,omitempty" yaml:"tags,omitempty"`
+}
+
 // runDocs handles the "forge docs" command
 func runDocs(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: forge docs <list|get> [doc-name]")
+		return fmt.Errorf("usage: forge docs <list|get> [args...]\n\n" +
+			"Commands:\n" +
+			"  list              List all engines with documentation\n" +
+			"  list <engine>     List docs for a specific engine\n" +
+			"  list all          List all docs from all engines\n" +
+			"  get <name>        Get a specific document\n\n" +
+			"Options:\n" +
+			"  --format=<fmt>    Output format: table (default), json, yaml\n" +
+			"  -o <fmt>          Short form of --format")
 	}
 
 	operation := args[0]
 
 	switch operation {
 	case "list":
-		return docsList()
+		return docsListCommand(args[1:])
 	case "get":
 		if len(args) < 2 {
 			return fmt.Errorf("usage: forge docs get <doc-name>")
@@ -74,41 +99,43 @@ func runDocs(args []string) error {
 	}
 }
 
-// docsList lists all available documentation
-func docsList() error {
-	// Fetch docs store
-	store, err := fetchDocsStore()
+// docsListCommand handles the "forge docs list" command with subcommands
+// Usage:
+//   - forge docs list           -> list engines
+//   - forge docs list <engine>  -> list docs for engine
+//   - forge docs list all       -> list all docs
+func docsListCommand(args []string) error {
+	// Parse format flag
+	format, remaining := parseOutputFormat(args)
+
+	if len(remaining) == 0 {
+		// No arguments: list engines
+		engines, err := listEngines()
+		if err != nil {
+			return fmt.Errorf("failed to list engines: %w", err)
+		}
+		formatEnginesOutput(engines, format)
+		return nil
+	}
+
+	target := remaining[0]
+
+	if target == "all" {
+		// List all docs from all engines
+		docs, err := listAllDocs()
+		if err != nil {
+			return fmt.Errorf("failed to list all docs: %w", err)
+		}
+		formatDocsOutput(docs, "", format)
+		return nil
+	}
+
+	// List docs for specific engine
+	docs, err := listDocsByEngine(target)
 	if err != nil {
-		return fmt.Errorf("failed to fetch docs list: %w", err)
+		return fmt.Errorf("failed to list docs for engine '%s': %w", target, err)
 	}
-
-	// Print header
-	fmt.Printf("Available documentation (version %s):\n\n", store.Version)
-
-	// Find longest name for alignment
-	maxNameLen := 0
-	for _, doc := range store.Docs {
-		if len(doc.Name) > maxNameLen {
-			maxNameLen = len(doc.Name)
-		}
-	}
-
-	// Print docs
-	for _, doc := range store.Docs {
-		// Format: name (padded) - title
-		fmt.Printf("  %-*s  %s\n", maxNameLen, doc.Name, doc.Title)
-		fmt.Printf("  %*s  %s\n", maxNameLen, "", doc.Description)
-
-		// Print tags
-		if len(doc.Tags) > 0 {
-			fmt.Printf("  %*s  Tags: %s\n", maxNameLen, "", strings.Join(doc.Tags, ", "))
-		}
-		fmt.Println()
-	}
-
-	fmt.Printf("Usage: forge docs get <name>\n")
-	fmt.Printf("Example: forge docs get architecture\n")
-
+	formatDocsOutput(docs, target, format)
 	return nil
 }
 
@@ -211,75 +238,6 @@ type AggregationError struct {
 	Error  string `json:"error"`
 }
 
-// aggregateDocsList scans cmd/*/docs/list.yaml files and returns aggregated documentation
-// It returns both global forge docs and engine-specific docs
-func aggregateDocsList() (*AggregatedDocsResult, error) {
-	result := &AggregatedDocsResult{
-		GlobalDocs: []DocEntry{},
-		EngineDocs: []AggregatedDocEntry{},
-		Errors:     []AggregationError{},
-	}
-
-	// Load global docs first
-	globalStore, err := fetchDocsStore()
-	if err != nil {
-		// Global docs are not required for aggregation to succeed
-		result.Errors = append(result.Errors, AggregationError{
-			Engine: "forge",
-			Error:  err.Error(),
-		})
-	} else {
-		result.GlobalDocs = globalStore.Docs
-	}
-
-	// Discover engine directories with docs
-	engineDirs, err := discoverEngineDocs()
-	if err != nil {
-		// Continue with global docs only
-		return result, nil
-	}
-
-	// Load docs from each engine
-	for _, engineDir := range engineDirs {
-		engineName := filepath.Base(engineDir)
-		listPath := filepath.Join(engineDir, "docs", "list.yaml")
-
-		content, err := os.ReadFile(listPath)
-		if err != nil {
-			result.Errors = append(result.Errors, AggregationError{
-				Engine: engineName,
-				Error:  fmt.Sprintf("failed to read list.yaml: %v", err),
-			})
-			continue
-		}
-
-		var store enginedocs.DocStore
-		if err := yaml.Unmarshal(content, &store); err != nil {
-			result.Errors = append(result.Errors, AggregationError{
-				Engine: engineName,
-				Error:  fmt.Sprintf("failed to parse list.yaml: %v", err),
-			})
-			continue
-		}
-
-		// Add engine docs with engine prefix
-		for _, doc := range store.Docs {
-			result.EngineDocs = append(result.EngineDocs, AggregatedDocEntry{
-				DocEntry: DocEntry{
-					Name:        engineName + "/" + doc.Name,
-					Title:       doc.Title,
-					Description: doc.Description,
-					URL:         doc.URL,
-					Tags:        doc.Tags,
-				},
-				Engine: engineName,
-			})
-		}
-	}
-
-	return result, nil
-}
-
 // discoverEngineDocs finds all engine directories that have docs/list.yaml
 func discoverEngineDocs() ([]string, error) {
 	var engines []string
@@ -307,6 +265,294 @@ func discoverEngineDocs() ([]string, error) {
 	}
 
 	return engines, nil
+}
+
+// listEngines returns all engines with documentation and their doc counts
+// It includes the "forge" engine for global docs and all engine-specific docs
+func listEngines() ([]Engine, error) {
+	var engines []Engine
+
+	// Load global docs first (forge engine)
+	globalStore, err := fetchDocsStore()
+	if err == nil && len(globalStore.Docs) > 0 {
+		engines = append(engines, Engine{
+			Name:     "forge",
+			DocCount: len(globalStore.Docs),
+		})
+	}
+
+	// Discover engine directories with docs
+	engineDirs, err := discoverEngineDocs()
+	if err != nil {
+		// If no engines found but we have global docs, that's okay
+		if len(engines) > 0 {
+			return engines, nil
+		}
+		return nil, fmt.Errorf("failed to discover engines: %w", err)
+	}
+
+	// Load doc count from each engine
+	for _, engineDir := range engineDirs {
+		engineName := filepath.Base(engineDir)
+		listPath := filepath.Join(engineDir, "docs", "list.yaml")
+
+		content, err := os.ReadFile(listPath)
+		if err != nil {
+			continue // Skip engines that fail to load
+		}
+
+		var store enginedocs.DocStore
+		if err := yaml.Unmarshal(content, &store); err != nil {
+			continue // Skip engines with invalid YAML
+		}
+
+		engines = append(engines, Engine{
+			Name:     engineName,
+			DocCount: len(store.Docs),
+		})
+	}
+
+	// Sort alphabetically by name
+	sort.Slice(engines, func(i, j int) bool {
+		return engines[i].Name < engines[j].Name
+	})
+
+	return engines, nil
+}
+
+// listDocsByEngine returns all docs for a specific engine
+// For "forge" engine, returns global docs
+// For other engines, returns docs from cmd/{engine}/docs/list.yaml
+func listDocsByEngine(engineName string) ([]EngineDoc, error) {
+	if engineName == "forge" {
+		// Return global forge docs
+		store, err := fetchDocsStore()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load forge docs: %w", err)
+		}
+
+		var docs []EngineDoc
+		for _, doc := range store.Docs {
+			docs = append(docs, EngineDoc{
+				Engine:      "forge",
+				Name:        doc.Name,
+				Title:       doc.Title,
+				Description: doc.Description,
+				Path:        doc.URL,
+				Tags:        doc.Tags,
+			})
+		}
+		return docs, nil
+	}
+
+	// Load docs from engine's list.yaml
+	listPath := filepath.Join("cmd", engineName, "docs", "list.yaml")
+	content, err := os.ReadFile(listPath)
+	if err != nil {
+		return nil, fmt.Errorf("engine '%s' not found or has no docs: %w", engineName, err)
+	}
+
+	var store enginedocs.DocStore
+	if err := yaml.Unmarshal(content, &store); err != nil {
+		return nil, fmt.Errorf("failed to parse list.yaml for engine '%s': %w", engineName, err)
+	}
+
+	var docs []EngineDoc
+	for _, doc := range store.Docs {
+		docs = append(docs, EngineDoc{
+			Engine:      engineName,
+			Name:        doc.Name,
+			Title:       doc.Title,
+			Description: doc.Description,
+			Path:        doc.URL,
+			Tags:        doc.Tags,
+		})
+	}
+
+	return docs, nil
+}
+
+// listAllDocs returns all docs from all engines (global + engine-specific)
+// This is similar to aggregateDocsList but returns EngineDoc format
+func listAllDocs() ([]EngineDoc, error) {
+	var allDocs []EngineDoc
+
+	// Load global forge docs
+	globalStore, err := fetchDocsStore()
+	if err == nil {
+		for _, doc := range globalStore.Docs {
+			allDocs = append(allDocs, EngineDoc{
+				Engine:      "forge",
+				Name:        doc.Name,
+				Title:       doc.Title,
+				Description: doc.Description,
+				Path:        doc.URL,
+				Tags:        doc.Tags,
+			})
+		}
+	}
+
+	// Discover and load engine docs
+	engineDirs, err := discoverEngineDocs()
+	if err != nil {
+		// If no engines found but we have global docs, return those
+		if len(allDocs) > 0 {
+			return allDocs, nil
+		}
+		return nil, fmt.Errorf("failed to discover engines: %w", err)
+	}
+
+	for _, engineDir := range engineDirs {
+		engineName := filepath.Base(engineDir)
+		listPath := filepath.Join(engineDir, "docs", "list.yaml")
+
+		content, err := os.ReadFile(listPath)
+		if err != nil {
+			continue
+		}
+
+		var store enginedocs.DocStore
+		if err := yaml.Unmarshal(content, &store); err != nil {
+			continue
+		}
+
+		for _, doc := range store.Docs {
+			allDocs = append(allDocs, EngineDoc{
+				Engine:      engineName,
+				Name:        doc.Name,
+				Title:       doc.Title,
+				Description: doc.Description,
+				Path:        doc.URL,
+				Tags:        doc.Tags,
+			})
+		}
+	}
+
+	// Sort by engine name, then by doc name
+	sort.Slice(allDocs, func(i, j int) bool {
+		if allDocs[i].Engine != allDocs[j].Engine {
+			return allDocs[i].Engine < allDocs[j].Engine
+		}
+		return allDocs[i].Name < allDocs[j].Name
+	})
+
+	return allDocs, nil
+}
+
+// formatEnginesOutput formats a list of engines for display
+func formatEnginesOutput(engines []Engine, format outputFormat) {
+	switch format {
+	case outputFormatJSON:
+		printJSON(map[string]interface{}{"engines": engines})
+	case outputFormatYAML:
+		printYAML(map[string]interface{}{"engines": engines})
+	default:
+		// Table format
+		if len(engines) == 0 {
+			fmt.Println("No engines with documentation found.")
+			return
+		}
+
+		// Find max engine name length for alignment
+		maxNameLen := len("ENGINE")
+		for _, e := range engines {
+			if len(e.Name) > maxNameLen {
+				maxNameLen = len(e.Name)
+			}
+		}
+
+		// Print header
+		fmt.Printf("%-*s  %s\n", maxNameLen, "ENGINE", "DOCS")
+		fmt.Printf("%-*s  %s\n", maxNameLen, strings.Repeat("-", maxNameLen), "----")
+
+		// Print rows
+		for _, e := range engines {
+			fmt.Printf("%-*s  %d\n", maxNameLen, e.Name, e.DocCount)
+		}
+
+		fmt.Printf("\nTotal: %d engine(s)\n", len(engines))
+		fmt.Println("\nUsage: forge docs list <engine>  # List docs for an engine")
+		fmt.Println("       forge docs list all       # List all docs")
+	}
+}
+
+// formatDocsOutput formats a list of docs for display
+// If engineName is provided, shows docs for that engine
+// If engineName is empty, shows all docs with engine column
+func formatDocsOutput(docs []EngineDoc, engineName string, format outputFormat) {
+	switch format {
+	case outputFormatJSON:
+		if engineName != "" {
+			printJSON(map[string]interface{}{"engine": engineName, "docs": docs})
+		} else {
+			printJSON(map[string]interface{}{"docs": docs})
+		}
+	case outputFormatYAML:
+		if engineName != "" {
+			printYAML(map[string]interface{}{"engine": engineName, "docs": docs})
+		} else {
+			printYAML(map[string]interface{}{"docs": docs})
+		}
+	default:
+		// Table format
+		if len(docs) == 0 {
+			fmt.Println("No documentation found.")
+			return
+		}
+
+		// Find max lengths for alignment
+		maxEngineLen := len("ENGINE")
+		maxNameLen := len("NAME")
+		maxTitleLen := len("TITLE")
+
+		for _, d := range docs {
+			if len(d.Engine) > maxEngineLen {
+				maxEngineLen = len(d.Engine)
+			}
+			if len(d.Name) > maxNameLen {
+				maxNameLen = len(d.Name)
+			}
+			if len(d.Title) > maxTitleLen {
+				maxTitleLen = len(d.Title)
+			}
+		}
+
+		// Cap title length at 50 for readability
+		if maxTitleLen > 50 {
+			maxTitleLen = 50
+		}
+
+		if engineName != "" {
+			// Single engine mode - don't show engine column
+			fmt.Printf("Engine: %s\n\n", engineName)
+			fmt.Printf("%-*s  %s\n", maxNameLen, "NAME", "TITLE")
+			fmt.Printf("%-*s  %s\n", maxNameLen, strings.Repeat("-", maxNameLen), strings.Repeat("-", maxTitleLen))
+
+			for _, d := range docs {
+				title := d.Title
+				if len(title) > 50 {
+					title = title[:47] + "..."
+				}
+				fmt.Printf("%-*s  %s\n", maxNameLen, d.Name, title)
+			}
+		} else {
+			// All docs mode - show engine column
+			fmt.Printf("%-*s  %-*s  %s\n", maxEngineLen, "ENGINE", maxNameLen, "NAME", "TITLE")
+			fmt.Printf("%-*s  %-*s  %s\n", maxEngineLen, strings.Repeat("-", maxEngineLen),
+				maxNameLen, strings.Repeat("-", maxNameLen), strings.Repeat("-", maxTitleLen))
+
+			for _, d := range docs {
+				title := d.Title
+				if len(title) > 50 {
+					title = title[:47] + "..."
+				}
+				fmt.Printf("%-*s  %-*s  %s\n", maxEngineLen, d.Engine, maxNameLen, d.Name, title)
+			}
+		}
+
+		fmt.Printf("\nTotal: %d doc(s)\n", len(docs))
+		fmt.Println("\nUsage: forge docs get <engine>/<name>  # Get a document")
+	}
 }
 
 // aggregatedDocsGet retrieves a document by name, routing to the correct engine

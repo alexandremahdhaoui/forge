@@ -1,14 +1,18 @@
 # TODOs
 
+## Open TODOs
+
 - [ ] [0005] Fix documentation in this repo: documentation in this repo is a bit strange
-- [ ] [0006] The forge docs list command is way too difficult to read and pick information from
+
+## Done
+
+- [x] [0006] The forge docs list command is way too difficult to read and pick information from
     1. `forge docs list` will list the overall "categories" of documentation, i.e.: `forge`, `forge-dev`, `go-build`,... Basically all engine categories
     1. Then `forge docs list forge` will be used to list all docs in the `forge` category
     1. `forge docs list all` will be used to list all docs of all categories
     1. `forge docs list go-build` would list all go-build docs
     1. The `forge docs` commands have options to return the list in human readable table format, JSON or YAML (both for `forge docs list` and `forge docs list [category]`) -- if and only if it's not already implemented
-- [ ] [0007] Update all usage docs of all engines in this repo
-
+- [x] [0007] Update all usage docs of all engines in this repo
 - [x] [0004] forge-dev and OpenAPI based framework is not complete
     1. The forge-dev and framework uses packages that are inside the ./internal folder, that will not work easily
     1. The main.go could also be generated (zz_generated.main.go) or something -> most of the code can be generated it's very simple
@@ -23,9 +27,7 @@
         1. The engines (especially the built-ins) must almost only implement their "business logic" -> All commonalities must be abstraced into generated code and public libraries/packages if applicable
         1. It must be extremely simple to implement an engine -> In this repo (i.e. a built-in) or in any other repo, we want user to be able to create engines very easily and create their own
         1. Developing engines must be easy. There must be some common packages/libaries or testing framework or something to easily tests the engine
-
 - [x] forge docs get|list
-
     1. This command is not implemented correctly
     1. Docs are still weird
     1. Many docs are missing
@@ -35,9 +37,7 @@
     1. How does the recursive doc fetching actually works?
     1. Forge docs list should provide list of docs from all built-in mcp server engines defined in this repo
     1. forge docs list|get for engines should return entries such as `go-build/schema` for built-in docs such as the schema doc of the go-build built-in
-
 - [x] Refactor all forge/engine APIs using OpenAPI specification and code generation
-
     1. Currently it's kind of a mess
     1. Every packages/engines implement their stuff their way and it's not easy to understand what's going on etc...
     1. We must generate most of the mcp-server/cli code from an OpenAPI specification

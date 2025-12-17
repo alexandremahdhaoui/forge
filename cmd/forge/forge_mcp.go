@@ -94,7 +94,21 @@ type ConfigValidateInput struct {
 
 // DocsListInput represents the input parameters for the docs-list tool.
 type DocsListInput struct {
-	// No parameters - lists all docs
+	// Engine name to list docs for. If empty, lists all engines.
+	// Use "all" to list all docs from all engines.
+	Engine string `json:"engine,omitempty"`
+}
+
+// DocsListResult represents the result of listing docs.
+type DocsListResult struct {
+	// Engines is populated when listing engines (no engine specified)
+	Engines []Engine `json:"engines,omitempty"`
+	// Docs is populated when listing docs for an engine or all docs
+	Docs []EngineDoc `json:"docs,omitempty"`
+	// Engine is the engine filter used (if any)
+	Engine string `json:"engine,omitempty"`
+	// Summary message
+	Summary string `json:"summary"`
 }
 
 // DocsGetInput represents the input parameters for the docs-get tool.
@@ -169,7 +183,7 @@ func runMCPServer() error {
 	// Register docs-list tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "docs-list",
-		Description: "List all available documentation",
+		Description: "List documentation. Without engine parameter: lists engines. With engine='all': lists all docs. With engine='<name>': lists docs for that engine.",
 	}, handleDocsListTool)
 
 	// Register docs-get tool
@@ -950,37 +964,64 @@ func handleConfigValidateTool(
 }
 
 // handleDocsListTool handles the "docs-list" tool call from MCP clients.
-// It returns aggregated documentation from both global forge docs and engine-specific docs.
+// Behavior depends on the engine parameter:
+//   - Empty: Lists all engines with doc counts
+//   - "all": Lists all docs from all engines
+//   - "<engine>": Lists docs for specific engine
 func handleDocsListTool(
 	ctx context.Context,
 	req *mcp.CallToolRequest,
 	input DocsListInput,
 ) (*mcp.CallToolResult, any, error) {
-	log.Printf("Listing available documentation (aggregated)")
+	log.Printf("Listing documentation: engine=%q", input.Engine)
 
-	// Use aggregated docs list for MCP to get structured data
-	result, err := aggregateDocsList()
-	if err != nil {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("Failed to list documentation: %v", err)},
-			},
-			IsError: true,
-		}, nil, nil
-	}
+	var result DocsListResult
 
-	// Calculate totals for summary
-	totalDocs := len(result.GlobalDocs) + len(result.EngineDocs)
-	errorCount := len(result.Errors)
-
-	summary := fmt.Sprintf("Found %d document(s): %d global, %d from engines",
-		totalDocs, len(result.GlobalDocs), len(result.EngineDocs))
-	if errorCount > 0 {
-		summary += fmt.Sprintf(" (%d engine(s) had errors)", errorCount)
+	switch input.Engine {
+	case "":
+		// List engines
+		engines, err := listEngines()
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: fmt.Sprintf("Failed to list engines: %v", err)},
+				},
+				IsError: true,
+			}, nil, nil
+		}
+		result.Engines = engines
+		result.Summary = fmt.Sprintf("Found %d engine(s) with documentation", len(engines))
+	case "all":
+		// List all docs from all engines
+		docs, err := listAllDocs()
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: fmt.Sprintf("Failed to list all docs: %v", err)},
+				},
+				IsError: true,
+			}, nil, nil
+		}
+		result.Docs = docs
+		result.Summary = fmt.Sprintf("Found %d doc(s) from all engines", len(docs))
+	default:
+		// List docs for specific engine
+		docs, err := listDocsByEngine(input.Engine)
+		if err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: fmt.Sprintf("Failed to list docs for engine '%s': %v", input.Engine, err)},
+				},
+				IsError: true,
+			}, nil, nil
+		}
+		result.Docs = docs
+		result.Engine = input.Engine
+		result.Summary = fmt.Sprintf("Found %d doc(s) for engine '%s'", len(docs), input.Engine)
 	}
 
 	// Return structured result with artifact
-	mcpResult, artifact := mcputil.SuccessResultWithArtifact(summary, result)
+	mcpResult, artifact := mcputil.SuccessResultWithArtifact(result.Summary, result)
 	return mcpResult, artifact, nil
 }
 

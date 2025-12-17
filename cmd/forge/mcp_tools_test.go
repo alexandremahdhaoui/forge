@@ -293,3 +293,75 @@ func TestBatchResultWrapper(t *testing.T) {
 
 	t.Logf("BatchResult JSON: %s", string(jsonBytes))
 }
+
+// TestDocsListResult verifies the DocsListResult wrapper type
+func TestDocsListResult(t *testing.T) {
+	tests := []struct {
+		name string
+		data DocsListResult
+	}{
+		{
+			name: "engines list",
+			data: DocsListResult{
+				Engines: []Engine{
+					{Name: "forge", DocCount: 5},
+					{Name: "go-build", DocCount: 2},
+				},
+				Summary: "Found 2 engine(s) with documentation",
+			},
+		},
+		{
+			name: "docs list for engine",
+			data: DocsListResult{
+				Docs: []EngineDoc{
+					{Engine: "go-build", Name: "usage", Title: "Usage Guide"},
+					{Engine: "go-build", Name: "schema", Title: "Configuration Schema"},
+				},
+				Engine:  "go-build",
+				Summary: "Found 2 doc(s) for engine 'go-build'",
+			},
+		},
+		{
+			name: "all docs list",
+			data: DocsListResult{
+				Docs: []EngineDoc{
+					{Engine: "forge", Name: "architecture", Title: "Forge Architecture"},
+					{Engine: "go-build", Name: "usage", Title: "Usage Guide"},
+				},
+				Summary: "Found 2 doc(s) from all engines",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal to JSON
+			jsonBytes, err := json.Marshal(tt.data)
+			if err != nil {
+				t.Fatalf("Failed to marshal DocsListResult: %v", err)
+			}
+
+			// Verify it's a JSON object (not array)
+			if len(jsonBytes) == 0 {
+				t.Fatalf("DocsListResult marshaled to empty JSON")
+			}
+
+			if jsonBytes[0] != '{' {
+				t.Errorf("DocsListResult is not a JSON object (doesn't start with '{'): %s", string(jsonBytes))
+			}
+
+			// Verify it can be unmarshaled as an object
+			var objMap map[string]interface{}
+			if err := json.Unmarshal(jsonBytes, &objMap); err != nil {
+				t.Errorf("Failed to unmarshal DocsListResult as object: %v", err)
+			}
+
+			// Verify summary field exists
+			if _, ok := objMap["summary"]; !ok {
+				t.Error("DocsListResult missing 'summary' field")
+			}
+
+			t.Logf("%s JSON: %s", tt.name, string(jsonBytes))
+		})
+	}
+}
