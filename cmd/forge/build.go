@@ -349,6 +349,9 @@ func buildWithSingleEngine(
 		clonedSpec["buildDir"] = dirs.BuildDir
 		clonedSpec["rootDir"] = dirs.RootDir
 
+		// Inject force rebuild flag
+		clonedSpec["force"] = forceRebuild
+
 		// Inject engine-specific config if provided (from alias)
 		// For generic engines, promote spec fields to top level for backward compatibility
 		if engineConfig != nil && engineConfig.Type == forge.BuilderEngineConfigType && len(engineConfig.Builder) > 0 {

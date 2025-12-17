@@ -95,6 +95,10 @@ func Bootstrap(cfg Config) {
 	}
 
 	// Normal CLI mode
+	if cfg.RunCLI == nil {
+		log.Printf("Error: CLI mode not supported for %s (use --mcp flag)", cfg.Name)
+		os.Exit(1)
+	}
 	if err := cfg.RunCLI(); err != nil {
 		if cfg.FailureHandler != nil {
 			cfg.FailureHandler(err)

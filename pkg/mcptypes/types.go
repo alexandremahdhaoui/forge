@@ -83,10 +83,11 @@ type RunInput struct {
 // BuildInput represents the standard input parameters for build engine tools.
 // This is used across all build engines (go-build, container-build, generic-builder, etc.).
 type BuildInput struct {
-	Name   string `json:"name"`           // Artifact name (required)
-	Src    string `json:"src,omitempty"`  // Source path
-	Dest   string `json:"dest,omitempty"` // Destination path
-	Engine string `json:"engine"`         // Engine identifier
+	Name   string `json:"name"`            // Artifact name (required)
+	Src    string `json:"src,omitempty"`   // Source path
+	Dest   string `json:"dest,omitempty"`  // Destination path
+	Engine string `json:"engine"`          // Engine identifier
+	Force  bool   `json:"force,omitempty"` // Force rebuild, skip caching/checksums
 
 	// Generic engine specific fields (optional)
 	Command string            `json:"command,omitempty"` // Command to execute

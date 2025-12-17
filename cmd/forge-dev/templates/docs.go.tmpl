@@ -18,6 +18,6 @@ var docsConfig = &enginedocs.Config{
 }
 
 // RegisterDocsMCPTools registers the docs-list and docs-get MCP tools.
-func RegisterDocsMCPTools(server *mcpserver.Server) {
-	enginedocs.RegisterMCPTools(server, docsConfig)
+func RegisterDocsMCPTools(server *mcpserver.Server) error {
+	return enginedocs.RegisterDocsTools(server, *docsConfig)
 }

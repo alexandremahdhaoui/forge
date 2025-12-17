@@ -71,7 +71,7 @@ int minimal() {
 		t.Fatalf("Failed to write BPF source file: %v", err)
 	}
 
-	// Call build() with valid BuildInput
+	// Call Build() with valid mcptypes.BuildInput
 	input := mcptypes.BuildInput{
 		Name: "test-bpf",
 		Src:  srcFile,
@@ -86,9 +86,9 @@ int minimal() {
 		t.Fatalf("FromMap() failed: %v", err)
 	}
 
-	artifact, err := build(context.Background(), input, spec)
+	artifact, err := Build(context.Background(), input, spec)
 	if err != nil {
-		t.Fatalf("build() failed: %v", err)
+		t.Fatalf("Build() failed: %v", err)
 	}
 
 	// Verify artifact has correct name
@@ -160,9 +160,9 @@ func TestBuildIntegrationMissingSrc(t *testing.T) {
 	}
 
 	spec, _ := FromMap(input.Spec)
-	_, err := build(context.Background(), input, spec)
+	_, err := Build(context.Background(), input, spec)
 	if err == nil {
-		t.Error("build() should fail when src is empty")
+		t.Error("Build() should fail when src is empty")
 	}
 	if !strings.Contains(err.Error(), "src is required") {
 		t.Errorf("unexpected error: %v", err)
@@ -187,9 +187,9 @@ func TestBuildIntegrationMissingDest(t *testing.T) {
 	}
 
 	spec, _ := FromMap(input.Spec)
-	_, err := build(context.Background(), input, spec)
+	_, err := Build(context.Background(), input, spec)
 	if err == nil {
-		t.Error("build() should fail when dest is empty")
+		t.Error("Build() should fail when dest is empty")
 	}
 	if !strings.Contains(err.Error(), "dest is required") {
 		t.Errorf("unexpected error: %v", err)
@@ -199,7 +199,7 @@ func TestBuildIntegrationMissingDest(t *testing.T) {
 // TestBuildIntegrationMissingIdent tests that validation fails when ident is missing.
 func TestBuildIntegrationMissingIdent(t *testing.T) {
 	// Test that the validation layer catches missing ident.
-	// The generated MCP wrapper validates before calling build().
+	// The generated MCP wrapper validates before calling Build().
 	input := mcptypes.BuildInput{
 		Name: "test-missing-ident",
 		Spec: map[string]any{}, // Missing ident
@@ -232,9 +232,9 @@ func TestBuildIntegrationSourceNotFound(t *testing.T) {
 	}
 
 	spec, _ := FromMap(input.Spec)
-	_, err := build(context.Background(), input, spec)
+	_, err := Build(context.Background(), input, spec)
 	if err == nil {
-		t.Error("build() should fail when source file doesn't exist")
+		t.Error("Build() should fail when source file doesn't exist")
 	}
 	if !strings.Contains(err.Error(), "source file not found") {
 		t.Errorf("unexpected error: %v", err)
@@ -261,9 +261,9 @@ func TestBuildIntegrationSourceIsDirectory(t *testing.T) {
 	}
 
 	spec, _ := FromMap(input.Spec)
-	_, err := build(context.Background(), input, spec)
+	_, err := Build(context.Background(), input, spec)
 	if err == nil {
-		t.Error("build() should fail when source is a directory")
+		t.Error("Build() should fail when source is a directory")
 	}
 	if !strings.Contains(err.Error(), "must be a file, not directory") {
 		t.Errorf("unexpected error: %v", err)
@@ -292,7 +292,7 @@ int full_options() { return 0; }
 		t.Fatalf("Failed to write BPF source file: %v", err)
 	}
 
-	// Call build() with all options specified
+	// Call Build() with all options specified
 	input := mcptypes.BuildInput{
 		Name: "test-full-options",
 		Src:  srcFile,
@@ -311,9 +311,9 @@ int full_options() { return 0; }
 		t.Fatalf("FromMap() failed: %v", err)
 	}
 
-	artifact, err := build(context.Background(), input, spec)
+	artifact, err := Build(context.Background(), input, spec)
 	if err != nil {
-		t.Fatalf("build() failed: %v", err)
+		t.Fatalf("Build() failed: %v", err)
 	}
 
 	// Verify artifact

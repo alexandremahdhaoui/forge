@@ -115,9 +115,9 @@ build:
 	// Simulate mock-style dependencies:
 	// - .mockery.yaml (we'll use go.mod as proxy since it exists)
 	// - go.mod
-	// - interface files (we'll use cmd/go-lint/main.go as proxy)
+	// - interface files (we'll use cmd/go-lint/run.go as proxy)
 	mockeryConfigProxy := "go.mod" // Using go.mod as .mockery.yaml proxy
-	interfaceFileProxy := filepath.Join("cmd", "go-lint", "main.go")
+	interfaceFileProxy := filepath.Join("cmd", "go-lint", "run.go")
 
 	mockeryInfo, err := os.Stat(mockeryConfigProxy)
 	if err != nil {

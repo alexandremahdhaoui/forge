@@ -29,6 +29,9 @@ import (
 	"github.com/google/uuid"
 )
 
+// defaultExpectedTags are the build tags checked when none are specified.
+var defaultExpectedTags = []string{"unit", "integration", "e2e"}
+
 // Run implements the TestRunnerFunc for verifying build tags
 func Run(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestReport, error) {
 	log.Printf("Verifying build tags: stage=%s", input.Stage)
@@ -43,8 +46,14 @@ func Run(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestR
 		rootDir = input.RootDir
 	}
 
+	// Get expected tags - prefer spec, fall back to defaults
+	expectedTags := defaultExpectedTags
+	if spec != nil && len(spec.ExpectedTags) > 0 {
+		expectedTags = spec.ExpectedTags
+	}
+
 	// Run verification
-	filesWithoutTags, totalFiles, err := verifyTags(rootDir)
+	filesWithoutTags, totalFiles, err := verifyTags(rootDir, expectedTags)
 	duration := time.Since(startTime).Seconds()
 
 	// Generate report ID
@@ -87,9 +96,9 @@ func Run(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestR
 			details.WriteString(fmt.Sprintf("  - %s\n", file))
 		}
 		details.WriteString("\nTest files must have one of these build tags:\n")
-		details.WriteString("  //go:build unit\n")
-		details.WriteString("  //go:build integration\n")
-		details.WriteString("  //go:build e2e\n")
+		for _, tag := range expectedTags {
+			details.WriteString(fmt.Sprintf("  //go:build %s\n", tag))
+		}
 
 		report.ErrorMessage = details.String()
 
@@ -131,8 +140,8 @@ func findTestFiles(root string) ([]string, error) {
 	return testFiles, err
 }
 
-// checkBuildTag checks if a file has a valid build tag
-func checkBuildTag(filePath string) (bool, error) {
+// checkBuildTag checks if a file has one of the expected build tags.
+func checkBuildTag(filePath string, expectedTags []string) (bool, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return false, err
@@ -150,10 +159,10 @@ func checkBuildTag(filePath string) (bool, error) {
 		// Check for go:build directive
 		if strings.HasPrefix(line, "//go:build") {
 			// Verify it's one of our expected tags
-			if strings.Contains(line, "unit") ||
-				strings.Contains(line, "integration") ||
-				strings.Contains(line, "e2e") {
-				return true, nil
+			for _, tag := range expectedTags {
+				if strings.Contains(line, tag) {
+					return true, nil
+				}
 			}
 		}
 
@@ -172,7 +181,7 @@ func checkBuildTag(filePath string) (bool, error) {
 
 // verifyTags performs the tag verification and returns results.
 // Returns (filesWithoutTags, totalFiles, error).
-func verifyTags(rootDir string) ([]string, int, error) {
+func verifyTags(rootDir string, expectedTags []string) ([]string, int, error) {
 	// Find all test files
 	testFiles, err := findTestFiles(rootDir)
 	if err != nil {
@@ -186,7 +195,7 @@ func verifyTags(rootDir string) ([]string, int, error) {
 	// Verify each test file has a build tag
 	var filesWithoutTags []string
 	for _, file := range testFiles {
-		hasBuildTag, err := checkBuildTag(file)
+		hasBuildTag, err := checkBuildTag(file, expectedTags)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error checking %s: %v\n", file, err)
 			continue

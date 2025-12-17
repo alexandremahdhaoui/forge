@@ -25,18 +25,15 @@ import (
 
 	"github.com/caarlos0/env/v11"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/flaterrors"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
-	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 )
 
 // ----------------------------------------------------- ENVS ------------------------------------------------------- //
@@ -636,167 +633,4 @@ func createKubeClient(config forge.Spec) (client.Client, error) { //nolint:iretu
 	}
 
 	return cl, nil
-}
-
-// ----------------------------------------------------- MCP TOOL HANDLERS ------------------------------------------- //
-
-// CreateImagePullSecretInput represents the input for the create-image-pull-secret tool.
-type CreateImagePullSecretInput struct {
-	TestID     string            `json:"testID"`               // Test environment ID (required)
-	Namespace  string            `json:"namespace"`            // Kubernetes namespace where secret should be created (required)
-	SecretName string            `json:"secretName,omitempty"` // Name of the secret (optional, defaults to "local-container-registry-credentials")
-	Metadata   map[string]string `json:"metadata"`             // Metadata from testenv (optional, provides paths and registry FQDN)
-}
-
-// ListImagePullSecretsInput represents the input for the list-image-pull-secrets tool.
-type ListImagePullSecretsInput struct {
-	TestID    string            `json:"testID"`              // Test environment ID (required)
-	Namespace string            `json:"namespace,omitempty"` // Optional namespace filter
-	Metadata  map[string]string `json:"metadata"`            // Metadata from testenv (optional, provides kubeconfig path)
-}
-
-// handleCreateImagePullSecretTool handles the "create-image-pull-secret" tool call from MCP clients.
-func handleCreateImagePullSecretTool(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input CreateImagePullSecretInput,
-) (*mcp.CallToolResult, any, error) {
-	log.Printf("Creating image pull secret: testID=%s, namespace=%s", input.TestID, input.Namespace)
-
-	// Validate inputs
-	if result := mcputil.ValidateRequiredWithPrefix("Create image pull secret failed", map[string]string{
-		"testID":    input.TestID,
-		"namespace": input.Namespace,
-	}); result != nil {
-		return result, nil, nil
-	}
-
-	// Read forge.yaml configuration
-	config, err := forge.ReadSpec()
-	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Create image pull secret failed: %v", err)), nil, nil
-	}
-
-	// Check if local container registry is enabled
-	if !config.LocalContainerRegistry.Enabled {
-		return mcputil.ErrorResult("Create image pull secret failed: local container registry is disabled"), nil, nil
-	}
-
-	// Override kubeconfig path from metadata (if provided by testenv-kind)
-	if kubeconfigPath, ok := input.Metadata["testenv-kind.kubeconfigPath"]; ok {
-		config.Kindenv.KubeconfigPath = kubeconfigPath
-	}
-
-	// Create Kubernetes client
-	cl, err := createKubeClient(config)
-	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Create image pull secret failed: failed to create kube client: %v", err)), nil, nil
-	}
-
-	// Get credential and CA cert from metadata or files
-	caCrtPath := input.Metadata["testenv-lcr.caCrtPath"]
-	if caCrtPath == "" {
-		caCrtPath = config.LocalContainerRegistry.CaCrtPath
-	}
-
-	credentialPath := input.Metadata["testenv-lcr.credentialPath"]
-	if credentialPath == "" {
-		credentialPath = config.LocalContainerRegistry.CredentialPath
-	}
-
-	registryFQDN := input.Metadata["testenv-lcr.registryFQDN"]
-	if registryFQDN == "" {
-		return mcputil.ErrorResult("Create image pull secret failed: missing testenv-lcr.registryFQDN in metadata"), nil, nil
-	}
-
-	// Read CA certificate
-	caCert, err := os.ReadFile(caCrtPath)
-	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Create image pull secret failed: failed to read CA cert: %v", err)), nil, nil
-	}
-
-	// Read credentials from file
-	credBytes, err := os.ReadFile(credentialPath)
-	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Create image pull secret failed: failed to read credentials file: %v", err)), nil, nil
-	}
-
-	var credentials Credentials
-	if err := yaml.Unmarshal(credBytes, &credentials); err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Create image pull secret failed: failed to parse credentials: %v", err)), nil, nil
-	}
-
-	// Use provided secret name or default
-	secretName := input.SecretName
-	if secretName == "" {
-		secretName = config.LocalContainerRegistry.ImagePullSecretName
-	}
-
-	// Create image pull secret
-	imagePullSecret := NewImagePullSecret(
-		cl,
-		secretName,
-		registryFQDN,
-		credentials.Username,
-		credentials.Password,
-		caCert,
-	)
-
-	secretFullName, err := imagePullSecret.CreateInNamespace(ctx, input.Namespace)
-	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("Create image pull secret failed: %v", err)), nil, nil
-	}
-
-	return mcputil.SuccessResult(fmt.Sprintf("Created image pull secret: %s", secretFullName)), nil, nil
-}
-
-// handleListImagePullSecretsTool handles the "list-image-pull-secrets" tool call from MCP clients.
-func handleListImagePullSecretsTool(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input ListImagePullSecretsInput,
-) (*mcp.CallToolResult, any, error) {
-	log.Printf("Listing image pull secrets: testID=%s", input.TestID)
-
-	// Validate inputs
-	if result := mcputil.ValidateRequiredWithPrefix("List image pull secrets failed", map[string]string{
-		"testID": input.TestID,
-	}); result != nil {
-		return result, nil, nil
-	}
-
-	// Read forge.yaml configuration
-	config, err := forge.ReadSpec()
-	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("List image pull secrets failed: %v", err)), nil, nil
-	}
-
-	// Override kubeconfig path from metadata (if provided by testenv-kind)
-	if kubeconfigPath, ok := input.Metadata["testenv-kind.kubeconfigPath"]; ok {
-		config.Kindenv.KubeconfigPath = kubeconfigPath
-	}
-
-	// Create Kubernetes client
-	cl, err := createKubeClient(config)
-	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("List image pull secrets failed: failed to create kube client: %v", err)), nil, nil
-	}
-
-	// List image pull secrets
-	secrets, err := ListImagePullSecrets(ctx, cl, input.Namespace)
-	if err != nil {
-		return mcputil.ErrorResult(fmt.Sprintf("List image pull secrets failed: %v", err)), nil, nil
-	}
-
-	if len(secrets) == 0 {
-		return mcputil.SuccessResult("No image pull secrets found"), nil, nil
-	}
-
-	// Build response message
-	message := fmt.Sprintf("Found %d image pull secret(s):\n", len(secrets))
-	for _, secret := range secrets {
-		message += fmt.Sprintf("  - %s/%s (created: %v)\n", secret.Namespace, secret.SecretName, secret.CreatedAt)
-	}
-
-	return mcputil.SuccessResult(message), nil, nil
 }

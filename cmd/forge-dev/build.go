@@ -84,22 +84,27 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	}
 
 	// Step 4: Check if regeneration is needed (compare checksums from existing generated files)
+	// Skip checksum comparison if force flag is set
 	specFilePath := filepath.Join(srcDir, GeneratedSpecFile)
-	existingChecksum, err := ReadChecksumFromFile(specFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("reading existing checksum: %w", err)
-	}
+	if !input.Force {
+		existingChecksum, err := ReadChecksumFromFile(specFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("reading existing checksum: %w", err)
+		}
 
-	if ChecksumMatches(checksum, existingChecksum) {
-		log.Printf("forge-dev: checksums match, skipping regeneration for %s", config.Name)
-		// Return artifact with existing files
-		return &forge.Artifact{
-			Name:      config.Name,
-			Type:      "generated",
-			Location:  srcDir,
-			Timestamp: time.Now().UTC().Format(time.RFC3339),
-			Version:   checksum,
-		}, nil
+		if ChecksumMatches(checksum, existingChecksum) {
+			log.Printf("forge-dev: checksums match, skipping regeneration for %s", config.Name)
+			// Return artifact with existing files
+			return &forge.Artifact{
+				Name:      config.Name,
+				Type:      "generated",
+				Location:  srcDir,
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				Version:   checksum,
+			}, nil
+		}
+	} else {
+		log.Printf("forge-dev: force flag set, regenerating %s", config.Name)
 	}
 
 	// Step 5: Parse OpenAPI spec

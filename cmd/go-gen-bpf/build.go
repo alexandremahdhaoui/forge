@@ -24,24 +24,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 )
-
-// runMCPServer starts the go-gen-bpf MCP server with stdio transport.
-func runMCPServer() error {
-	server, err := SetupMCPServer(Name, Version, build)
-	if err != nil {
-		return err
-	}
-
-	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
-		return err
-	}
-
-	return server.RunDefault()
-}
 
 // buildBpf2goArgs constructs the bpf2go command line arguments.
 // Arguments order:
@@ -108,8 +93,8 @@ func buildBpf2goArgs(src, dest string, spec *Spec) []string {
 	return args
 }
 
-// build implements the BuildFunc for generating Go code from BPF C source files
-func build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.Artifact, error) {
+// Build implements the BuildFunc for generating Go code from BPF C source files
+func Build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.Artifact, error) {
 	// 1. Log start
 	log.Printf("Generating BPF code for: %s", input.Name)
 

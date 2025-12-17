@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/alexandremahdhaoui/forge/pkg/enginecli"
-	"github.com/alexandremahdhaoui/forge/pkg/mcpserver"
 {{- if eq .EngineType "builder"}}
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
@@ -20,6 +19,9 @@ import (
 {{- end}}
 {{- if eq .EngineType "testenv-subengine"}}
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
+{{- end}}
+{{- if eq .EngineType "dependency-detector"}}
+	"github.com/alexandremahdhaoui/forge/pkg/mcpserver"
 {{- end}}
 )
 
@@ -62,7 +64,9 @@ func runMCPServer() error {
 	}
 
 	// Register docs MCP tools (docs-list, docs-get)
-	RegisterDocsMCPTools(server)
+	if err := RegisterDocsMCPTools(server); err != nil {
+		return fmt.Errorf("registering docs MCP tools: %w", err)
+	}
 {{- if eq .EngineType "dependency-detector"}}
 
 	// Register detectDependencies tool

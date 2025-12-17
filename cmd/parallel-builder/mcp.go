@@ -50,7 +50,7 @@ type BuilderConfig struct {
 // runMCPServer starts the parallel-builder MCP server.
 func runMCPServer() error {
 	// Use generated MCP server setup (registers build, buildBatch, and config-validate tools)
-	server, err := SetupMCPServer(Name, Version, build)
+	server, err := SetupMCPServer(Name, Version, Build)
 	if err != nil {
 		return err
 	}
@@ -68,11 +68,11 @@ func runMCPServer() error {
 	return server.RunDefault()
 }
 
-// build implements the BuildFunc for executing multiple builders in parallel.
+// Build implements the BuildFunc for executing multiple builders in parallel.
 // It uses the typed Spec provided by the generated MCP server setup.
 // Note: The generated Spec doesn't fully parse the builders array, so we parse
 // the original input.Spec to get the complete ParallelBuilderSpec.
-func build(ctx context.Context, input mcptypes.BuildInput, _ *Spec) (*forge.Artifact, error) {
+func Build(ctx context.Context, input mcptypes.BuildInput, _ *Spec) (*forge.Artifact, error) {
 	// Parse spec - using manual ParallelBuilderSpec since generated Spec doesn't
 	// support nested object arrays
 	var pbSpec ParallelBuilderSpec

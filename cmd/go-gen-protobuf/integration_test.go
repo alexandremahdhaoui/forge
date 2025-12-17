@@ -64,7 +64,7 @@ message TestMessage {
 		t.Fatalf("Failed to write proto file: %v", err)
 	}
 
-	// Call build() with valid BuildInput
+	// Call Build() with valid BuildInput
 	input := mcptypes.BuildInput{
 		Name: "test-protobuf",
 		Src:  srcDir,
@@ -76,9 +76,9 @@ message TestMessage {
 		t.Fatalf("FromMap() failed: %v", err)
 	}
 
-	artifact, err := build(context.Background(), input, spec)
+	artifact, err := Build(context.Background(), input, spec)
 	if err != nil {
-		t.Fatalf("build() failed: %v", err)
+		t.Fatalf("Build() failed: %v", err)
 	}
 
 	// Verify artifact has correct name
@@ -182,7 +182,7 @@ service TestService {
 		t.Fatalf("Failed to write proto file: %v", err)
 	}
 
-	// Call build() with valid BuildInput
+	// Call Build() with valid BuildInput
 	input := mcptypes.BuildInput{
 		Name: "test-grpc",
 		Src:  srcDir,
@@ -194,9 +194,9 @@ service TestService {
 		t.Fatalf("FromMap() failed: %v", err)
 	}
 
-	artifact, err := build(context.Background(), input, spec)
+	artifact, err := Build(context.Background(), input, spec)
 	if err != nil {
-		t.Fatalf("build() failed: %v", err)
+		t.Fatalf("Build() failed: %v", err)
 	}
 
 	// Verify artifact
@@ -266,7 +266,7 @@ message Message2 {
 		t.Fatalf("Failed to write proto file 2: %v", err)
 	}
 
-	// Call build()
+	// Call Build()
 	input := mcptypes.BuildInput{
 		Name: "test-multi",
 		Src:  srcDir,
@@ -278,9 +278,9 @@ message Message2 {
 		t.Fatalf("FromMap() failed: %v", err)
 	}
 
-	artifact, err := build(context.Background(), input, spec)
+	artifact, err := Build(context.Background(), input, spec)
 	if err != nil {
-		t.Fatalf("build() failed: %v", err)
+		t.Fatalf("Build() failed: %v", err)
 	}
 
 	// Verify both proto files are in dependencies

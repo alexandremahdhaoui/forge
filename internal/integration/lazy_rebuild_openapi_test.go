@@ -112,8 +112,8 @@ build:
 	}
 
 	// Simulate OpenAPI-style dependencies:
-	// - OpenAPI spec files (we'll use cmd/go-format/main.go as proxy for spec file)
-	specFileProxy := filepath.Join("cmd", "go-format", "main.go")
+	// - OpenAPI spec files (we'll use cmd/go-format/build.go as proxy for spec file)
+	specFileProxy := filepath.Join("cmd", "go-format", "build.go")
 
 	specInfo, err := os.Stat(specFileProxy)
 	if err != nil {

@@ -24,29 +24,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 )
 
-// runMCPServer starts the go-gen-protobuf MCP server with stdio transport.
-func runMCPServer() error {
-	// Use generated MCP server setup (registers build, buildBatch, and config-validate tools)
-	server, err := SetupMCPServer(Name, Version, build)
-	if err != nil {
-		return err
-	}
-
-	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
-		return err
-	}
-
-	return server.RunDefault()
-}
-
-// build implements the BuildFunc for compiling Protocol Buffer files to Go code.
+// Build implements the BuildFunc for compiling Protocol Buffer files to Go code.
 // It uses the typed Spec provided by the generated MCP server setup.
-func build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.Artifact, error) {
+func Build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.Artifact, error) {
 	// 1. Log start
 	log.Printf("Generating protobuf code for: %s", input.Name)
 

@@ -315,19 +315,19 @@ func TestLazyRebuild_ArtifactDeleted(t *testing.T) {
 		t.Fatal("go-lint artifact not found in store")
 	}
 
-	// Add mock dependencies
-	mainGo := filepath.Join("cmd", "go-lint", "main.go")
-	mainInfo, err := os.Stat(mainGo)
+	// Add mock dependencies (use run.go since main.go was migrated to zz_generated.main.go)
+	runGo := filepath.Join("cmd", "go-lint", "run.go")
+	runInfo, err := os.Stat(runGo)
 	if err != nil {
-		t.Fatalf("Failed to stat main.go: %v", err)
+		t.Fatalf("Failed to stat run.go: %v", err)
 	}
-	absMainGo, _ := filepath.Abs(mainGo)
+	absRunGo, _ := filepath.Abs(runGo)
 
 	artifact.Dependencies = []forge.ArtifactDependency{
 		{
 			Type:      forge.DependencyTypeFile,
-			FilePath:  absMainGo,
-			Timestamp: mainInfo.ModTime().UTC().Format(time.RFC3339),
+			FilePath:  absRunGo,
+			Timestamp: runInfo.ModTime().UTC().Format(time.RFC3339),
 		},
 	}
 	artifact.DependencyDetectorEngine = "go://go-dependency-detector"
@@ -388,13 +388,31 @@ func TestLazyRebuild_ExternalDepChanged(t *testing.T) {
 		t.Fatalf("Failed to build forge: %v", err)
 	}
 
-	// Clear only artifacts (preserve testEnvironments for cleanup)
-	artifactStorePath := ".forge/artifact-store.yaml"
-	clearArtifactsOnly(t, artifactStorePath)
+	// Use a dedicated artifact store path for this test to avoid interference
+	artifactStorePath := ".forge/test-lazy-external-dep-artifact-store.yaml"
+	defer func() { _ = os.Remove(artifactStorePath) }()
+	_ = os.Remove(artifactStorePath)
+
+	// Create a temporary forge.yaml for this test
+	testForgeYaml := `name: lazy-external-dep-test
+envFile: .envrc
+artifactStorePath: ` + artifactStorePath + `
+
+build:
+  - name: go-lint
+    src: ./cmd/go-lint
+    dest: ./build/bin
+    engine: go://go-build
+`
+	testForgeYamlPath := "forge-test-lazy-external-dep.yaml"
+	if err := os.WriteFile(testForgeYamlPath, []byte(testForgeYaml), 0o644); err != nil {
+		t.Fatalf("Failed to write test forge.yaml: %v", err)
+	}
+	defer func() { _ = os.Remove(testForgeYamlPath) }()
 
 	// Step 1: First build
 	t.Log("Step 1: First build")
-	cmd = exec.Command(forgeBin, "build", "go-lint")
+	cmd = exec.Command(forgeBin, "--config", testForgeYamlPath, "build", "go-lint")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("forge build failed: %v\nOutput: %s", err, string(output))
@@ -426,18 +444,18 @@ func TestLazyRebuild_ExternalDepChanged(t *testing.T) {
 	}
 	absGoMod, _ := filepath.Abs(goModPath)
 
-	mainGo := filepath.Join("cmd", "go-lint", "main.go")
-	mainInfo, err := os.Stat(mainGo)
+	runGo := filepath.Join("cmd", "go-lint", "run.go")
+	runInfo, err := os.Stat(runGo)
 	if err != nil {
-		t.Fatalf("Failed to stat main.go: %v", err)
+		t.Fatalf("Failed to stat run.go: %v", err)
 	}
-	absMainGo, _ := filepath.Abs(mainGo)
+	absRunGo, _ := filepath.Abs(runGo)
 
 	artifact.Dependencies = []forge.ArtifactDependency{
 		{
 			Type:      forge.DependencyTypeFile,
-			FilePath:  absMainGo,
-			Timestamp: mainInfo.ModTime().UTC().Format(time.RFC3339),
+			FilePath:  absRunGo,
+			Timestamp: runInfo.ModTime().UTC().Format(time.RFC3339),
 		},
 		{
 			Type:      forge.DependencyTypeFile,
@@ -453,7 +471,7 @@ func TestLazyRebuild_ExternalDepChanged(t *testing.T) {
 
 	// Step 3: Second build - should skip (unchanged)
 	t.Log("Step 3: Second build - should skip")
-	cmd = exec.Command(forgeBin, "build", "go-lint")
+	cmd = exec.Command(forgeBin, "--config", testForgeYamlPath, "build", "go-lint")
 	output, err = cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("forge build failed: %v\nOutput: %s", err, string(output))
@@ -471,7 +489,7 @@ func TestLazyRebuild_ExternalDepChanged(t *testing.T) {
 		t.Fatalf("Failed to touch go.mod: %v", err)
 	}
 
-	cmd = exec.Command(forgeBin, "build", "go-lint")
+	cmd = exec.Command(forgeBin, "--config", testForgeYamlPath, "build", "go-lint")
 	output, err = cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("forge build failed: %v\nOutput: %s", err, string(output))
@@ -532,9 +550,10 @@ func TestLazyRebuild_MixedChanges(t *testing.T) {
 	}
 
 	// Setup dependencies for each artifact
+	// Note: forge still has main.go, but go-build was migrated to build.go
 	artifactDeps := map[string]string{
 		"forge":    filepath.Join("cmd", "forge", "main.go"),
-		"go-build": filepath.Join("cmd", "go-build", "main.go"),
+		"go-build": filepath.Join("cmd", "go-build", "build.go"),
 	}
 
 	for artifactName, depPath := range artifactDeps {
