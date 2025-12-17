@@ -15,7 +15,7 @@ docs:
   - name: "testenv-architecture"
     title: "Test Environment Architecture"
     description: "Design and architecture of the test environment system"
-    url: "docs/testenv-architecture.md"
+    url: "docs/architecture/testenv-architecture.md"
     tags: ["architecture", "testenv", "design"]
 
   # User Guides and Usage
@@ -25,52 +25,101 @@ docs:
     url: "README.md"
     tags: ["getting-started", "overview"]
 
-  - name: "forge-usage"
+  - name: "getting-started"
+    title: "Getting Started"
+    description: "Build your project with forge in 5 minutes"
+    url: "docs/user/getting-started.md"
+    tags: ["getting-started", "quick-start"]
+
+  - name: "forge-cli"
     title: "Forge Command Reference"
     description: "Complete forge command-line interface reference and usage guide"
-    url: "docs/forge-usage.md"
+    url: "docs/user/forge-cli.md"
     tags: ["usage", "cli", "reference", "commands"]
 
-  - name: "forge-test-usage"
-    title: "Forge Test System Usage"
-    description: "Guide to using forge's test system including test runners and environments"
-    url: "docs/forge-test-usage.md"
-    tags: ["usage", "testing", "test-runner"]
+  - name: "testing"
+    title: "Testing with Forge"
+    description: "Run tests, manage test environments, and generate reports"
+    url: "docs/user/testing.md"
+    tags: ["usage", "testing", "testenv"]
 
-  - name: "testenv-quick-start"
-    title: "Test Environment Quick Start"
-    description: "Quick start guide for setting up and using test environments"
-    url: "docs/testenv-quick-start.md"
-    tags: ["testenv", "quick-start", "getting-started"]
-
-  - name: "forge-schema"
+  - name: "forge-yaml-schema"
     title: "forge.yaml Schema Reference"
     description: "Complete field-by-field documentation of forge.yaml configuration"
-    url: "docs/forge-schema.md"
+    url: "docs/user/forge-yaml-schema.md"
     tags: ["reference", "schema", "configuration"]
 
+  # User Guides
+  - name: "generic-builder"
+    title: "Generic Builder"
+    description: "Wrap any CLI command as a forge build engine"
+    url: "docs/user/generic-builder.md"
+    tags: ["usage", "generic-builder", "build"]
+
+  - name: "generic-test-runner"
+    title: "Generic Test Runner"
+    description: "Wrap any CLI command as a forge test runner"
+    url: "docs/user/generic-test-runner.md"
+    tags: ["usage", "generic-test-runner", "test"]
+
+  - name: "lazy-rebuild"
+    title: "Lazy Rebuild"
+    description: "Skip rebuilding unchanged artifacts automatically"
+    url: "docs/user/lazy-rebuild.md"
+    tags: ["usage", "optimization", "build"]
+
+  - name: "migrating-from-makefile"
+    title: "Migrating from Makefile"
+    description: "Replace your Makefile with declarative YAML"
+    url: "docs/user/migrating-from-makefile.md"
+    tags: ["usage", "migration", "makefile"]
+
   # Development Guides
-  - name: "generic-builder-guide"
-    title: "Generic Builder Development Guide"
-    description: "Guide for using and extending the generic builder"
-    url: "docs/generic-builder-guide.md"
-    tags: ["development", "generic-builder", "build"]
+  - name: "getting-started-dev"
+    title: "Getting Started: Development"
+    description: "Start developing forge engines in 5 minutes"
+    url: "docs/dev/getting-started.md"
+    tags: ["development", "getting-started", "engines"]
 
-  - name: "doc-convention"
-    title: "Documentation Conventions"
-    description: "Standards and conventions for writing documentation in the forge project"
-    url: "docs/doc-convention.md"
-    tags: ["development", "documentation", "conventions"]
+  - name: "forge-dev"
+    title: "forge-dev Code Generator"
+    description: "Generate type-safe engine code from OpenAPI specs"
+    url: "docs/dev/forge-dev.md"
+    tags: ["development", "code-generation", "forge-dev"]
 
-  - name: "keeping-docs-up-to-date"
-    title: "Documentation Maintenance Guide"
-    description: "Guide for maintaining and updating forge documentation"
-    url: "docs/keeping-docs-up-to-date.md"
-    tags: ["development", "documentation", "maintenance"]
+  - name: "creating-build-engine"
+    title: "Creating Build Engines"
+    description: "Implement custom build logic for forge"
+    url: "docs/dev/creating-build-engine.md"
+    tags: ["development", "build-engine", "engines"]
+
+  - name: "creating-test-runner"
+    title: "Creating Test Runners"
+    description: "Execute tests and generate structured reports for forge"
+    url: "docs/dev/creating-test-runner.md"
+    tags: ["development", "test-runner", "engines"]
+
+  - name: "creating-testenv-orchestrator"
+    title: "Creating Testenv Orchestrators"
+    description: "Compose subengines into complete test environments"
+    url: "docs/dev/creating-testenv-orchestrator.md"
+    tags: ["development", "testenv", "orchestrator"]
+
+  - name: "creating-testenv-subengine"
+    title: "Creating Testenv Subengines"
+    description: "Provision specific resources for test environments"
+    url: "docs/dev/creating-testenv-subengine.md"
+    tags: ["development", "testenv", "subengine"]
 
   # Reference Documentation
   - name: "built-in-tools"
     title: "Built-in Tools Reference"
     description: "Reference guide for all built-in forge tools and engines"
-    url: "docs/built-in-tools.md"
+    url: "docs/user/built-in-tools.md"
     tags: ["reference", "tools", "engines"]
+
+  - name: "architecture-overview"
+    title: "Forge Architecture Overview"
+    description: "How forge orchestrates builds and tests"
+    url: "docs/architecture/overview.md"
+    tags: ["architecture", "overview"]

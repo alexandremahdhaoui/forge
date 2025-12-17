@@ -26,7 +26,19 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// Note: contains is defined in prompt_test.go
+// contains checks if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && findSubstring(s, substr))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
 
 // TestFetchDocsStore_Local tests reading docs store from local file
 func TestFetchDocsStore_Local(t *testing.T) {

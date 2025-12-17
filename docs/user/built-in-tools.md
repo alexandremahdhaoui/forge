@@ -21,7 +21,7 @@ Forge includes 16 built-in tools/engines organized into categories:
 
 All tools are MCP servers and can be used directly via their `go://` URI or wrapped in engine aliases for customization.
 
-**Note:** This document covers the 16 built-in engines that forge orchestrates. The forge CLI itself (the 17th tool) is the orchestrator and is documented separately in [forge-usage.md](./forge-usage.md) and [cmd/forge/MCP.md](../cmd/forge/MCP.md).
+**Note:** This document covers the 16 built-in engines that forge orchestrates. The forge CLI itself (the 17th tool) is the orchestrator and is documented separately in [forge-cli.md](./forge-cli.md) and [cmd/forge/MCP.md](../../cmd/forge/MCP.md).
 
 ## Build Engines
 
@@ -222,11 +222,11 @@ Arguments support Go template syntax with these fields:
 
 **Error Handling:**
 - Exit code 0: Success, artifact is tracked
-- Exit code ≠ 0: Failure, error returned with stdout/stderr
+- Exit code != 0: Failure, error returned with stdout/stderr
 
 **When to use:** When no built-in builder exists for your tool (protoc, npm, custom scripts, code formatters, code generators, etc.)
 
-**See Also:** [docs/prompts/use-generic-builder.md](./prompts/use-generic-builder.md)
+**See Also:** [Generic Builder Guide](./generic-builder.md)
 
 ---
 
@@ -383,7 +383,7 @@ If violations are found, displays a formatted table:
 ```
 FILE PATH                                                                MISSING TAG
 --------------------------------------------------------------------------------  ------------
-path/to/test_file.go                                                             ❌
+path/to/test_file.go                                                             X
 ```
 
 **Exit Codes:**
@@ -473,7 +473,7 @@ Returns structured TestReport with:
 
 **When to use:** When no built-in runner exists for your test tool (shellcheck, custom validators, Python test runners, etc.)
 
-**See Also:** [docs/prompts/use-generic-test-runner.md](./prompts/use-generic-test-runner.md)
+**See Also:** [Generic Test Runner Guide](./generic-test-runner.md)
 
 ---
 
@@ -740,7 +740,7 @@ build:
 - Creates both client and server stubs
 - Version-aware generation
 
-**Usage:** See [go-gen-openapi MCP documentation](../cmd/go-gen-openapi/MCP.md) and [migration guide](migration-go-gen-openapi.md)
+**Usage:** See [go-gen-openapi MCP documentation](../../cmd/go-gen-openapi/MCP.md) and [migration guide](../migration-go-gen-openapi.md)
 
 **When to use:** For projects using OpenAPI/Swagger specifications.
 
@@ -889,11 +889,11 @@ test:
 
 ## Related Documentation
 
-- [forge.yaml Schema](./forge-schema.md)
-- [Using Generic Builder](./prompts/use-generic-builder.md)
-- [Using Generic Test Runner](./prompts/use-generic-test-runner.md)
-- [Test Environment Architecture](./testenv-architecture.md)
-- [Forge Usage Guide](./forge-usage.md)
+- [forge.yaml Schema](./forge-yaml-schema.md)
+- [Generic Builder Guide](./generic-builder.md)
+- [Generic Test Runner Guide](./generic-test-runner.md)
+- [Test Environment Architecture](../architecture/testenv-architecture.md)
+- [Forge CLI Usage Guide](./forge-cli.md)
 
 ## MCP Documentation
 

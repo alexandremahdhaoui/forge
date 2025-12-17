@@ -97,24 +97,6 @@ testReports: []
 			expectError: false,
 		},
 		{
-			name:     "prompt-list",
-			toolName: "prompt-list",
-			handler: func(ctx context.Context, req *mcp.CallToolRequest, input interface{}) (*mcp.CallToolResult, any, error) {
-				return handlePromptListTool(ctx, req, PromptListInput{})
-			},
-			input:       PromptListInput{},
-			expectError: false,
-		},
-		{
-			name:     "prompt-get",
-			toolName: "prompt-get",
-			handler: func(ctx context.Context, req *mcp.CallToolRequest, input interface{}) (*mcp.CallToolResult, any, error) {
-				return handlePromptGetTool(ctx, req, PromptGetInput{Name: "create-build-engine"})
-			},
-			input:       PromptGetInput{Name: "create-build-engine"},
-			expectError: false,
-		},
-		{
 			name:     "docs-list",
 			toolName: "docs-list",
 			handler: func(ctx context.Context, req *mcp.CallToolRequest, input interface{}) (*mcp.CallToolResult, any, error) {

@@ -476,9 +476,9 @@ build:
 ```
 
 **See also:**
-- [cmd/go-build/MCP.md](../cmd/go-build/MCP.md) for go-build specific configuration
-- [cmd/container-build/MCP.md](../cmd/container-build/MCP.md) for container-build specific configuration
-- [cmd/generic-builder/MCP.md](../cmd/generic-builder/MCP.md) for generic-builder configuration
+- [cmd/go-build/MCP.md](../../cmd/go-build/MCP.md) for go-build specific configuration
+- [cmd/container-build/MCP.md](../../cmd/container-build/MCP.md) for container-build specific configuration
+- [cmd/generic-builder/MCP.md](../../cmd/generic-builder/MCP.md) for generic-builder configuration
 
 ### Complete BuildSpec Examples
 
@@ -604,8 +604,8 @@ When forge encounters an engine URI like `go://go-build@v1.0.0`:
 
 1. **URI Parsing:** Extracts engine name and version from `go://<name>[@<version>]`
 2. **Short Name Expansion:** Expands short names to full paths
-   - `go://go-build@v1.0.0` → `github.com/alexandremahdhaoui/forge/cmd/go-build@v1.0.0`
-   - `go://container-build` → `github.com/alexandremahdhaoui/forge/cmd/container-build@latest`
+   - `go://go-build@v1.0.0` -> `github.com/alexandremahdhaoui/forge/cmd/go-build@v1.0.0`
+   - `go://container-build` -> `github.com/alexandremahdhaoui/forge/cmd/container-build@latest`
 3. **Binary Check:** Looks for binary in PATH (from previous `go install`)
 4. **Auto-Install:** If not found, runs `go install <full-path@version>`
 5. **MCP Mode:** Invokes with `--mcp` flag
@@ -671,7 +671,7 @@ GO_BUILD_LDFLAGS="-X main.Version=v1.0.0" forge build
           funcName: main
 ```
 
-**See also:** [cmd/go-dependency-detector/MCP.md](../cmd/go-dependency-detector/MCP.md)
+**See also:** [cmd/go-dependency-detector/MCP.md](../../cmd/go-dependency-detector/MCP.md)
 
 #### container-build
 
@@ -1259,6 +1259,6 @@ forge test integration list
 
 ## References
 
-- [forge CLI Usage Guide](./forge-usage.md)
-- [ARCHITECTURE.md - Forge Architecture](../ARCHITECTURE.md#forge-architecture)
+- [Forge CLI Usage Guide](./forge-cli.md)
+- [ARCHITECTURE.md - Forge Architecture](../../ARCHITECTURE.md#forge-architecture)
 - [Model Context Protocol Specification](https://modelcontextprotocol.io)

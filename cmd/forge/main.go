@@ -112,11 +112,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-	case "prompt":
-		if err := runPrompt(cmdArgs); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
 	case "docs":
 		if err := runDocs(cmdArgs); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -179,7 +174,6 @@ Commands:
   test <stage> <operation>           Manage test environments
   test-all                           Build all artifacts and run all test stages
   list [build|test]                  List available build targets and test stages
-  prompt <list|get> [name]           Fetch documentation prompts
   docs <list|get> [name]             Fetch project documentation
   config <subcommand>                Configuration management
   version                            Show version information
@@ -202,10 +196,6 @@ List:
   list                               List all build targets and test stages
   list build                         List only build targets
   list test                          List only test stages
-
-Prompts:
-  prompt list                        List all available prompts
-  prompt get <name>                  Fetch a specific prompt
 
 Docs:
   docs list                          List all available documentation

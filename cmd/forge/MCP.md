@@ -456,36 +456,6 @@ Configuration validation failed: <error details>
 
 ---
 
-### `prompt-list`
-
-List all available AI assistant prompts.
-
-**Input Schema:**
-```json
-{}  // No parameters
-```
-
-**Output:**
-Lists available prompts for AI-assisted development tasks.
-
----
-
-### `prompt-get`
-
-Retrieve a specific AI assistant prompt.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)"  // Prompt name
-}
-```
-
-**Output:**
-Returns the requested prompt content.
-
----
-
 ## How It Works
 
 1. Loads forge.yaml configuration from current directory

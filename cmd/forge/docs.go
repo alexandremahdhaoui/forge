@@ -16,12 +16,19 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"sigs.k8s.io/yaml"
+)
+
+const (
+	httpTimeout = 10 * time.Second
 )
 
 const (
@@ -391,4 +398,28 @@ func docsGetContent(name string) (string, error) {
 	// Fall back to remote URL
 	docURL := store.BaseURL + "/" + doc.URL
 	return fetchURL(docURL)
+}
+
+// fetchURL fetches content from a URL with timeout
+func fetchURL(url string) (string, error) {
+	client := &http.Client{
+		Timeout: httpTimeout,
+	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	return string(body), nil
 }

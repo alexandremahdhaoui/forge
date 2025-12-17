@@ -414,4 +414,4 @@ password: <random-32-chars>
 
 - [testenv MCP Server](../testenv/MCP.md)
 - [testenv-kind MCP Server](../testenv-kind/MCP.md)
-- [Test Environment Architecture](../../docs/testenv-architecture.md)
+- [Test Environment Architecture](../../docs/architecture/testenv-architecture.md)

@@ -3,6 +3,7 @@
 ## Why Forge?
 
 Modern software development faces common orchestration challenges:
+
 - **Verbose build scripts**: Traditional Makefiles and build scripts become complex maintenance burdens
 - **Inconsistent tooling**: Different projects use different conventions, making builds hard to reproduce
 - **Poor AI agent integration**: Existing build tools weren't designed for AI-driven development workflows
@@ -61,6 +62,7 @@ Forge is built on **Model Context Protocol (MCP)**, the same protocol that power
 Configure once in `forge.yaml`, then use it from command line, CI/CD pipelines, or AI coding agents—all with the same consistent interface.
 
 > **Why This Makes Forge AI-Driven**: Because every component speaks MCP natively, AI coding agents can:
+>
 > - Read your `forge.yaml` configuration
 > - Invoke any build engine or test runner directly
 > - Parse build artifacts and test reports
@@ -75,10 +77,11 @@ Configure once in `forge.yaml`, then use it from command line, CI/CD pipelines, 
 # Install from source
 git clone https://github.com/alexandremahdhaoui/forge
 cd forge
-go build -o ./build/bin/forge ./cmd/forge
+go build -o ~/.local/bin/forge ./cmd/forge
 
 # Or install with go install
 go install github.com/alexandremahdhaoui/forge/cmd/forge@latest
+PATH="$(go env GOPATH)/bin:${PATH}"
 ```
 
 ### Basic Usage
@@ -127,12 +130,14 @@ forge --help
 All 20 tools categorized by function. Tools marked ⚡ provide MCP servers.
 
 ### Build Tools (4)
+
 - ⚡ `go-build` - Go binary builder with git versioning and automatic dependency tracking
 - ⚡ `container-build` - Container image builder using Kaniko
 - ⚡ `go-dependency-detector` - Detect Go code dependencies for lazy rebuild
 - ⚡ `generic-builder` - Execute any command as build step
 
 ### Test Tools (8)
+
 - ⚡ `testenv` - Test environment orchestrator
 - ⚡ `testenv-kind` - Kind cluster manager
 - ⚡ `testenv-lcr` - Local container registry with TLS
@@ -143,15 +148,18 @@ All 20 tools categorized by function. Tools marked ⚡ provide MCP servers.
 - ⚡ `test-report` - Test report management
 
 ### Code Quality (2)
+
 - ⚡ `go-format` - Go code formatter (gofumpt)
 - ⚡ `go-lint` - Go linter (golangci-lint)
 
 ### Code Generation (3)
+
 - ⚡ `go-gen-mocks` - Mock generator (mockery)
 - ⚡ `go-gen-openapi` - OpenAPI code generator
 - ⚡ `go-gen-protobuf` - Protocol Buffer compiler for Go (protoc)
 
 ### Orchestration (3)
+
 - ⚡ `forge` - Main CLI orchestrator (also an MCP server)
 - ⚡ `forge-e2e` - End-to-end test runner for forge itself
 - `ci-orchestrator` - CI/CD orchestration (planning)
@@ -196,7 +204,7 @@ engines:
           autoPushImages: true
 ```
 
-For complete schema documentation, see [docs/forge-schema.md](./docs/forge-schema.md).
+For complete schema documentation, see [docs/user/forge-yaml-schema.md](./docs/user/forge-yaml-schema.md).
 
 ## Usage Examples
 
@@ -282,6 +290,7 @@ Forge uses the Model Context Protocol (MCP) to orchestrate specialized engines. 
 ```
 
 **Key Architectural Principles:**
+
 - **MCP Communication**: All engines use stdio-based MCP protocol
 - **Composability**: Engines can be combined via `forge.yaml` configuration
 - **Extensibility**: Add new engines by implementing MCP server interface
@@ -292,20 +301,25 @@ For complete architecture details, design patterns, and component descriptions, 
 ## Documentation
 
 ### User Documentation
-- **[Forge CLI Usage](./docs/forge-usage.md)** - Complete forge command reference
-- **[Forge Schema](./docs/forge-schema.md)** - forge.yaml field documentation
-- **[Test Usage Guide](./docs/forge-test-usage.md)** - Test system usage patterns
-- **[Test Environment Guide](./docs/testenv-quick-start.md)** - Quick start for test environments
-- **[Generic Builder Guide](./docs/generic-builder-guide.md)** - Custom build commands
-- **[Troubleshooting Guide](./docs/troubleshooting.md)** - Common issues and solutions
+
+- **[Getting Started](./docs/user/getting-started.md)** - Quick start guide
+- **[Forge CLI](./docs/user/forge-cli.md)** - Complete command reference
+- **[Forge Schema](./docs/user/forge-yaml-schema.md)** - forge.yaml field documentation
+- **[Testing](./docs/user/testing.md)** - Test system usage patterns
+- **[Generic Builder](./docs/user/generic-builder.md)** - Custom build commands
+- **[Generic Test Runner](./docs/user/generic-test-runner.md)** - Custom test commands
+
+### Engine Development
+
+- **[Getting Started](./docs/dev/getting-started.md)** - Engine development overview
+- **[forge-dev](./docs/dev/forge-dev.md)** - Code generation framework
+- **[Creating Build Engines](./docs/dev/creating-build-engine.md)** - Build engine guide
+- **[Creating Test Runners](./docs/dev/creating-test-runner.md)** - Test runner guide
 
 ### Architecture Documentation
-- **[Architecture Overview](./ARCHITECTURE.md)** - System architecture and design patterns
-- **[Test Environment Architecture](./docs/testenv-architecture.md)** - Testenv system design
 
-### Maintenance Documentation
-- **[Documentation Conventions](./docs/doc-convention.md)** - How to write documentation
-- **[Keeping Docs Updated](./docs/keeping-docs-up-to-date.md)** - Documentation maintenance guide
+- **[Architecture Overview](./ARCHITECTURE.md)** - System architecture and design patterns
+- **[Test Environment Architecture](./docs/architecture/testenv-architecture.md)** - Testenv system design
 
 ## Development
 
@@ -352,9 +366,10 @@ go test ./...
 
 ## Contributing
 
-Issues and pull requests welcome at https://github.com/alexandremahdhaoui/forge
+Issues and pull requests welcome at <https://github.com/alexandremahdhaoui/forge>
 
 When contributing:
+
 1. Follow existing code patterns and conventions
 2. Add tests for new functionality
 3. Update documentation for user-facing changes

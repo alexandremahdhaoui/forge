@@ -157,24 +157,24 @@ forge test <stage> run [testID]    # Run tests
 
 ```
 forge test integration create
-  ↓
-forge reads forge.yaml → finds testenv: "alias://setup-integration"
-  ↓
+  |
+forge reads forge.yaml -> finds testenv: "alias://setup-integration"
+  |
 forge calls: testenv create (stage="integration")
-  ↓
+  |
 testenv creates tmpDir: /tmp/forge-test-integration-20250106-abc123/
-  ↓
+  |
 testenv orchestrates subengines:
   1. testenv-kind create
      Input: {testID, stage, tmpDir, metadata: {}}
      Output: {files: {kubeconfig}, metadata: {clusterName, kubeconfigPath}}
-  ↓
+  |
   2. testenv-lcr create
      Input: {testID, stage, tmpDir, metadata: {from testenv-kind}}
      Output: {files: {ca.crt, credentials}, metadata: {registryFQDN, ...}}
-  ↓
-testenv aggregates results → writes TestEnvironment to artifact store
-  ↓
+  |
+testenv aggregates results -> writes TestEnvironment to artifact store
+  |
 Returns testID: "test-integration-20250106-abc123"
 ```
 
@@ -182,20 +182,20 @@ Returns testID: "test-integration-20250106-abc123"
 
 ```
 forge test integration delete test-integration-20250106-abc123
-  ↓
+  |
 forge calls: testenv delete (testID="test-integration-20250106-abc123")
-  ↓
+  |
 testenv reads TestEnvironment from artifact store
-  ↓
+  |
 testenv orchestrates subengines in REVERSE order:
   1. testenv-lcr delete (best effort)
      Input: {testID, metadata}
-  ↓
+  |
   2. testenv-kind delete (best effort)
      Input: {testID, metadata}
-  ↓
+  |
 testenv removes tmpDir and managedResources
-  ↓
+  |
 testenv removes TestEnvironment from artifact store
 ```
 
@@ -203,22 +203,22 @@ testenv removes TestEnvironment from artifact store
 
 ```
 forge test integration run test-integration-20250106-abc123
-  ↓
+  |
 forge reads TestEnvironment from artifact store
-  ↓
+  |
 forge extracts artifactFiles:
   {
     "testenv-kind.kubeconfig": "/tmp/forge-test-.../kubeconfig",
     "testenv-lcr.ca.crt": "/tmp/forge-test-.../ca.crt",
     "testenv-lcr.credentials.yaml": "/tmp/forge-test-.../registry-credentials.yaml"
   }
-  ↓
+  |
 forge calls generic-test-runner via MCP:
   {
     id, stage, name,
-    artifactFiles: {...}  ← Tests can access these files
+    artifactFiles: {...}  <- Tests can access these files
   }
-  ↓
+  |
 generic-test-runner executes tests with full environment access
 ```
 
@@ -384,11 +384,11 @@ test:
 ```
 
 ### Breaking Changes
-1. Field rename: `setup` → `testenv`
+1. Field rename: `setup` -> `testenv`
 2. Component renames:
-   - `test-integration` → `testenv`
-   - `kindenv` → `testenv-kind`
-   - `local-container-registry` → `testenv-lcr`
+   - `test-integration` -> `testenv`
+   - `kindenv` -> `testenv-kind`
+   - `local-container-registry` -> `testenv-lcr`
 3. testenv no longer provides get/list (forge handles these)
 4. TestEnvironment structure changes (removed deprecated fields)
 
@@ -472,4 +472,4 @@ forge reads artifact store directly (no MCP overhead) for queries.
 
 - [MCP Protocol](https://modelcontextprotocol.io/)
 - [Kind Documentation](https://kind.sigs.k8s.io/)
-- [Forge Architecture](./architecture.md)
+- [Forge Architecture Overview](./overview.md)

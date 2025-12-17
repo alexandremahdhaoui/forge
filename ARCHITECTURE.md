@@ -565,7 +565,7 @@ forge test delete <testID>  # Clean up test environment
 
 **Key Features:**
 
-- **Test Categories:** 10 categories (build, testenv, test-runner, prompt, artifact-store, system, error-handling, cleanup, mcp, performance)
+- **Test Categories:** 9 categories (build, testenv, test-runner, artifact-store, system, error-handling, cleanup, mcp, performance)
 - **Parallel Execution:** Tests can run sequentially or in parallel based on resource requirements
 - **Shared Test Environment:** Reuses a single Kind cluster across tests to reduce setup overhead
 - **Test Filtering:** Filter by category or name pattern via environment variables
@@ -578,7 +578,6 @@ forge test delete <testID>  # Clean up test environment
 | `build` | Build system tests | forge build, container builds |
 | `testenv` | Test environment lifecycle | create, list, get, delete operations |
 | `test-runner` | Test runner integration | unit, integration, lint runners |
-| `prompt` | Prompt system | list, get prompts |
 | `artifact-store` | Artifact store validation | artifact tracking, pruning |
 | `system` | System commands | version, help, error handling |
 | `error-handling` | Error scenarios | invalid IDs, missing resources |
@@ -684,7 +683,7 @@ type DetailedTestReport struct {
 - Persistent storage
 - Service exposure
 
-See `docs/testenv-architecture.md` for complete testenv system architecture.
+See `docs/architecture/testenv-architecture.md` for complete testenv system architecture.
 
 ### testenv-lcr Components (Setup Adapters)
 

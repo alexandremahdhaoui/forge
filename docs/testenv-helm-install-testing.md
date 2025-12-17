@@ -130,7 +130,7 @@ testenv-lcr provides:
 - CA certificate exported to tmpDir
 - Credentials exported to tmpDir
 
-See [testenv-architecture.md](./testenv-architecture.md) for more details.
+See [testenv-architecture.md](./architecture/testenv-architecture.md) for more details.
 
 #### Option B: Standalone Docker Registry
 
@@ -594,7 +594,6 @@ echo "Cleanup complete!"
 
 ## See Also
 
-- [testenv-architecture.md](./testenv-architecture.md) - Test environment architecture
-- [testenv-quick-start.md](./testenv-quick-start.md) - Quick start for test environments
-- [forge-test-usage.md](./forge-test-usage.md) - Complete forge test command reference
+- [testenv-architecture.md](./architecture/testenv-architecture.md) - Test environment architecture
+- [testing.md](./user/testing.md) - Forge test command reference
 - [MCP.md](../cmd/testenv-helm-install/MCP.md) - testenv-helm-install MCP documentation

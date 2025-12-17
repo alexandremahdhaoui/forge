@@ -33,7 +33,6 @@ const (
 	CategoryBuild         TestCategory = "build"
 	CategoryTestEnv       TestCategory = "testenv"
 	CategoryTestRunner    TestCategory = "test-runner"
-	CategoryPrompt        TestCategory = "prompt"
 	CategorySystem        TestCategory = "system"
 	CategoryError         TestCategory = "error-handling"
 	CategoryCleanup       TestCategory = "cleanup"
@@ -443,7 +442,7 @@ func (ts *TestSuite) RunAll() *DetailedTestReport {
 
 	// Run tests by category
 	categories := []TestCategory{
-		CategoryBuild, CategoryTestEnv, CategoryTestRunner, CategoryPrompt,
+		CategoryBuild, CategoryTestEnv, CategoryTestRunner,
 		CategoryArtifactStore, CategorySystem, CategoryError, CategoryCleanup,
 		CategoryMCP, CategoryPerformance,
 	}
@@ -763,25 +762,6 @@ func registerAllTests(suite *TestSuite) {
 		Name:     "forge test verify-tags run",
 		Category: CategoryTestRunner,
 		Run:      testVerifyTagsRunner,
-	})
-
-	// Phase 5: Prompt system tests
-	suite.AddTest(Test{
-		Name:     "forge prompt list",
-		Category: CategoryPrompt,
-		Run:      testPromptList,
-	})
-
-	suite.AddTest(Test{
-		Name:     "forge prompt get",
-		Category: CategoryPrompt,
-		Run:      testPromptGet,
-	})
-
-	suite.AddTest(Test{
-		Name:     "forge prompt get invalid",
-		Category: CategoryPrompt,
-		Run:      testPromptGetInvalid,
 	})
 
 	// Phase 7: Error handling tests
@@ -1307,69 +1287,6 @@ func testLintRunner(ts *TestSuite) error {
 	// Verify command executed (produced output)
 	if len(output) == 0 {
 		return fmt.Errorf("no output from lint command")
-	}
-
-	return nil
-}
-
-// Phase 5: Prompt System Tests
-
-func testPromptList(ts *TestSuite) error {
-	cmd := exec.Command("./build/bin/forge", "prompt", "list")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("command failed: %w\nOutput: %s", err, output)
-	}
-
-	// Verify output is not empty
-	if len(output) == 0 {
-		return fmt.Errorf("no output from prompt list")
-	}
-
-	return nil
-}
-
-func testPromptGet(ts *TestSuite) error {
-	// First list prompts to get a valid name
-	listCmd := exec.Command("./build/bin/forge", "prompt", "list")
-	listOutput, err := listCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to list prompts: %w", err)
-	}
-
-	// If there are no prompts, skip the test
-	if len(listOutput) == 0 || !strings.Contains(string(listOutput), "-") {
-		return nil // Skip if no prompts available
-	}
-
-	// Try to get a prompt (use a common name or parse from list)
-	getCmd := exec.Command("./build/bin/forge", "prompt", "get", "engine-implementation-guide")
-	getOutput, err := getCmd.CombinedOutput()
-
-	// If this specific prompt doesn't exist, that's okay
-	if err != nil && strings.Contains(string(getOutput), "not found") {
-		return nil
-	}
-
-	if err != nil {
-		return fmt.Errorf("command failed: %w\nOutput: %s", err, getOutput)
-	}
-
-	return nil
-}
-
-func testPromptGetInvalid(ts *TestSuite) error {
-	cmd := exec.Command("./build/bin/forge", "prompt", "get", "nonexistent-prompt-name-12345")
-	output, err := cmd.CombinedOutput()
-
-	// Should fail with error
-	if err == nil {
-		return fmt.Errorf("expected error for invalid prompt name")
-	}
-
-	// Should mention not found or similar
-	if !strings.Contains(string(output), "not found") && !strings.Contains(string(output), "error") {
-		return fmt.Errorf("expected error message about not found, got: %s", output)
 	}
 
 	return nil

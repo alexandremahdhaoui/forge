@@ -24,7 +24,7 @@ Forge is both a **command-line interface (CLI)** and an **MCP server**:
 - **As an MCP server:** AI coding agents can invoke forge's capabilities programmatically
 - **Architecture:** All forge components (CLI + engines) are MCP servers, creating a uniform, AI-accessible interface
 
-This guide focuses on CLI usage. For MCP server usage, see [ARCHITECTURE.md](../ARCHITECTURE.md#mcp-architecture).
+This guide focuses on CLI usage. For MCP server usage, see [ARCHITECTURE.md](../../ARCHITECTURE.md#mcp-architecture).
 
 ## Quick Start
 
@@ -120,12 +120,12 @@ forge build
 
 **Output:**
 ```
-🔨 Building artifacts from forge.yaml...
-✅ Built: forge (go-binary)
-✅ Built: go-build (go-binary)
-✅ Built: container-build (go-binary)
-✅ Built: my-api (container)
-📦 Artifact store updated: .ignore.artifact-store.yaml
+Building artifacts from forge.yaml...
+Built: forge (go-binary)
+Built: go-build (go-binary)
+Built: container-build (go-binary)
+Built: my-api (container)
+Artifact store updated: .ignore.artifact-store.yaml
 ```
 
 ### Build with Custom Flags
@@ -262,9 +262,9 @@ When you run `forge build`:
 ```bash
 $ forge build
 Building 1 artifact(s) with go://go-format...
-✅ Formatted Go code at .
+Formatted Go code at .
 Building 13 artifact(s) with go://go-build...
-✅ Built binary: my-app (version: abc123)
+Built binary: my-app (version: abc123)
 ```
 
 #### Environment Variables
@@ -325,7 +325,7 @@ forge test lint run
 ```bash
 $ forge test lint run
 Running tests: stage=lint, name=lint-20251104-011133
-✅ Linting passed
+Linting passed
 
 Test Results:
 Status: passed
@@ -470,7 +470,7 @@ forge test run unit
 **Output:**
 ```
 Running tests: stage=unit, name=test-report-unit-20251109-012345
-✅ Unit tests passed
+Unit tests passed
 
 Test Results:
 Status: passed
@@ -556,37 +556,37 @@ forge test-all
 **Success output example:**
 ```
 Building all artifacts...
-✅ Build completed: 3 artifact(s) built
+Build completed: 3 artifact(s) built
 
 --- Running test stage: verify-tags ---
-✅ Stage 'verify-tags' passed
+Stage 'verify-tags' passed
 
 --- Running test stage: lint ---
-✅ Stage 'lint' passed
+Stage 'lint' passed
 
 --- Running test stage: unit ---
-✅ Stage 'unit' passed
+Stage 'unit' passed
 
 --- Running test stage: integration ---
-🧹 Cleaned up test environment for stage 'integration'
-✅ Stage 'integration' passed
+Cleaned up test environment for stage 'integration'
+Stage 'integration' passed
 
 --- Running test stage: e2e ---
-✅ Stage 'e2e' passed
+Stage 'e2e' passed
 
-✅ All test stages passed!
+All test stages passed!
 ```
 
 **Failure output example:**
 ```
 Building all artifacts...
-✅ Build completed: 3 artifact(s) built
+Build completed: 3 artifact(s) built
 
 --- Running test stage: verify-tags ---
-✅ Stage 'verify-tags' passed
+Stage 'verify-tags' passed
 
 --- Running test stage: lint ---
-❌ Stage 'lint' failed: exit status 1
+Stage 'lint' failed: exit status 1
 test stage 'lint' failed
 ```
 
@@ -674,7 +674,7 @@ forge test create-env integration
 
 **Output:**
 ```
-✅ Test environment created: env-integration-20251109-123456
+Test environment created: env-integration-20251109-123456
 ```
 
 ### List Environments
@@ -744,7 +744,7 @@ forge test delete-env integration env-integration-20251109-123456
 
 **Output:**
 ```
-✅ Test environment deleted: env-integration-20251109-123456
+Test environment deleted: env-integration-20251109-123456
 ```
 
 ### Use Test Environment
@@ -1432,8 +1432,8 @@ VERSION=v1.0.0 GO_BUILD_LDFLAGS="-X main.Version=$VERSION" forge build
 
 ## See Also
 
-- [forge.yaml Schema Documentation](./forge-schema.md) - Complete schema reference
-- [ARCHITECTURE.md - Forge Architecture](../ARCHITECTURE.md#forge-architecture) - Technical architecture
+- [forge.yaml Schema Documentation](./forge-yaml-schema.md) - Complete schema reference
+- [ARCHITECTURE.md - Forge Architecture](../../ARCHITECTURE.md#forge-architecture) - Technical architecture
 - [Model Context Protocol](https://modelcontextprotocol.io) - MCP specification
 
 ## Getting Help

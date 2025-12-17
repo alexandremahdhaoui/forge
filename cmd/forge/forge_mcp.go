@@ -87,16 +87,6 @@ type TestListResult struct {
 	Count   int                `json:"count"`
 }
 
-// PromptListInput represents the input parameters for the prompt-list tool.
-type PromptListInput struct {
-	// No parameters - lists all prompts
-}
-
-// PromptGetInput represents the input parameters for the prompt-get tool.
-type PromptGetInput struct {
-	Name string `json:"name"`
-}
-
 // ConfigValidateInput represents the input parameters for the config-validate tool.
 type ConfigValidateInput struct {
 	ConfigPath string `json:"configPath,omitempty"` // Defaults to forge.yaml
@@ -169,18 +159,6 @@ func runMCPServer() error {
 		Name:        "test-all",
 		Description: "Build all artifacts and run all test stages sequentially (stops on first failure)",
 	}, handleTestAllTool)
-
-	// Register prompt-list tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "prompt-list",
-		Description: "List all available documentation prompts",
-	}, handlePromptListTool)
-
-	// Register prompt-get tool
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "prompt-get",
-		Description: "Get a specific documentation prompt by name",
-	}, handlePromptGetTool)
 
 	// Register config-validate tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
@@ -931,56 +909,6 @@ func handleTestAllTool(
 		testAllResult,
 	)
 	return result, artifact, nil
-}
-
-// handlePromptListTool handles the "prompt-list" tool call from MCP clients.
-func handlePromptListTool(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input PromptListInput,
-) (*mcp.CallToolResult, any, error) {
-	log.Printf("Listing available prompts")
-
-	// Call promptList (note: it prints to stdout)
-	if err := promptList(); err != nil {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("Failed to list prompts: %v", err)},
-			},
-			IsError: true,
-		}, nil, nil
-	}
-
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: "Successfully listed prompts"},
-		},
-	}, nil, nil
-}
-
-// handlePromptGetTool handles the "prompt-get" tool call from MCP clients.
-func handlePromptGetTool(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input PromptGetInput,
-) (*mcp.CallToolResult, any, error) {
-	log.Printf("Getting prompt: %s", input.Name)
-
-	// Call promptGet (note: it prints to stdout)
-	if err := promptGet(input.Name); err != nil {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("Failed to get prompt: %v", err)},
-			},
-			IsError: true,
-		}, nil, nil
-	}
-
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: fmt.Sprintf("Successfully retrieved prompt: %s", input.Name)},
-		},
-	}, nil, nil
 }
 
 // handleConfigValidateTool handles the "config-validate" tool call from MCP clients.

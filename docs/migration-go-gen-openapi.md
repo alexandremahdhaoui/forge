@@ -720,7 +720,7 @@ build:
 
 ## Additional Resources
 
-- **forge.yaml Schema Reference**: See `docs/forge-schema.md` for complete schema documentation
+- **forge.yaml Schema Reference**: See `docs/user/forge-yaml-schema.md` for complete schema documentation
 - **go-gen-openapi MCP Documentation**: See `cmd/go-gen-openapi/MCP.md` for MCP interface details
 - **Example Configuration**: See the commented example in `forge.yaml` in the build section
 

@@ -202,8 +202,8 @@ If you see deprecation warnings after updating `forge.yaml`, check:
 ## Questions?
 
 See the following documentation for more information:
-- [docs/built-in-tools.md](../built-in-tools.md) - Complete `container-build` documentation
-- [docs/forge-usage.md](../forge-usage.md) - General forge usage guide
+- [docs/user/built-in-tools.md](../user/built-in-tools.md) - Complete `container-build` documentation
+- [docs/user/forge-cli.md](../user/forge-cli.md) - General forge usage guide
 - [cmd/container-build/MCP.md](../../cmd/container-build/MCP.md) - MCP server documentation
 
 ## Feedback

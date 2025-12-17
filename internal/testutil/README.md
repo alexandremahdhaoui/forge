@@ -388,7 +388,7 @@ go test ./internal/testutil/ -tags=integration
 ## Related Documentation
 
 - [Forge Test Usage Guide](../../docs/forge-test-usage.md) - How to use `forge test` commands
-- [Test Environment Architecture](../../docs/testenv-architecture.md) - How test environments work
+- [Test Environment Architecture](../../docs/architecture/testenv-architecture.md) - How test environments work
 - [CLAUDE.md](../../CLAUDE.md) - End-to-end test-driven workflow
 
 ## Support
