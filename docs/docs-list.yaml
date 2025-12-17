@@ -81,6 +81,12 @@ docs:
     url: "docs/dev/forge-dev.md"
     tags: ["development", "code-generation", "forge-dev"]
 
+  - name: "migrating-to-forge-dev"
+    title: "Migrating to forge-dev"
+    description: "Replace boilerplate with generated code"
+    url: "docs/dev/migrating-to-forge-dev.md"
+    tags: ["development", "migration", "forge-dev"]
+
   - name: "creating-build-engine"
     title: "Creating Build Engines"
     description: "Implement custom build logic for forge"
