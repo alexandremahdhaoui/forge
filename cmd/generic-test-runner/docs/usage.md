@@ -1,216 +1,99 @@
-# Generic Test Runner Usage Guide
+# generic-test-runner
 
-## Purpose
+**Run any command as a test with structured reporting.**
 
-`generic-test-runner` is a forge engine for executing arbitrary commands as test runners. It provides structured TestReport output with pass/fail status based on exit code, making it ideal for integrating linters, security scanners, and custom test frameworks.
+> "I have security scanners, compliance checkers, and custom scripts that need to be part of my test pipeline. generic-test-runner wraps any command and gives me consistent TestReport output."
 
-## Invocation
+## What problem does generic-test-runner solve?
 
-### MCP Mode
+Not every test tool produces structured output. generic-test-runner executes any command and converts its exit code into a pass/fail TestReport, integrating custom tools into your forge test pipeline.
 
-Run as an MCP server:
-
-```bash
-generic-test-runner --mcp
-```
-
-Forge invokes this automatically when using:
-
-```yaml
-runner: go://generic-test-runner
-```
-
-## Available MCP Tools
-
-### `run`
-
-Execute a command as a test and generate TestReport.
-
-**Input Schema:**
-```json
-{
-  "stage": "string (required)",
-  "name": "string (required)",
-  "command": "string (required)",
-  "args": ["string"],
-  "env": {"key": "value"},
-  "envFile": "string",
-  "workDir": "string",
-  "tmpDir": "string",
-  "buildDir": "string",
-  "rootDir": "string"
-}
-```
-
-**Output:**
-```json
-{
-  "stage": "string",
-  "status": "passed|failed",
-  "startTime": "2025-01-06T10:00:00Z",
-  "duration": 1.234,
-  "testStats": {
-    "total": 1,
-    "passed": 1,
-    "failed": 0,
-    "skipped": 0
-  },
-  "errorMessage": "string"
-}
-```
-
-**Example - Run linter:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "run",
-    "arguments": {
-      "stage": "lint",
-      "name": "golangci-lint",
-      "command": "golangci-lint",
-      "args": ["run", "./..."]
-    }
-  }
-}
-```
-
-**Example - Run security scanner:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "run",
-    "arguments": {
-      "stage": "security",
-      "name": "gosec",
-      "command": "gosec",
-      "args": ["-fmt=json", "./..."]
-    }
-  }
-}
-```
-
-### `docs-list`
-
-List all available documentation for generic-test-runner.
-
-### `docs-get`
-
-Get a specific documentation by name.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)"
-}
-```
-
-### `docs-validate`
-
-Validate documentation completeness.
-
-## Common Use Cases
-
-### Linters
-
-Run golangci-lint as a test stage:
-
-```yaml
-test:
-  - name: lint
-    stage: lint
-    runner: go://generic-test-runner
-    command: golangci-lint
-    args: ["run", "./..."]
-```
-
-### Security Scanners
-
-Run gosec security scanner:
+## How do I use generic-test-runner?
 
 ```yaml
 test:
   - name: security
     stage: security
     runner: go://generic-test-runner
-    command: gosec
-    args: ["-fmt=json", "./..."]
+    spec:
+      command: gosec
+      args: ["./..."]
 ```
 
-### Custom Test Frameworks
+Run with:
 
-Run any custom test framework:
+```bash
+forge test run security
+```
 
+## What configuration options are available?
+
+| Option | Description |
+|--------|-------------|
+| `command` | Command to execute (required) |
+| `args` | Command arguments as array |
+| `env` | Environment variables as key-value pairs |
+| `envFile` | Path to env file to load |
+| `workDir` | Working directory for command execution |
+
+## How is pass/fail determined?
+
+- Exit code 0 = `status: "passed"`
+- Exit code != 0 = `status: "failed"`
+
+On failure, stdout/stderr is captured in `errorMessage`.
+
+## What are common use cases?
+
+Security scanner:
+```yaml
+test:
+  - name: security
+    runner: go://generic-test-runner
+    spec:
+      command: gosec
+      args: ["-fmt=json", "./..."]
+```
+
+Custom test script:
 ```yaml
 test:
   - name: custom
-    stage: custom
     runner: go://generic-test-runner
-    command: ./run-tests.sh
-    args: ["--verbose"]
+    spec:
+      command: ./run-tests.sh
+      args: ["--verbose"]
+      env:
+        DEBUG: "true"
 ```
 
-### Compliance Checkers
-
-Run compliance validation:
-
+Compliance checker:
 ```yaml
 test:
   - name: compliance
-    stage: compliance
     runner: go://generic-test-runner
-    command: compliance-checker
-    workDir: ./compliance
+    spec:
+      command: compliance-checker
+      workDir: ./compliance
 ```
 
-## Status Determination
+## What output does it produce?
 
-- **Exit code 0** -> status: "passed"
-- **Exit code != 0** -> status: "failed"
-
-TestReport.errorMessage contains stdout/stderr on failure.
-
-## Environment Variables
-
-### From Environment File
-
-Load environment variables from a file:
-
-```yaml
-test:
-  - name: test
-    runner: go://generic-test-runner
-    command: ./test.sh
-    envFile: .env.test
+```json
+{
+  "stage": "security",
+  "status": "passed",
+  "duration": 3.2,
+  "testStats": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  }
+}
 ```
 
-### Inline Environment Variables
+## What's next?
 
-Set environment variables directly:
-
-```yaml
-test:
-  - name: test
-    runner: go://generic-test-runner
-    command: ./test.sh
-    env:
-      DEBUG: "true"
-      LOG_LEVEL: "verbose"
-```
-
-## Implementation Details
-
-- Executes command via exec.Command
-- Captures stdout, stderr, exit code
-- Measures execution duration
-- Generates UUID for report ID
-- Returns TestReport regardless of pass/fail
-- Supports working directory configuration
-- Supports environment file loading
-
-## See Also
-
-- [Generic Test Runner Configuration Schema](schema.md)
-- [go-test MCP Server](../../go-test/docs/usage.md)
-- [go-lint MCP Server](../../go-lint/docs/usage.md)
+- [schema.md](schema.md) - Configuration reference
+- [MCP.md](../../MCP.md) - MCP tool documentation

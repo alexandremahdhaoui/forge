@@ -1,132 +1,16 @@
-# Protobuf Code Generator Usage Guide
+# go-gen-protobuf
 
-## Purpose
+**Compile Protocol Buffer files to Go code with gRPC support.**
 
-`go-gen-protobuf` is a forge engine for compiling Protocol Buffer (.proto) files to Go code using protoc. It provides automatic dependency tracking for lazy-rebuild support and handles gRPC service generation.
+> "Managing protoc commands across multiple proto directories was a nightmare. go-gen-protobuf handles all the discovery and compilation automatically - I just point it at a directory and get perfectly generated Go code."
 
-## Invocation
+## What problem does go-gen-protobuf solve?
 
-### MCP Mode
+Compiling .proto files requires running protoc with multiple flags and plugins. go-gen-protobuf automates proto file discovery, protoc invocation, and dependency tracking for lazy rebuild support.
 
-Run as an MCP server:
+## How do I use go-gen-protobuf?
 
-```bash
-go-gen-protobuf --mcp
-```
-
-Forge invokes this automatically when using:
-
-```yaml
-engine: go://go-gen-protobuf
-```
-
-## Available MCP Tools
-
-### `build`
-
-Generate Go code from Protocol Buffer files.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)",
-  "src": "string (required)",
-  "dest": "string (required)",
-  "engine": "string (required)",
-  "spec": {
-    "go_opt": "string (optional)",
-    "go-grpc_opt": "string (optional)",
-    "proto_path": "string | string[] (optional)",
-    "plugin": "string[] (optional)",
-    "extra_args": "string[] (optional)"
-  }
-}
-```
-
-**Output:**
-```json
-{
-  "name": "string",
-  "type": "protobuf",
-  "location": "string",
-  "timestamp": "string",
-  "dependencies": [
-    {
-      "type": "file",
-      "filePath": "string",
-      "timestamp": "string"
-    }
-  ],
-  "dependencyDetectorEngine": "go://go-gen-protobuf"
-}
-```
-
-**Example:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "build",
-    "arguments": {
-      "name": "api-protobuf",
-      "src": "./api",
-      "dest": "./api",
-      "engine": "go://go-gen-protobuf",
-      "spec": {
-        "go_opt": "paths=source_relative",
-        "go-grpc_opt": "paths=source_relative"
-      }
-    }
-  }
-}
-```
-
-### `buildBatch`
-
-Generate Go code for multiple proto directories in sequence.
-
-**Input Schema:**
-```json
-{
-  "specs": [
-    {
-      "name": "string",
-      "src": "string",
-      "dest": "string",
-      "engine": "string",
-      "spec": { }
-    }
-  ]
-}
-```
-
-**Output:**
-Array of Artifacts with summary of successes/failures.
-
-### `docs-list`
-
-List all available documentation for go-gen-protobuf.
-
-### `docs-get`
-
-Get a specific documentation by name.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)"
-}
-```
-
-### `docs-validate`
-
-Validate documentation completeness.
-
-## Common Use Cases
-
-### Basic Protobuf Generation
-
-Generate Go code from proto files:
+Add a build target to `forge.yaml`:
 
 ```yaml
 build:
@@ -136,13 +20,26 @@ build:
     engine: go://go-gen-protobuf
 ```
 
-Run with:
+Run the generator:
 
 ```bash
 forge build
 ```
 
-### With Custom Options
+## What configuration options are available?
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Build step name |
+| `src` | Yes | Directory containing .proto files |
+| `dest` | Yes | Output directory for generated Go code |
+| `spec.go_opt` | No | Options for --go_opt flag |
+| `spec.go-grpc_opt` | No | Options for --go-grpc_opt flag |
+| `spec.proto_path` | No | Additional proto include paths |
+| `spec.plugin` | No | Additional protoc plugins |
+| `spec.extra_args` | No | Additional protoc arguments |
+
+## How do I use custom protoc options?
 
 ```yaml
 build:
@@ -158,7 +55,7 @@ build:
         - "./vendor/grpc-gateway"
 ```
 
-### Multiple Proto Directories
+## How do I compile multiple proto directories?
 
 ```yaml
 build:
@@ -173,58 +70,24 @@ build:
     engine: go://go-gen-protobuf
 ```
 
-## Implementation Details
+## What prerequisites are required?
 
-- Recursively discovers all `.proto` files in the source directory
-- Skips hidden directories (starting with `.`) and `vendor` directory
-- Executes `protoc` with configured options
-- Generates both message code (`--go_out`) and gRPC service code (`--go-grpc_out`)
-- Tracks all `.proto` files as dependencies for lazy-rebuild
-- Sets `DependencyDetectorEngine` to enable incremental builds
+Install protoc plugins:
 
-## Protoc Command Construction
-
-Given `src: ./api` and `dest: ./api`, the engine constructs:
-
-```bash
-protoc \
-  --proto_path=./api \
-  --go_out=./api \
-  --go_opt=paths=source_relative \
-  --go-grpc_out=./api \
-  --go-grpc_opt=paths=source_relative \
-  [additional proto_paths] \
-  [plugins] \
-  [extra_args] \
-  ./api/v1/foo.proto ./api/v1/bar.proto
-```
-
-## Prerequisites
-
-The following tools must be installed and available in PATH:
-- `protoc` - Protocol Buffer compiler
-- `protoc-gen-go` - Go code generator plugin
-- `protoc-gen-go-grpc` - gRPC code generator plugin
-
-Install with:
 ```bash
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 ```
 
-## Error Handling
+## How does it work?
 
-### Common Errors
+- Recursively discovers all .proto files in src directory
+- Skips hidden directories and vendor
+- Generates both message code (--go_out) and gRPC code (--go-grpc_out)
+- Tracks all .proto files as dependencies for lazy rebuild
 
-| Error | Description | Resolution |
-|-------|-------------|------------|
-| `src is required` | Source directory not specified | Provide `src` field in BuildSpec |
-| `dest is required` | Destination directory not specified | Provide `dest` field in BuildSpec |
-| `no .proto files found in {src}` | No proto files in source directory | Verify source path contains .proto files |
-| `protoc failed: {error}` | protoc command failed | Check protoc output for syntax errors or missing imports |
+## What's next?
 
-## See Also
-
-- [Protobuf Code Generator Configuration Schema](schema.md)
-- [Protocol Buffers Documentation](https://protobuf.dev/)
-- [gRPC Documentation](https://grpc.io/docs/)
+- [schema.md](schema.md) - Configuration reference
+- [MCP.md](../MCP.md) - MCP tool documentation
+- [Protocol Buffers docs](https://protobuf.dev/) - Upstream documentation

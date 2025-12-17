@@ -1,96 +1,14 @@
-# Go Lint Tags Usage Guide
+# go-lint-tags
 
-## Purpose
+**Verify all Go test files have valid build tags.**
 
-`go-lint-tags` is a forge engine for verifying that all Go test files have valid build tags. It scans the repository for test files and ensures each has one of the required build tags: `unit`, `integration`, or `e2e`. This prevents tests from being silently skipped due to missing tags.
+> "Tests were silently skipped because someone forgot to add a build tag. go-lint-tags catches this immediately and tells me exactly which files need fixing."
 
-## Invocation
+## What problem does go-lint-tags solve?
 
-### MCP Mode
+Go test files without build tags run in ALL test stages or get silently skipped. go-lint-tags scans your codebase and fails if any test file is missing a `unit`, `integration`, or `e2e` tag.
 
-Run as an MCP server:
-
-```bash
-go-lint-tags --mcp
-```
-
-Forge invokes this automatically when using:
-
-```yaml
-runner: go://go-lint-tags
-```
-
-## Available MCP Tools
-
-### `run`
-
-Verify all test files have valid build tags.
-
-**Input Schema:**
-```json
-{
-  "stage": "string (required)",
-  "name": "string (optional)",
-  "rootDir": "string (optional)"
-}
-```
-
-**Output:**
-```json
-{
-  "id": "string",
-  "stage": "string",
-  "status": "passed|failed",
-  "startTime": "2025-01-06T10:00:00Z",
-  "duration": 0.123,
-  "testStats": {
-    "total": 42,
-    "passed": 42,
-    "failed": 0,
-    "skipped": 0
-  },
-  "errorMessage": "string"
-}
-```
-
-**Example:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "run",
-    "arguments": {
-      "stage": "verify-tags",
-      "rootDir": "."
-    }
-  }
-}
-```
-
-### `docs-list`
-
-List all available documentation for go-lint-tags.
-
-### `docs-get`
-
-Get a specific documentation by name.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)"
-}
-```
-
-### `docs-validate`
-
-Validate documentation completeness.
-
-## Common Use Cases
-
-### Pre-commit Check
-
-Run as a pre-commit hook to ensure all test files have proper tags:
+## How do I use go-lint-tags?
 
 ```yaml
 test:
@@ -99,40 +17,43 @@ test:
     runner: go://go-lint-tags
 ```
 
-### CI Validation
-
-Include in CI pipeline to enforce build tag conventions:
+Run with:
 
 ```bash
 forge test run verify-tags
 ```
 
-## Validation Rules
+## What tags are valid?
 
-### Valid Build Tags
+Test files must have one of these build tags in the first 5 lines:
 
-The following build tags are accepted:
-- `//go:build unit`
-- `//go:build integration`
-- `//go:build e2e`
+```go
+//go:build unit
+//go:build integration
+//go:build e2e
+```
 
-### Files Checked
+## What directories are skipped?
 
-- All `*_test.go` files
-- Recursively scans rootDir
-- Skips `vendor`, `.git`, `.tmp`, and `node_modules` directories
+- `vendor/`
+- `.git/`
+- `.tmp/`
+- `node_modules/`
 
-### Pass Criteria
+## What output does it produce?
 
-- All test files have one of the valid build tags
-- Tag must appear in the first 5 lines of the file (before `package` declaration)
-
-### Fail Criteria
-
-- Any test file missing a build tag
-- Error message lists all files without tags
-
-## Error Message Format
+On success:
+```json
+{
+  "stage": "verify-tags",
+  "status": "passed",
+  "testStats": {
+    "total": 45,
+    "passed": 45,
+    "failed": 0
+  }
+}
+```
 
 On failure:
 ```
@@ -149,32 +70,7 @@ Test files must have one of these build tags:
   //go:build e2e
 ```
 
-## Adding Build Tags
+## What's next?
 
-To fix files without build tags, add the appropriate tag at the top of the file:
-
-```go
-//go:build unit
-
-package myapp_test
-
-import "testing"
-
-func TestMyFunction(t *testing.T) {
-    // ...
-}
-```
-
-## Implementation Details
-
-- Walks directory tree recursively
-- Parses Go files to check for build tags
-- Returns detailed error with file list on failure
-- Fast execution (no test compilation)
-- No coverage tracking
-
-## See Also
-
-- [Go Lint Tags Configuration Schema](schema.md)
-- [go-test MCP Server](../../go-test/docs/usage.md)
-- [go-lint MCP Server](../../go-lint/docs/usage.md)
+- [schema.md](schema.md) - Configuration reference
+- [MCP.md](../../MCP.md) - MCP tool documentation

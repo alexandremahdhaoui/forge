@@ -1,124 +1,30 @@
-# OpenAPI Dependency Detector Usage Guide
+# go-gen-openapi-dep-detector
 
-## Purpose
+**Detect file dependencies for OpenAPI code generation.**
 
-`go-gen-openapi-dep-detector` is a forge engine for detecting file dependencies for OpenAPI code generation. It tracks OpenAPI specification files as dependencies, enabling lazy rebuild support for `go-gen-openapi`.
+> "My OpenAPI client code was regenerating on every build. Now forge only regenerates it when my spec files actually change."
 
-## Invocation
+## What problem does go-gen-openapi-dep-detector solve?
 
-### MCP Mode
+OpenAPI code generation can be slow. This detector tracks OpenAPI specification files as dependencies, enabling lazy rebuild support for `go-gen-openapi`.
 
-Run as an MCP server:
+## How do I use go-gen-openapi-dep-detector?
 
-```bash
-go-gen-openapi-dep-detector --mcp
-```
-
-Forge invokes this automatically when `go-gen-openapi` needs dependency detection.
-
-## Available MCP Tools
-
-### `detectDependencies`
-
-Detect all file dependencies for OpenAPI code generation.
-
-**Input Schema:**
-```json
-{
-  "specSources": ["string (required)"],
-  "rootDir": "string (optional)",
-  "resolveRefs": "boolean (optional)"
-}
-```
-
-**Output:**
-```json
-{
-  "dependencies": [
-    {
-      "type": "file",
-      "filePath": "string",
-      "timestamp": "string"
-    }
-  ]
-}
-```
-
-**Example:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "detectDependencies",
-    "arguments": {
-      "specSources": [
-        "/path/to/project/api/petstore.yaml",
-        "/path/to/project/api/users.yaml"
-      ],
-      "rootDir": "/path/to/project",
-      "resolveRefs": false
-    }
-  }
-}
-```
-
-### `docs-list`
-
-List all available documentation for go-gen-openapi-dep-detector.
-
-### `docs-get`
-
-Get a specific documentation by name.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)"
-}
-```
-
-### `docs-validate`
-
-Validate documentation completeness.
-
-## Common Use Cases
-
-### Integration with go-gen-openapi
-
-This detector is called automatically by `go-gen-openapi` after code generation:
+You don't invoke it directly. It's called automatically by `go-gen-openapi` after code generation:
 
 1. `forge build <name>` invokes `go-gen-openapi`
 2. `go-gen-openapi` generates code using oapi-codegen
 3. `go-gen-openapi` extracts spec paths from its configuration
-4. `go-gen-openapi` calls `go-gen-openapi-dep-detector` with the spec paths
-5. Dependencies are stored in the artifact store with the artifact
-6. On subsequent builds, forge compares file timestamps to decide if rebuild is needed
+4. `go-gen-openapi` calls this detector with the spec paths
+5. Dependencies are stored with the artifact
+6. On subsequent builds, forge compares timestamps to decide if rebuild is needed
 
-### Command Line Testing
+## What does it detect?
 
-```bash
-# Start MCP server and send request via stdin
-echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"detectDependencies","arguments":{"specSources":["/path/to/project/api/petstore.yaml"],"rootDir":"/path/to/project","resolveRefs":false}},"id":1}' | ./go-gen-openapi-dep-detector --mcp
-```
+- **OpenAPI spec files** - All YAML/JSON specification files configured in the build
+- Verifies each file exists and captures its modification timestamp
 
-## Implementation Details
-
-- Iterates over provided spec source paths
-- Verifies each file exists and gets its modification timestamp
-- Returns a list of file dependencies with RFC3339 timestamps
-- External references (`$ref`) are NOT resolved in v1
-
-## Error Handling
-
-### Common Errors
-
-| Error | Description | Resolution |
-|-------|-------------|------------|
-| `spec file not found: /path/to/file` | The specified spec file does not exist | Verify the path is correct and the file exists |
-
-## Limitations
-
-### $ref Resolution NOT Supported (v1)
+## What are the limitations?
 
 External references (`$ref`) are NOT automatically tracked. If your spec uses `$ref` to include external files, use `--force` for rebuilds:
 
@@ -126,7 +32,8 @@ External references (`$ref`) are NOT automatically tracked. If your spec uses `$
 forge build <name> --force
 ```
 
-## See Also
+## What's next?
 
-- [OpenAPI Dependency Detector Configuration Schema](schema.md)
-- [go-gen-openapi MCP Server](../../go-gen-openapi/MCP.md)
+- [schema.md](schema.md) - Configuration reference
+- [MCP.md](../MCP.md) - MCP tool documentation
+- [go-gen-openapi](../../go-gen-openapi/docs/usage.md) - OpenAPI generator documentation

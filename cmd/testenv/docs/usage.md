@@ -1,116 +1,16 @@
-# Testenv Usage Guide
+# testenv
 
-## Purpose
+**Orchestrate complete test environments with a single command.**
 
-`testenv` is a forge engine for orchestrating test environments. It coordinates testenv subengines (testenv-kind, testenv-lcr, testenv-helm-install) to create complete test environments with Kind clusters, local container registries, and Helm charts.
+> "I was spending hours manually setting up Kind clusters, registries, and Helm charts for each test run. With testenv, I define my environment once in forge.yaml and it handles everything - creation, coordination between components, and cleanup."
 
-## Invocation
+## What problem does testenv solve?
 
-### CLI Mode
+Test environments require multiple coordinated components: Kubernetes clusters, container registries, and pre-installed applications. testenv orchestrates these subengines (testenv-kind, testenv-lcr, testenv-helm-install) so you can create, manage, and destroy complete environments with simple commands.
 
-Run directly as a standalone command:
+## How do I use testenv?
 
-```bash
-testenv create <STAGE>
-testenv delete <TEST-ID>
-```
-
-Examples:
-```bash
-testenv create integration
-testenv delete test-integration-20250106-abc123
-```
-
-### MCP Mode
-
-Run as an MCP server:
-
-```bash
-testenv --mcp
-```
-
-Forge invokes this automatically when using:
-
-```yaml
-engine: go://testenv
-```
-
-## Available MCP Tools
-
-### `create`
-
-Create a complete test environment.
-
-**Input Schema:**
-```json
-{
-  "stage": "string (required)"
-}
-```
-
-**Output:**
-```json
-{
-  "testID": "string"
-}
-```
-
-**Example:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "create",
-    "arguments": {
-      "stage": "integration"
-    }
-  }
-}
-```
-
-### `delete`
-
-Delete a test environment by ID.
-
-**Input Schema:**
-```json
-{
-  "testID": "string (required)"
-}
-```
-
-**Output:**
-```json
-{
-  "success": true,
-  "message": "Deleted test environment: test-integration-20250106-abc123"
-}
-```
-
-### `docs-list`
-
-List all available documentation for testenv.
-
-### `docs-get`
-
-Get a specific documentation by name.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)"
-}
-```
-
-### `docs-validate`
-
-Validate documentation completeness.
-
-## Common Use Cases
-
-### Basic Test Environment
-
-Create a test environment with Kind cluster and local container registry:
+Add testenv to your forge.yaml:
 
 ```yaml
 test:
@@ -123,14 +23,14 @@ test:
 Run with:
 
 ```bash
-forge test create integration
-forge test run integration
-forge test delete integration
+forge test create integration     # Create environment
+forge test run integration        # Run tests
+forge test delete integration     # Cleanup
 ```
 
-### Custom Testenv Configuration
+## How do I customize my test environment?
 
-Use the engines configuration for more control:
+Define an engine alias with specific subengines and configuration:
 
 ```yaml
 engines:
@@ -141,10 +41,7 @@ engines:
       - engine: go://testenv-lcr
         spec:
           enabled: true
-          namespace: testenv-lcr
-          imagePullSecretNamespaces:
-            - default
-            - my-app
+          imagePullSecretNamespaces: [default, my-app]
       - engine: go://testenv-helm-install
         spec:
           charts:
@@ -155,56 +52,36 @@ engines:
               version: v1.13.0
               namespace: cert-manager
               createNamespace: true
+
+test:
+  - name: integration
+    testenv: alias://my-testenv
+    runner: go://go-test
 ```
 
-### Environment with Pre-loaded Images
+## What is the environment lifecycle?
 
-Configure testenv-lcr to push images to the local registry:
+| Operation | Command | What happens |
+|-----------|---------|--------------|
+| Create | `forge test create <stage>` | Generate testID, create tmpDir, execute subengines in order |
+| List | `forge test list <stage>` | Show all environments for a stage |
+| Get | `forge test get <stage> <id>` | Show environment details |
+| Delete | `forge test delete <stage> <id>` | Execute subengines in reverse, cleanup tmpDir |
 
-```yaml
-engines:
-  - alias: integration-testenv
-    type: testenv
-    testenv:
-      - engine: go://testenv-kind
-      - engine: go://testenv-lcr
-        spec:
-          enabled: true
-          images:
-            - name: local://myapp:latest
-            - name: quay.io/example/img:v1.2.3
-```
+## How does testenv coordinate subengines?
 
-## Implementation Details
+Subengines execute in order during create, reverse order during delete. Each subengine receives:
+- `testID`: Unique identifier (`test-{stage}-{date}-{random}`)
+- `tmpDir`: Temporary directory for test files
+- `metadata`: Accumulated from previous subengines
+- `env`: Environment variables from previous subengines
 
-- Generates unique test IDs: `test-{stage}-{date}-{random}`
-- Creates temporary directory: `.forge/tmp/{testID}`
-- Coordinates subengine execution in order
-- Stores TestEnvironment metadata in artifact store
-- Cleans up resources in reverse order on delete
+This allows testenv-lcr to use the kubeconfig from testenv-kind, and testenv-helm-install to use both.
 
-## Test Environment Lifecycle
+## What's next?
 
-1. **Create**: `testenv create <stage>`
-   - Generate unique testID
-   - Create tmpDir for test files
-   - Execute subengines (kind, lcr, helm-install)
-   - Store TestEnvironment in artifact store
-
-2. **List**: `forge test list <stage>`
-   - Read artifact store directly (not via MCP)
-
-3. **Get**: `forge test get <stage> <testID>`
-   - Read artifact store directly (not via MCP)
-
-4. **Delete**: `testenv delete <testID>`
-   - Execute subengines in reverse order
-   - Clean up tmpDir
-   - Remove from artifact store
-
-## See Also
-
-- [Testenv Configuration Schema](schema.md)
-- [testenv-kind MCP Server](../../testenv-kind/docs/usage.md)
-- [testenv-lcr MCP Server](../../testenv-lcr/docs/usage.md)
-- [testenv-helm-install MCP Server](../../testenv-helm-install/docs/usage.md)
+- [schema.md](schema.md) - Configuration reference
+- [MCP.md](../MCP.md) - MCP tool documentation
+- [testenv-kind](../../testenv-kind/docs/usage.md) - Kind cluster subengine
+- [testenv-lcr](../../testenv-lcr/docs/usage.md) - Local container registry subengine
+- [testenv-helm-install](../../testenv-helm-install/docs/usage.md) - Helm chart installer subengine

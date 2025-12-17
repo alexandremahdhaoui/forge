@@ -1,121 +1,16 @@
-# Parallel Builder Usage Guide
+# parallel-builder
 
-## Purpose
+**Execute multiple builders concurrently for faster builds.**
 
-`parallel-builder` is a forge engine for executing multiple builders in parallel. It orchestrates concurrent execution of sub-builders, combining their results into a single meta-artifact.
+> "Building our CLI for 6 platforms used to take 3 minutes sequentially. With parallel-builder, all platforms build simultaneously and we're done in 40 seconds."
 
-## Invocation
+## What problem does parallel-builder solve?
 
-### MCP Mode
+Sequential builds waste time when targets are independent. parallel-builder orchestrates concurrent execution of sub-builders, dramatically reducing total build time for cross-platform builds, multiple binaries, or mixed build types.
 
-Run as an MCP server:
+## How do I use parallel-builder?
 
-```bash
-parallel-builder --mcp
-```
-
-Forge invokes this automatically when using:
-
-```yaml
-engine: go://parallel-builder
-```
-
-## Available MCP Tools
-
-### `build`
-
-Execute multiple builders in parallel.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)",
-  "spec": {
-    "builders": [
-      {
-        "name": "string (optional)",
-        "engine": "string (required)",
-        "spec": {}
-      }
-    ]
-  }
-}
-```
-
-**Output:**
-```json
-{
-  "name": "string",
-  "type": "parallel-build",
-  "location": "string",
-  "timestamp": "string",
-  "version": "string"
-}
-```
-
-**Example:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "build",
-    "arguments": {
-      "name": "parallel-builds",
-      "spec": {
-        "builders": [
-          {
-            "name": "build-linux",
-            "engine": "go://go-build",
-            "spec": {
-              "name": "myapp-linux",
-              "src": "./cmd/myapp",
-              "env": {"GOOS": "linux", "GOARCH": "amd64"}
-            }
-          },
-          {
-            "name": "build-darwin",
-            "engine": "go://go-build",
-            "spec": {
-              "name": "myapp-darwin",
-              "src": "./cmd/myapp",
-              "env": {"GOOS": "darwin", "GOARCH": "arm64"}
-            }
-          }
-        ]
-      }
-    }
-  }
-}
-```
-
-### `buildBatch`
-
-Execute multiple parallel build specs in sequence.
-
-### `docs-list`
-
-List all available documentation for parallel-builder.
-
-### `docs-get`
-
-Get a specific documentation by name.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)"
-}
-```
-
-### `docs-validate`
-
-Validate documentation completeness.
-
-## Common Use Cases
-
-### Cross-Platform Builds
-
-Build for multiple platforms simultaneously:
+Add a parallel build target to `forge.yaml`:
 
 ```yaml
 build:
@@ -123,38 +18,37 @@ build:
     engine: go://parallel-builder
     spec:
       builders:
-        - name: linux-amd64
+        - name: linux
           engine: go://go-build
           spec:
-            name: myapp-linux-amd64
+            name: myapp-linux
             src: ./cmd/myapp
-            dest: ./build/bin
-            env:
-              GOOS: linux
-              GOARCH: amd64
-        - name: darwin-arm64
+            env: { GOOS: linux, GOARCH: amd64 }
+        - name: darwin
           engine: go://go-build
           spec:
-            name: myapp-darwin-arm64
+            name: myapp-darwin
             src: ./cmd/myapp
-            dest: ./build/bin
-            env:
-              GOOS: darwin
-              GOARCH: arm64
-        - name: windows-amd64
-          engine: go://go-build
-          spec:
-            name: myapp-windows-amd64.exe
-            src: ./cmd/myapp
-            dest: ./build/bin
-            env:
-              GOOS: windows
-              GOARCH: amd64
+            env: { GOOS: darwin, GOARCH: arm64 }
 ```
 
-### Multiple Binaries
+Run the build:
 
-Build multiple binaries in parallel:
+```bash
+forge build
+```
+
+## What configuration options are available?
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Parallel build name |
+| `spec.builders` | Yes | Array of sub-builder configurations |
+| `spec.builders[].name` | No | Sub-builder name |
+| `spec.builders[].engine` | Yes | Engine URI for sub-builder |
+| `spec.builders[].spec` | Yes | Engine-specific configuration |
+
+## How do I build multiple binaries in parallel?
 
 ```yaml
 build:
@@ -164,24 +58,16 @@ build:
       builders:
         - name: cli
           engine: go://go-build
-          spec:
-            name: mycli
-            src: ./cmd/cli
+          spec: { name: mycli, src: ./cmd/cli }
         - name: server
           engine: go://go-build
-          spec:
-            name: myserver
-            src: ./cmd/server
+          spec: { name: myserver, src: ./cmd/server }
         - name: worker
           engine: go://go-build
-          spec:
-            name: myworker
-            src: ./cmd/worker
+          spec: { name: myworker, src: ./cmd/worker }
 ```
 
-### Mixed Build Types
-
-Run different build engines in parallel:
+## How do I mix different build types?
 
 ```yaml
 build:
@@ -191,43 +77,23 @@ build:
       builders:
         - name: binary
           engine: go://go-build
-          spec:
-            name: myapp
-            src: ./cmd/myapp
+          spec: { name: myapp, src: ./cmd/myapp }
         - name: mocks
           engine: go://go-gen-mocks
-          spec:
-            name: generate-mocks
+          spec: { name: generate-mocks }
         - name: format
           engine: go://go-format
-          spec:
-            name: format-code
-            src: .
+          spec: { name: format-code, src: . }
 ```
 
-## Error Handling
+## How does error handling work?
 
 - Partial failures are reported with error count
-- Combined artifact is returned even with failures
-- Individual builder errors are collected and reported
-- Error message format: `parallel-builder: X/Y builders failed: [error details]`
+- Combined artifact returns even with failures
+- Error format: `parallel-builder: X/Y builders failed: [details]`
+- All builders run to completion regardless of individual failures
 
-## Implementation Details
+## What's next?
 
-- Uses goroutines for concurrent execution
-- WaitGroup ensures all builds complete
-- Results collected via buffered channel
-- Combined artifact tracks number of sub-artifacts
-- Location is "multiple" when more than one artifact
-
-## Performance Considerations
-
-- All builders run concurrently (no dependency ordering)
-- CPU and I/O bound by number of parallel builds
-- Network builds (container push) may be bandwidth limited
-- Consider resource limits when running many parallel builds
-
-## See Also
-
-- [Parallel Builder Configuration Schema](schema.md)
-- [go-build MCP Server](../../go-build/docs/usage.md)
+- [schema.md](schema.md) - Configuration reference
+- [MCP.md](../MCP.md) - MCP tool documentation

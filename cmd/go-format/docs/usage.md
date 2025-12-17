@@ -1,106 +1,16 @@
-# Go Format Usage Guide
+# go-format
 
-## Purpose
+**Format Go code with gofumpt for consistent style.**
 
-`go-format` is a forge engine for formatting Go source code using gofumpt. It provides consistent code style enforcement with stricter formatting rules than the standard gofmt.
+> "Our team had constant debates about code formatting. go-format with gofumpt's stricter rules settled everything - now every PR has consistent style without manual review."
 
-## Invocation
+## What problem does go-format solve?
 
-### MCP Mode
+Standard gofmt leaves room for style variations. go-format uses gofumpt, which applies stricter rules for import grouping, empty lines, and slice expressions - ensuring truly consistent code style across your codebase.
 
-Run as an MCP server:
+## How do I use go-format?
 
-```bash
-go-format --mcp
-```
-
-Forge invokes this automatically when using:
-
-```yaml
-engine: go://go-format
-```
-
-## Available MCP Tools
-
-### `build`
-
-Format Go code in the specified directory.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)",
-  "src": "string (optional)",
-  "path": "string (optional)",
-  "engine": "string (optional)"
-}
-```
-
-**Output:**
-```json
-{
-  "name": "string",
-  "type": "formatted",
-  "location": "string",
-  "timestamp": "string"
-}
-```
-
-**Example:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "build",
-    "arguments": {
-      "name": "format-code",
-      "src": "."
-    }
-  }
-}
-```
-
-### `buildBatch`
-
-Format multiple directories in sequence.
-
-**Input Schema:**
-```json
-{
-  "specs": [
-    {
-      "name": "string",
-      "src": "string"
-    }
-  ]
-}
-```
-
-**Output:**
-Array of Artifacts with summary of successes/failures.
-
-### `docs-list`
-
-List all available documentation for go-format.
-
-### `docs-get`
-
-Get a specific documentation by name.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)"
-}
-```
-
-### `docs-validate`
-
-Validate documentation completeness.
-
-## Common Use Cases
-
-### Format Entire Project
+Add a build target to `forge.yaml`:
 
 ```yaml
 build:
@@ -109,39 +19,33 @@ build:
     engine: go://go-format
 ```
 
-Run with:
+Run the formatter:
 
 ```bash
 forge build
 ```
 
-### Format Specific Directory
+## What configuration options are available?
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Build step name |
+| `src` | No | Directory to format (default: current directory) |
+
+## How do I format specific directories?
 
 ```yaml
 build:
   - name: format-pkg
     src: ./pkg
     engine: go://go-format
-```
 
-### Format Multiple Directories
-
-```yaml
-build:
   - name: format-cmd
     src: ./cmd
     engine: go://go-format
-
-  - name: format-internal
-    src: ./internal
-    engine: go://go-format
-
-  - name: format-pkg
-    src: ./pkg
-    engine: go://go-format
 ```
 
-### Use with Parallel Builder
+## How do I format directories in parallel?
 
 ```yaml
 build:
@@ -149,43 +53,29 @@ build:
     engine: go://parallel-builder
     spec:
       builders:
-        - name: format-cmd
+        - name: cmd
           engine: go://go-format
-          spec:
-            name: cmd
-            src: ./cmd
-        - name: format-internal
+          spec: { name: cmd, src: ./cmd }
+        - name: internal
           engine: go://go-format
-          spec:
-            name: internal
-            src: ./internal
+          spec: { name: internal, src: ./internal }
 ```
 
-## Environment Variables
+## What does gofumpt do differently than gofmt?
+
+- No empty lines at start/end of function bodies
+- No empty lines around lone statements in blocks
+- Imports sorted and grouped properly
+- Simplified slice expressions where possible
+
+## What environment variables are available?
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GOFUMPT_VERSION` | `v0.6.0` | Version of gofumpt to use |
 
-## Implementation Details
+## What's next?
 
-- Uses `go run mvdan.cc/gofumpt@{version}` to run gofumpt
-- Applies stricter formatting rules than standard gofmt
-- Modifies files in-place with `-w` flag
-- Formats all `.go` files recursively in the specified directory
-
-## Gofumpt vs Gofmt
-
-Gofumpt is a stricter version of gofmt that applies additional formatting rules:
-
-- No empty lines at the start or end of a function body
-- No empty lines around a lone statement in a block
-- Imports are sorted and grouped properly
-- Simplified slice expressions where possible
-- And more...
-
-## See Also
-
-- [Go Format Configuration Schema](schema.md)
-- [go-lint MCP Server](../../go-lint/docs/usage.md)
-- [Gofumpt Documentation](https://github.com/mvdan/gofumpt)
+- [schema.md](schema.md) - Configuration reference
+- [MCP.md](../MCP.md) - MCP tool documentation
+- [gofumpt docs](https://github.com/mvdan/gofumpt) - Upstream documentation

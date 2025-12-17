@@ -1,128 +1,16 @@
-# Testenv-Kind Usage Guide
+# testenv-kind
 
-## Purpose
+**Create isolated Kubernetes clusters for each test environment.**
 
-`testenv-kind` is a forge engine for creating Kind (Kubernetes in Docker) clusters as part of test environments. It generates unique clusters per test environment with isolated kubeconfig files.
+> "Running integration tests against a shared cluster was a nightmare - tests would interfere with each other. testenv-kind gives me a fresh Kind cluster per test environment, with its own kubeconfig, that gets cleaned up automatically."
 
-## Invocation
+## What problem does testenv-kind solve?
 
-### MCP Mode
+Integration tests need Kubernetes clusters, but shared clusters cause test interference and leave behind resources. testenv-kind creates isolated Kind clusters with unique names and kubeconfig files, then cleans them up completely on delete.
 
-Run as an MCP server:
+## How do I use testenv-kind?
 
-```bash
-testenv-kind --mcp
-```
-
-This is typically called automatically by the testenv orchestrator.
-
-Forge invokes this automatically when configured in testenv:
-
-```yaml
-engines:
-  - alias: my-testenv
-    type: testenv
-    testenv:
-      - engine: go://testenv-kind
-```
-
-## Available MCP Tools
-
-### `create`
-
-Create a Kind cluster for a test environment.
-
-**Input Schema:**
-```json
-{
-  "testID": "string (required)",
-  "stage": "string (required)",
-  "tmpDir": "string (required)",
-  "rootDir": "string (optional)"
-}
-```
-
-**Output:**
-```json
-{
-  "testID": "string",
-  "files": {
-    "testenv-kind.kubeconfig": "kubeconfig"
-  },
-  "metadata": {
-    "testenv-kind.clusterName": "forge-test-integration-20250106-abc123",
-    "testenv-kind.kubeconfigPath": "/abs/path/to/tmpDir/kubeconfig"
-  },
-  "env": {
-    "KUBECONFIG": "/abs/path/to/tmpDir/kubeconfig"
-  },
-  "managedResources": [
-    "/abs/path/to/tmpDir/kubeconfig"
-  ]
-}
-```
-
-**Example:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "create",
-    "arguments": {
-      "testID": "test-integration-20250106-abc123",
-      "stage": "integration",
-      "tmpDir": ".forge/tmp/test-integration-20250106-abc123"
-    }
-  }
-}
-```
-
-### `delete`
-
-Delete a Kind cluster.
-
-**Input Schema:**
-```json
-{
-  "testID": "string (required)",
-  "metadata": {
-    "testenv-kind.clusterName": "string (optional)"
-  }
-}
-```
-
-**Output:**
-```json
-{
-  "success": true,
-  "message": "Deleted kind cluster: forge-test-integration-20250106-abc123"
-}
-```
-
-### `docs-list`
-
-List all available documentation for testenv-kind.
-
-### `docs-get`
-
-Get a specific documentation by name.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)"
-}
-```
-
-### `docs-validate`
-
-Validate documentation completeness.
-
-## Common Use Cases
-
-### Basic Kind Cluster
-
-Create a test environment with a Kind cluster:
+Add it to a testenv configuration in forge.yaml:
 
 ```yaml
 engines:
@@ -130,81 +18,39 @@ engines:
     type: testenv
     testenv:
       - engine: go://testenv-kind
+
+test:
+  - name: integration
+    testenv: alias://k8s-testenv
+    runner: go://go-test
 ```
 
-### Kind with Local Container Registry
+The cluster kubeconfig is automatically passed to subsequent subengines and test runners via the `KUBECONFIG` environment variable.
 
-Combine with testenv-lcr for image pushing:
+## What does testenv-kind provide to other subengines?
 
-```yaml
-engines:
-  - alias: integration-env
-    type: testenv
-    testenv:
-      - engine: go://testenv-kind
-      - engine: go://testenv-lcr
-        spec:
-          enabled: true
-```
+| Output | Description |
+|--------|-------------|
+| `KUBECONFIG` env var | Path to cluster kubeconfig |
+| `testenv-kind.clusterName` metadata | Cluster name for identification |
+| `testenv-kind.kubeconfigPath` metadata | Absolute path to kubeconfig file |
 
-### Kind with Helm Charts
+## How are clusters named?
 
-Add pre-installed charts:
-
-```yaml
-engines:
-  - alias: full-testenv
-    type: testenv
-    testenv:
-      - engine: go://testenv-kind
-      - engine: go://testenv-lcr
-        spec:
-          enabled: true
-      - engine: go://testenv-helm-install
-        spec:
-          charts:
-            - name: nginx-ingress
-              sourceType: helm-repo
-              url: https://kubernetes.github.io/ingress-nginx
-              chartName: ingress-nginx
-              namespace: ingress-nginx
-              createNamespace: true
-```
-
-## Implementation Details
-
-- Uses `kind create cluster` command
-- Cluster name format: `{projectName}-{testID}`
-- Kubeconfig written to tmpDir for isolation
-- Each test environment gets its own cluster
-- Kubeconfig path stored in metadata for other subengines
-
-## Cluster Naming
-
-Cluster names are generated as: `{projectName}-{testID}`
+Clusters follow the pattern: `{projectName}-{testID}`
 
 Example: `forge-test-integration-20250106-abc123`
 
-This ensures:
-- Unique clusters per test environment
-- Easy identification of test clusters
-- Automatic cleanup by testID
+This ensures unique clusters per test environment and easy identification of test clusters.
 
-## Environment Variables
+## What are the requirements?
 
-The following environment variables are exported for use by subsequent subengines and test runners:
+- Kind CLI installed and in PATH
+- Docker running
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `KUBECONFIG` | Path to cluster kubeconfig | `.forge/tmp/.../kubeconfig` |
+## What's next?
 
-## Requirements
-
-- Kind CLI must be installed and available in PATH
-- Docker must be running
-
-## See Also
-
-- [Testenv-Kind Configuration Schema](schema.md)
-- [testenv MCP Server](../../testenv/docs/usage.md)
-- [testenv-lcr MCP Server](../../testenv-lcr/docs/usage.md)
+- [schema.md](schema.md) - Configuration reference
+- [MCP.md](../MCP.md) - MCP tool documentation
+- [testenv-lcr](../../testenv-lcr/docs/usage.md) - Add a container registry
+- [testenv-helm-install](../../testenv-helm-install/docs/usage.md) - Pre-install Helm charts

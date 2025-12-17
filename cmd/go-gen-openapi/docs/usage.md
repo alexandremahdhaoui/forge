@@ -1,127 +1,16 @@
-# OpenAPI Code Generator Usage Guide
+# go-gen-openapi
 
-## Purpose
+**Generate Go client and server code from OpenAPI specifications.**
 
-`go-gen-openapi` is a forge engine for generating Go client and server code from OpenAPI specifications using oapi-codegen. It provides type-safe API implementations with automatic dependency tracking for lazy rebuild support.
+> "We were manually writing HTTP clients that drifted from our API specs. go-gen-openapi generates type-safe clients and servers directly from our OpenAPI YAML - now our Go code is always in sync with the spec."
 
-## Invocation
+## What problem does go-gen-openapi solve?
 
-### MCP Mode
+Hand-writing HTTP clients and server handlers is error-prone and diverges from API specifications over time. go-gen-openapi uses oapi-codegen to generate type-safe Go code from OpenAPI specs, with automatic dependency tracking for lazy rebuild.
 
-Run as an MCP server:
+## How do I use go-gen-openapi?
 
-```bash
-go-gen-openapi --mcp
-```
-
-Forge invokes this automatically when using:
-
-```yaml
-engine: go://go-gen-openapi
-```
-
-## Available MCP Tools
-
-### `build`
-
-Generate OpenAPI client and server code from a specification file.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)",
-  "engine": "string (required)",
-  "spec": {
-    "sourceFile": "string",
-    "destinationDir": "string",
-    "client": {
-      "enabled": true,
-      "packageName": "string"
-    },
-    "server": {
-      "enabled": true,
-      "packageName": "string"
-    }
-  }
-}
-```
-
-**Output:**
-```json
-{
-  "name": "string",
-  "type": "generated",
-  "location": "string",
-  "timestamp": "string"
-}
-```
-
-**Example:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "build",
-    "arguments": {
-      "name": "example-api-v1",
-      "engine": "go://go-gen-openapi",
-      "spec": {
-        "sourceFile": "./api/example-api.v1.yaml",
-        "destinationDir": "./pkg/generated",
-        "client": {
-          "enabled": true,
-          "packageName": "exampleclient"
-        }
-      }
-    }
-  }
-}
-```
-
-### `buildBatch`
-
-Generate OpenAPI code for multiple specifications in batch.
-
-**Input Schema:**
-```json
-{
-  "specs": [
-    {
-      "name": "string",
-      "engine": "string",
-      "spec": { }
-    }
-  ]
-}
-```
-
-**Output:**
-Array of Artifacts with summary of successes/failures.
-
-### `docs-list`
-
-List all available documentation for go-gen-openapi.
-
-### `docs-get`
-
-Get a specific documentation by name.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)"
-}
-```
-
-### `docs-validate`
-
-Validate documentation completeness.
-
-## Common Use Cases
-
-### Basic Client Generation
-
-Generate a client from an OpenAPI specification:
+Add a build target to `forge.yaml`:
 
 ```yaml
 build:
@@ -135,15 +24,25 @@ build:
         packageName: exampleclient
 ```
 
-Run with:
+Run the generator:
 
 ```bash
 forge build
 ```
 
-### Client and Server Generation
+## What configuration options are available?
 
-Generate both client and server code:
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Build step name |
+| `spec.sourceFile` | Yes | Path to OpenAPI spec file |
+| `spec.destinationDir` | Yes | Output directory for generated code |
+| `spec.client.enabled` | No | Generate client code |
+| `spec.client.packageName` | No | Package name for client |
+| `spec.server.enabled` | No | Generate server code |
+| `spec.server.packageName` | No | Package name for server |
+
+## How do I generate both client and server?
 
 ```yaml
 build:
@@ -160,13 +59,13 @@ build:
         packageName: productsserver
 ```
 
-This generates two packages:
+This generates:
 - `./pkg/generated/productsclient/zz_generated.oapi-codegen.go`
 - `./pkg/generated/productsserver/zz_generated.oapi-codegen.go`
 
-### Multiple API Versions
+## How do I handle multiple API versions?
 
-Each API version requires a separate BuildSpec:
+Each version needs a separate build spec:
 
 ```yaml
 build:
@@ -175,46 +74,24 @@ build:
     spec:
       sourceFile: ./api/example-api.v1.yaml
       destinationDir: ./pkg/generated
-      client:
-        enabled: true
-        packageName: exampleclient
+      client: { enabled: true, packageName: exampleclient }
 
   - name: example-api-v2
     engine: go://go-gen-openapi
     spec:
       sourceFile: ./api/example-api.v2.yaml
       destinationDir: ./pkg/generated
-      client:
-        enabled: true
-        packageName: exampleclientv2
+      client: { enabled: true, packageName: exampleclientv2 }
 ```
 
-## Implementation Details
+## What environment variables are available?
 
-- Runs `go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@{version}`
-- Generates client and/or server code based on `spec` configuration
-- Creates temporary oapi-codegen config files for each package
-- Generates code concurrently for client and server (when both enabled)
-- Tracks spec files as dependencies for lazy rebuild
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OAPI_CODEGEN_VERSION` | `v2.3.0` | Version of oapi-codegen to use |
 
-## Environment Variables
+## What's next?
 
-| Variable | Description |
-|----------|-------------|
-| `OAPI_CODEGEN_VERSION` | Version of oapi-codegen to use (default: `v2.3.0`) |
-
-## Generated Code
-
-- **Client**: HTTP client with typed methods for API calls
-- **Server**: HTTP server interfaces and strict handlers
-- **Models**: Go structs for request/response types
-- **Embedded Spec**: OpenAPI specification embedded in generated code
-
-Output files follow the pattern:
-- `{destinationDir}/{packageName}/zz_generated.oapi-codegen.go`
-
-## See Also
-
-- [OpenAPI Code Generator Configuration Schema](schema.md)
-- [go-gen-openapi-dep-detector MCP Server](../../go-gen-openapi-dep-detector/MCP.md)
-- [oapi-codegen Documentation](https://github.com/oapi-codegen/oapi-codegen)
+- [schema.md](schema.md) - Configuration reference
+- [MCP.md](../MCP.md) - MCP tool documentation
+- [oapi-codegen docs](https://github.com/oapi-codegen/oapi-codegen) - Upstream documentation

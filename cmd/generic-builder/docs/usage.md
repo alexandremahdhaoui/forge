@@ -1,134 +1,56 @@
-# Generic Builder Usage Guide
+# generic-builder
 
-## Purpose
+**Execute any shell command as a forge build step.**
 
-`generic-builder` is a forge engine for executing arbitrary shell commands as build steps. Use it to integrate any CLI tool into forge builds without writing custom Go code.
+> "I needed to integrate our custom asset compiler into forge without writing Go code. generic-builder let me wrap our existing scripts and get them into the build pipeline in minutes."
 
-## Invocation
+## What problem does generic-builder solve?
 
-### MCP Mode
+Not every build step fits into specialized engines like go-build or container-build. generic-builder runs arbitrary shell commands as build steps, letting you integrate any CLI tool into forge workflows.
 
-Run as an MCP server:
+## How do I use generic-builder?
 
-```bash
-generic-builder --mcp
-```
-
-Forge invokes this automatically when using:
-
-```yaml
-engine: go://generic-builder
-```
-
-## Available MCP Tools
-
-### `build`
-
-Execute a shell command and return structured output.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)",
-  "command": "string (required)",
-  "args": ["string"],
-  "env": {"key": "value"},
-  "envFile": "string",
-  "workDir": "string",
-  "src": "string",
-  "dest": "string",
-  "version": "string"
-}
-```
-
-**Output:**
-```json
-{
-  "name": "string",
-  "type": "command-output",
-  "location": "string",
-  "timestamp": "string",
-  "version": "string"
-}
-```
-
-**Example - Run formatter:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "build",
-    "arguments": {
-      "name": "format-code",
-      "command": "gofumpt",
-      "args": ["-w", "{{ .Src }}"],
-      "src": "./cmd/myapp"
-    }
-  }
-}
-```
-
-### `buildBatch`
-
-Execute multiple commands in sequence.
-
-**Input Schema:**
-```json
-{
-  "specs": [
-    {
-      "name": "string",
-      "command": "string",
-      "args": ["string"]
-    }
-  ]
-}
-```
-
-**Output:**
-Array of Artifacts with summary of successes/failures.
-
-### `docs-list`
-
-List all available documentation for generic-builder.
-
-### `docs-get`
-
-Get a specific documentation by name.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)"
-}
-```
-
-### `docs-validate`
-
-Validate documentation completeness.
-
-## Template Support
-
-Arguments support Go template syntax with these fields:
-- `{{ .Name }}` - Build name
-- `{{ .Src }}` - Source directory
-- `{{ .Dest }}` - Destination directory
-- `{{ .Version }}` - Version string
-
-## Common Use Cases
-
-### Code Formatting
+Add a build target to `forge.yaml`:
 
 ```yaml
 build:
   - name: format-code
     command: gofumpt
     args: ["-w", "./..."]
-    workDir: .
     engine: go://generic-builder
 ```
 
-### Code Generation with Protoc
+Run the build:
+
+```bash
+forge build
+```
+
+## What configuration options are available?
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Build step name |
+| `command` | Yes | Command to execute |
+| `args` | No | Command arguments (supports templates) |
+| `env` | No | Environment variables |
+| `envFile` | No | Path to env file |
+| `workDir` | No | Working directory |
+| `src` | No | Source path (available as template) |
+| `dest` | No | Destination path (available as template) |
+
+## How do I use template variables?
+
+Arguments support Go template syntax:
+
+| Variable | Description |
+|----------|-------------|
+| `{{ .Name }}` | Build name |
+| `{{ .Src }}` | Source directory |
+| `{{ .Dest }}` | Destination directory |
+| `{{ .Version }}` | Version string |
+
+Example:
 
 ```yaml
 build:
@@ -136,36 +58,13 @@ build:
     command: protoc
     args:
       - "--go_out={{ .Dest }}"
-      - "--go_opt=paths=source_relative"
       - "{{ .Src }}/api.proto"
     src: ./proto
     dest: ./pkg/api
     engine: go://generic-builder
 ```
 
-### Mock Generation
-
-```yaml
-build:
-  - name: generate-mocks
-    command: mockery
-    args: ["--all", "--output", "{{ .Dest }}"]
-    dest: ./mocks
-    engine: go://generic-builder
-```
-
-### Asset Compilation
-
-```yaml
-build:
-  - name: compile-assets
-    command: npm
-    args: ["run", "build"]
-    workDir: ./frontend
-    engine: go://generic-builder
-```
-
-### Custom Script Execution
+## How do I run custom scripts?
 
 ```yaml
 build:
@@ -177,20 +76,15 @@ build:
     engine: go://generic-builder
 ```
 
-## Error Handling
+## How does it work?
 
-- Exit code 0: Success - Returns Artifact
-- Exit code != 0: Failure - Returns error with stdout/stderr
-
-## Implementation Details
-
-- Executes commands via exec.Command
+- Executes commands via `exec.Command`
 - Captures stdout, stderr, and exit code
-- Processes template arguments before execution
-- Working directory defaults to current directory
-- Environment variables are passed to the command
+- Exit code 0 returns success artifact
+- Non-zero exit returns error with output
+- Templates are processed before execution
 
-## See Also
+## What's next?
 
-- [Generic Builder Configuration Schema](schema.md)
-- [go-build MCP Server](../../go-build/docs/usage.md)
+- [schema.md](schema.md) - Configuration reference
+- [MCP.md](../MCP.md) - MCP tool documentation

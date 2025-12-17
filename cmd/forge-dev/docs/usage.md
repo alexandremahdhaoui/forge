@@ -1,124 +1,20 @@
-# forge-dev Usage Guide
+# forge-dev
 
-## Purpose
+**Generate typed Spec structs and MCP boilerplate from OpenAPI specifications.**
 
-`forge-dev` is a code generation build engine that generates typed Spec structs, validation code, and MCP boilerplate from OpenAPI specifications. It enables consistent, type-safe configuration handling across all forge engines.
+> "I was writing the same validation code and MCP setup for every engine. Now I define my Spec in OpenAPI and forge-dev generates type-safe Go code with validation - consistent across all my engines."
 
-## Overview
+## What problem does forge-dev solve?
 
-forge-dev reads two configuration files from an engine directory:
+Every forge engine needs a typed Spec struct, validation logic, and MCP server boilerplate. forge-dev generates all three from an OpenAPI schema, ensuring consistency and reducing boilerplate.
 
-1. **forge-dev.yaml** - Engine metadata and code generation settings
-2. **spec.openapi.yaml** - OpenAPI 3.0 schema defining the engine's Spec structure
-
-It generates three Go files:
-
-- **zz_generated.spec.go** - Typed Spec struct with JSON tags and conversion functions
-- **zz_generated.validate.go** - Validation functions for Spec
-- **zz_generated.mcp.go** - MCP server setup boilerplate
-
-## Invocation
-
-### MCP Mode (Primary)
-
-Run as an MCP server (typical usage via forge):
-
-```bash
-forge-dev --mcp
-```
-
-Forge invokes this automatically when using:
-
-```yaml
-engine: go://forge-dev
-```
-
-### CLI Mode
-
-CLI mode is not currently supported. forge-dev is primarily designed to run as an MCP server.
-
-## Available MCP Tools
-
-### `build`
-
-Generate code for a single engine.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)",
-  "src": "string (required - path to engine directory)",
-  "engine": "string (optional)"
-}
-```
-
-**Output:**
-```json
-{
-  "name": "string",
-  "type": "generated",
-  "location": "string (path to output directory)",
-  "timestamp": "string",
-  "version": "string (sha256 checksum)"
-}
-```
-
-### `buildBatch`
-
-Generate code for multiple engines in batch.
-
-**Input Schema:**
-```json
-{
-  "specs": [
-    {
-      "name": "string",
-      "src": "string",
-      "engine": "string"
-    }
-  ]
-}
-```
-
-### `config-validate`
-
-Validate forge-dev configuration files.
-
-**Input Schema:**
-```json
-{
-  "spec": {
-    "configPath": "string (path to engine directory)"
-  }
-}
-```
-
-**Output:**
-```json
-{
-  "valid": true,
-  "errors": [],
-  "warnings": []
-}
-```
-
-### `docs-list`
-
-List available documentation for forge-dev.
-
-### `docs-get`
-
-Get specific documentation by name.
-
-## Common Use Cases
-
-### Adding forge-dev Support to an Engine
+## How do I use forge-dev?
 
 1. Create `forge-dev.yaml` in your engine directory:
 
 ```yaml
 name: my-engine
-type: builder        # or: test-runner, testenv-subengine
+type: builder
 version: 0.15.0
 description: My custom build engine
 openapi:
@@ -127,7 +23,7 @@ generate:
   packageName: main
 ```
 
-2. Create `spec.openapi.yaml` defining your Spec schema:
+2. Create `spec.openapi.yaml` defining your Spec:
 
 ```yaml
 openapi: 3.0.3
@@ -141,20 +37,14 @@ components:
       properties:
         outputDir:
           type: string
-          description: Output directory for generated files
+          description: Output directory
         verbose:
           type: boolean
-          description: Enable verbose output
-        tags:
-          type: array
-          items:
-            type: string
-          description: Build tags to include
       required:
         - outputDir
 ```
 
-3. Add forge-dev generation to forge.yaml:
+3. Add to `forge.yaml`:
 
 ```yaml
 build:
@@ -169,18 +59,19 @@ build:
     depends: [generate-my-engine]
 ```
 
-4. Run generation:
+4. Run: `forge build generate-my-engine`
 
-```bash
-forge build generate-my-engine
-```
+## What files are generated?
 
-### Using Generated Code in Your Engine
+| File | Contents |
+|------|----------|
+| `zz_generated.spec.go` | Typed Spec struct with JSON tags |
+| `zz_generated.validate.go` | Validation functions |
+| `zz_generated.mcp.go` | MCP server setup boilerplate |
 
-After generation, use the SetupMCPServer function in your mcp.go:
+## How do I use the generated code?
 
 ```go
-// For builder engines:
 func runMCPServer() error {
     server, err := SetupMCPServer(Version, myBuildFunc)
     if err != nil {
@@ -191,31 +82,11 @@ func runMCPServer() error {
 
 func myBuildFunc(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.Artifact, error) {
     // spec is already parsed and validated
-    // Use spec.OutputDir, spec.Verbose, etc.
     return &forge.Artifact{...}, nil
 }
 ```
 
-## Implementation Details
-
-- Uses SHA256 checksums for idempotent generation (skips if sources unchanged)
-- Embeds templates via go:embed for single-binary distribution
-- Generates gofmt-formatted code
-- Supports three engine types: builder, test-runner, testenv-subengine
-
-## Checksum-Based Regeneration
-
-forge-dev computes a checksum of forge-dev.yaml and spec.openapi.yaml combined. Generated files include this checksum in a header comment:
-
-```go
-// Code generated by forge-dev. DO NOT EDIT.
-// Source: spec.openapi.yaml
-// SourceChecksum: sha256:abc123...
-```
-
-If the checksum matches, generation is skipped, making builds idempotent.
-
-## Supported OpenAPI Types
+## What OpenAPI types are supported?
 
 | OpenAPI Type | Go Type |
 |--------------|---------|
@@ -228,13 +99,20 @@ If the checksum matches, generation is skipped, making builds idempotent.
 | `object` with `additionalProperties` | `map[string]T` |
 | `string` with `enum` | `string` (with validation) |
 
-### Limitations (v1)
+**Limitations:** Arrays of objects, `$ref`, `oneOf`, `anyOf`, `allOf` are not supported.
 
-- Arrays of objects are NOT supported
-- `$ref` references are NOT supported
-- `oneOf`, `anyOf`, `allOf` are NOT supported
+## How does incremental generation work?
 
-## See Also
+forge-dev computes a SHA256 checksum of source files. Generated files include this checksum:
 
-- [forge-dev Configuration Schema](schema.md)
-- [ARCHITECTURE.md](../../../ARCHITECTURE.md)
+```go
+// Code generated by forge-dev. DO NOT EDIT.
+// SourceChecksum: sha256:abc123...
+```
+
+If sources are unchanged, generation is skipped.
+
+## What's next?
+
+- [schema.md](schema.md) - Configuration reference
+- [ARCHITECTURE.md](../../../ARCHITECTURE.md) - System architecture

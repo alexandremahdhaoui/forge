@@ -1,134 +1,16 @@
-# BPF Code Generator Usage Guide
+# go-gen-bpf
 
-## Purpose
+**Generate Go bindings from BPF C source files with automatic dependency tracking.**
 
-`go-gen-bpf` is a forge engine for generating Go code from BPF C source files using bpf2go from the cilium/ebpf library. It provides automatic dependency tracking for lazy-rebuild support.
+> "I was manually running bpf2go and tracking which BPF programs needed rebuilding. Now forge handles it automatically - I just define the source and destination, and go-gen-bpf does the rest with proper incremental builds."
 
-## Invocation
+## What problem does go-gen-bpf solve?
 
-### MCP Mode
+Building eBPF programs requires compiling C code and generating Go bindings via bpf2go. go-gen-bpf integrates this into forge's build system with dependency tracking for incremental rebuilds.
 
-Run as an MCP server:
+## How do I use go-gen-bpf?
 
-```bash
-go-gen-bpf --mcp
-```
-
-Forge invokes this automatically when using:
-
-```yaml
-engine: go://go-gen-bpf
-```
-
-## Available MCP Tools
-
-### `build`
-
-Generate Go code from a BPF C source file.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)",
-  "src": "string (required)",
-  "dest": "string (required)",
-  "engine": "string (required)",
-  "spec": {
-    "ident": "string (required)",
-    "bpf2goVersion": "string (optional)",
-    "goPackage": "string (optional)",
-    "outputStem": "string (optional)",
-    "tags": ["string"] (optional)",
-    "types": ["string"] (optional)",
-    "cflags": ["string"] (optional)",
-    "cc": "string (optional)"
-  }
-}
-```
-
-**Output:**
-```json
-{
-  "name": "string",
-  "type": "bpf",
-  "location": "string",
-  "timestamp": "string",
-  "dependencies": [
-    {
-      "type": "file",
-      "filePath": "string",
-      "timestamp": "string"
-    }
-  ],
-  "dependencyDetectorEngine": "go://go-gen-bpf"
-}
-```
-
-**Example:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "build",
-    "arguments": {
-      "name": "my-bpf-program",
-      "src": "./bpf/program.c",
-      "dest": "./pkg/bpf",
-      "engine": "go://go-gen-bpf",
-      "spec": {
-        "ident": "myProgram"
-      }
-    }
-  }
-}
-```
-
-### `buildBatch`
-
-Generate Go code for multiple BPF programs in sequence.
-
-**Input Schema:**
-```json
-{
-  "specs": [
-    {
-      "name": "string",
-      "src": "string",
-      "dest": "string",
-      "engine": "string",
-      "spec": { }
-    }
-  ]
-}
-```
-
-**Output:**
-Array of Artifacts with summary of successes/failures.
-
-### `docs-list`
-
-List all available documentation for go-gen-bpf.
-
-### `docs-get`
-
-Get a specific documentation by name.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)"
-}
-```
-
-### `docs-validate`
-
-Validate documentation completeness.
-
-## Common Use Cases
-
-### Basic BPF Generation
-
-Generate Go code from a BPF C source file:
+Add a build target to `forge.yaml`:
 
 ```yaml
 build:
@@ -146,7 +28,22 @@ Run with:
 forge build
 ```
 
-### With Custom Options
+This generates Go code in `./pkg/bpf` that embeds the compiled BPF bytecode.
+
+## What configuration options are available?
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `ident` | Yes | Go identifier prefix for generated types (e.g., `myProgram` generates `myProgramObjects`) |
+| `bpf2goVersion` | No | Version of bpf2go to use (default: `latest`) |
+| `goPackage` | No | Package name for generated files |
+| `outputStem` | No | Prefix for generated filenames (default: based on ident) |
+| `tags` | No | Build tags to include (e.g., `["linux"]`) |
+| `types` | No | BPF types to export to Go |
+| `cflags` | No | Additional C compiler flags (e.g., `["-I./include"]`) |
+| `cc` | No | C compiler to use (default: clang) |
+
+### Example with all options
 
 ```yaml
 build:
@@ -159,77 +56,28 @@ build:
       bpf2goVersion: "v0.12.0"
       goPackage: "bpf"
       outputStem: "zz_generated"
-      tags:
-        - "linux"
-      types:
-        - "event"
-        - "config"
-      cflags:
-        - "-I./include"
-        - "-D__TARGET_ARCH_x86"
+      tags: ["linux"]
+      types: ["event", "config"]
+      cflags: ["-I./include", "-D__TARGET_ARCH_x86"]
 ```
 
-### Multiple BPF Programs
+## What are the prerequisites?
 
-```yaml
-build:
-  - name: tracepoint-bpf
-    src: ./bpf/tracepoint.c
-    dest: ./pkg/bpf/tracepoint
-    engine: go://go-gen-bpf
-    spec:
-      ident: tracepoint
-
-  - name: kprobe-bpf
-    src: ./bpf/kprobe.c
-    dest: ./pkg/bpf/kprobe
-    engine: go://go-gen-bpf
-    spec:
-      ident: kprobe
-```
-
-## Implementation Details
-
-- Executes `go run github.com/cilium/ebpf/cmd/bpf2go@{version}`
-- Generates Go code that embeds compiled BPF bytecode
-- Tracks the source C file as a dependency for lazy-rebuild
-- Sets `DependencyDetectorEngine` to enable incremental builds
-
-## Bpf2go Command Construction
-
-Given the configuration, the engine constructs:
-
-```bash
-go run github.com/cilium/ebpf/cmd/bpf2go@latest \
-  --go-package mypackage \
-  --output-dir ./pkg/bpf \
-  --output-stem zz_generated \
-  --tags linux \
-  myProgram \
-  ./bpf/program.c \
-  -- -I./include
-```
-
-## Prerequisites
-
-- Go 1.21+ (for go run with version suffix)
+- Go 1.21+ (for `go run` with version suffix)
 - C compiler (clang recommended)
 - Linux kernel headers (for BPF development)
 
-## Error Handling
+## What errors might I encounter?
 
-### Common Errors
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `src is required` | Missing source file | Add `src` pointing to .c file |
+| `spec.ident is required` | Missing identifier | Add `ident` in spec |
+| `src must be a file, not directory` | src is a directory | Point to specific .c file |
+| `bpf2go failed` | C compilation error | Check bpf2go output for details |
 
-| Error | Description | Resolution |
-|-------|-------------|------------|
-| `src is required` | Source file not specified | Provide `src` field pointing to .c file |
-| `dest is required` | Destination directory not specified | Provide `dest` field for output directory |
-| `spec.ident is required` | Go identifier not specified | Provide `ident` in spec for generated types |
-| `src must be a file, not directory` | src points to directory | Provide path to a specific .c file |
-| `bpf2go failed` | Compilation error | Check bpf2go output for C errors |
+## What's next?
 
-## See Also
-
-- [BPF Code Generator Configuration Schema](schema.md)
-- [cilium/ebpf Documentation](https://github.com/cilium/ebpf)
-- [bpf2go Documentation](https://pkg.go.dev/github.com/cilium/ebpf/cmd/bpf2go)
+- [schema.md](schema.md) - Configuration reference
+- [cilium/ebpf](https://github.com/cilium/ebpf) - eBPF library documentation
+- [bpf2go](https://pkg.go.dev/github.com/cilium/ebpf/cmd/bpf2go) - Code generator documentation

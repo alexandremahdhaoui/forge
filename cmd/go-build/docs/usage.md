@@ -1,123 +1,16 @@
-# Go Build Usage Guide
+# go-build
 
-## Purpose
+**Build Go binaries with automatic git versioning and artifact tracking.**
 
-`go-build` is a forge engine for building Go binaries with automatic git versioning and artifact tracking. It provides consistent build flags, version injection via ldflags, and integration with the forge artifact store.
+> "I was tired of manually managing version strings and build flags across our Go projects. go-build handles all that automatically - I just point it at my source and it produces versioned binaries ready for deployment."
 
-## Invocation
+## What problem does go-build solve?
 
-### CLI Mode
+Building Go binaries consistently across projects requires managing version injection, build flags, and artifact tracking. go-build automates this, ensuring every binary is versioned with git commit SHA and tracked in the artifact store.
 
-Run directly as a standalone command:
+## How do I use go-build?
 
-```bash
-go-build
-```
-
-This reads the `forge.yaml` configuration and builds all Go binaries defined with the `go://go-build` engine.
-
-### MCP Mode
-
-Run as an MCP server:
-
-```bash
-go-build --mcp
-```
-
-Forge invokes this automatically when using:
-
-```yaml
-engine: go://go-build
-```
-
-## Available MCP Tools
-
-### `build`
-
-Build a single Go binary.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)",
-  "src": "string (required)",
-  "dest": "string (optional)",
-  "engine": "string (optional)",
-  "args": ["string"],
-  "env": {"key": "value"}
-}
-```
-
-**Output:**
-```json
-{
-  "name": "string",
-  "type": "binary",
-  "location": "string",
-  "timestamp": "string",
-  "version": "string"
-}
-```
-
-**Example:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "build",
-    "arguments": {
-      "name": "myapp",
-      "src": "./cmd/myapp",
-      "dest": "./build/bin"
-    }
-  }
-}
-```
-
-### `buildBatch`
-
-Build multiple Go binaries in sequence.
-
-**Input Schema:**
-```json
-{
-  "specs": [
-    {
-      "name": "string",
-      "src": "string",
-      "dest": "string"
-    }
-  ]
-}
-```
-
-**Output:**
-Array of Artifacts with summary of successes/failures.
-
-### `docs-list`
-
-List all available documentation for go-build.
-
-### `docs-get`
-
-Get a specific documentation by name.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)"
-}
-```
-
-### `docs-validate`
-
-Validate documentation completeness.
-
-## Common Use Cases
-
-### Basic Build
-
-Build a simple Go binary:
+Add a build target to `forge.yaml`:
 
 ```yaml
 build:
@@ -127,33 +20,25 @@ build:
     engine: go://go-build
 ```
 
-Run with:
+Run the build:
 
 ```bash
 forge build
 ```
 
-### Static Binary with Build Tags
+## What configuration options are available?
 
-Build a fully static binary with netgo tag:
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Binary name (output filename) |
+| `src` | Yes | Source directory containing main package |
+| `dest` | No | Output directory (default: current directory) |
+| `spec.args` | No | Additional go build arguments |
+| `spec.env` | No | Environment variables for the build |
 
-```yaml
-build:
-  - name: static-binary
-    src: ./cmd/myapp
-    dest: ./build/bin
-    engine: go://go-build
-    spec:
-      args:
-        - "-tags=netgo"
-        - "-ldflags=-w -s"
-      env:
-        CGO_ENABLED: "0"
-```
+## How do I cross-compile?
 
-### Cross-Compilation
-
-Build for multiple platforms:
+Use environment variables in the spec:
 
 ```yaml
 build:
@@ -163,67 +48,37 @@ build:
     engine: go://go-build
     spec:
       env:
-        GOOS: "linux"
-        GOARCH: "amd64"
-        CGO_ENABLED: "0"
-
-  - name: myapp-darwin-arm64
-    src: ./cmd/myapp
-    dest: ./build/bin
-    engine: go://go-build
-    spec:
-      env:
-        GOOS: "darwin"
-        GOARCH: "arm64"
+        GOOS: linux
+        GOARCH: amd64
         CGO_ENABLED: "0"
 ```
 
-### Custom Linker Flags
+## How do I add custom build flags?
 
-Inject build-time variables:
+Use the `args` field:
 
 ```yaml
 build:
-  - name: myapp-optimized
+  - name: myapp
     src: ./cmd/myapp
-    dest: ./build/bin
     engine: go://go-build
     spec:
       args:
-        - "-ldflags=-w -s -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        - "-tags=netgo"
+        - "-ldflags=-w -s"
       env:
         CGO_ENABLED: "0"
 ```
 
-## Implementation Details
+## How does it work?
 
-- Runs `go build` with optimized flags
-- Injects version via ldflags (git commit SHA)
+The engine runs `go build` with these defaults:
+- Sets `CGO_ENABLED=0` (overridable via `env`)
+- Injects git commit SHA via ldflags
 - Outputs binary to `{dest}/{name}`
-- Stores artifact metadata in artifact store
-- Uses current git HEAD for versioning
-- Supports custom build arguments via `args` field
-- Supports custom environment variables via `env` field
-- Sets `CGO_ENABLED=0` by default (can be overridden)
+- Stores artifact metadata in the artifact store
 
-## Build Flags
+## What's next?
 
-**Default build command:**
-```bash
-CGO_ENABLED=0 go build -o {dest}/{name} {src}
-```
-
-**With custom args and env:**
-```bash
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags=netgo -ldflags="-w -s" -o {dest}/{name} {src}
-```
-
-**Notes:**
-- Custom `args` are inserted before the source path
-- Custom `env` variables override defaults
-- `CGO_ENABLED=0` is set by default but can be overridden via `env`
-
-## See Also
-
-- [Go Build Configuration Schema](schema.md)
-- [container-build MCP Server](../../container-build/docs/usage.md)
+- [schema.md](schema.md) - Configuration reference
+- [MCP.md](../MCP.md) - MCP tool documentation

@@ -1,121 +1,16 @@
-# Container Build Usage Guide
+# container-build
 
-## Purpose
+**Build container images with multiple backend engines and automatic versioning.**
 
-`container-build` is a forge engine for building container images with multiple backend engines (docker, kaniko, podman). It provides automatic git versioning, artifact tracking, and dependency detection.
+> "Our CI pipeline needed to support both Docker and rootless Kaniko builds. container-build lets us switch backends with an environment variable while keeping consistent versioning and artifact tracking."
 
-## Invocation
+## What problem does container-build solve?
 
-### CLI Mode
+Container image builds need to work across different environments - some have Docker daemons, others require rootless builds. container-build provides a unified interface for docker, kaniko, and podman backends while handling git-based versioning and artifact tracking automatically.
 
-Run directly as a standalone command:
+## How do I use container-build?
 
-```bash
-CONTAINER_BUILD_ENGINE=docker container-build
-```
-
-This reads the `forge.yaml` configuration and builds all container images defined with the `go://container-build` engine.
-
-### MCP Mode
-
-Run as an MCP server:
-
-```bash
-container-build --mcp
-```
-
-Forge invokes this automatically when using:
-
-```yaml
-engine: go://container-build
-```
-
-## Available MCP Tools
-
-### `build`
-
-Build a single container image.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)",
-  "src": "string (required)",
-  "dest": "string (optional)",
-  "engine": "string (optional)",
-  "spec": {}
-}
-```
-
-**Output:**
-```json
-{
-  "name": "string",
-  "type": "container",
-  "location": "string",
-  "timestamp": "string",
-  "version": "string"
-}
-```
-
-**Example:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "build",
-    "arguments": {
-      "name": "my-app",
-      "src": "./Containerfile"
-    }
-  }
-}
-```
-
-### `buildBatch`
-
-Build multiple container images in sequence.
-
-**Input Schema:**
-```json
-{
-  "specs": [
-    {
-      "name": "string",
-      "src": "string",
-      "dest": "string"
-    }
-  ]
-}
-```
-
-**Output:**
-Array of Artifacts with summary of successes/failures.
-
-### `docs-list`
-
-List all available documentation for container-build.
-
-### `docs-get`
-
-Get a specific documentation by name.
-
-**Input Schema:**
-```json
-{
-  "name": "string (required)"
-}
-```
-
-### `docs-validate`
-
-Validate documentation completeness.
-
-## Common Use Cases
-
-### Basic Build with Docker
-
-Build a simple container image using Docker:
+Add a build target to `forge.yaml`:
 
 ```yaml
 build:
@@ -124,39 +19,38 @@ build:
     engine: go://container-build
 ```
 
-Run with:
+Run the build:
 
 ```bash
 CONTAINER_BUILD_ENGINE=docker forge build
 ```
 
-### Build with Kaniko (Rootless)
+## What backend engines are available?
 
-Build using Kaniko for rootless, secure builds:
+| Engine | Environment Variable | Characteristics |
+|--------|---------------------|-----------------|
+| docker | `CONTAINER_BUILD_ENGINE=docker` | Fast, requires Docker daemon |
+| kaniko | `CONTAINER_BUILD_ENGINE=kaniko` | Rootless, secure, runs in container |
+| podman | `CONTAINER_BUILD_ENGINE=podman` | Rootless, requires Podman |
 
-```bash
-CONTAINER_BUILD_ENGINE=kaniko forge build
-```
+## What configuration options are available?
 
-### Build with Podman
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Image name |
+| `src` | Yes | Path to Containerfile/Dockerfile |
+| `dest` | No | Registry destination (for push) |
+| `spec.dependsOn` | No | Dependency detection configuration |
 
-Build using Podman for rootless builds:
+## How do I pass build arguments?
 
-```bash
-CONTAINER_BUILD_ENGINE=podman forge build
-```
-
-### Build with Custom Arguments
-
-Pass build arguments to the container build:
+Use the `BUILD_ARGS` environment variable:
 
 ```bash
 BUILD_ARGS="VERSION=1.0.0,COMMIT=abc123" CONTAINER_BUILD_ENGINE=docker forge build
 ```
 
-### Dependency Detection
-
-Track dependencies for lazy rebuild:
+## How do I track dependencies for lazy rebuild?
 
 ```yaml
 build:
@@ -171,36 +65,14 @@ build:
             funcName: main
 ```
 
-## Build Modes
+## How does it work?
 
-### docker
-Native Docker builds using `docker build`. Fast and requires Docker daemon.
-
-### kaniko
-Rootless builds using Kaniko executor (runs in container via docker). Secure, supports layer caching.
-
-### podman
-Native Podman builds using `podman build`. Rootless and requires Podman.
-
-## Mode Comparison
-
-| Feature | docker | kaniko | podman |
-|---------|--------|--------|--------|
-| Requires Daemon | Yes (Docker) | Yes (Docker to run Kaniko) | Yes (Podman) |
-| Rootless | No | Yes | Yes |
-| Build Speed | Fast | Moderate | Fast |
-| Layer Caching | Native | Via cache dir | Native |
-
-## Implementation Details
-
-- Automatically tags with git commit SHA
-- Tags both `<name>:<version>` and `<name>:latest`
+- Tags images with `<name>:<git-sha>` and `<name>:latest`
 - Stores artifact metadata in artifact store
-- Kaniko mode: exports to tar, loads into container engine
-- Docker/Podman modes: native builds (faster)
-- Supports dependency detection for lazy rebuild
+- Kaniko exports to tar, then loads into container engine
+- Docker/Podman use native builds for faster execution
 
-## See Also
+## What's next?
 
-- [Container Build Configuration Schema](schema.md)
-- [go-build MCP Server](../../go-build/docs/usage.md)
+- [schema.md](schema.md) - Configuration reference
+- [MCP.md](../MCP.md) - MCP tool documentation

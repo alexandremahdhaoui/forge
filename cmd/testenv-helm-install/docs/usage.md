@@ -1,170 +1,16 @@
-# Testenv-Helm-Install Usage Guide
+# testenv-helm-install
 
-## Purpose
+**Pre-install Helm charts into your test environment.**
 
-`testenv-helm-install` is a forge engine for installing Helm charts into Kubernetes clusters as part of test environments. It supports multiple source types including Helm repositories, Git, OCI registries, and S3 buckets.
+> "My integration tests needed cert-manager and ingress-nginx running before they could start. With testenv-helm-install, I declare the charts once and they're installed automatically - from Helm repos, Git, OCI, or local paths."
 
-## Invocation
+## What problem does testenv-helm-install solve?
 
-### MCP Mode
+Integration tests often depend on infrastructure components (cert-manager, ingress controllers, databases) that must be installed before tests run. testenv-helm-install installs Helm charts in order during environment creation and uninstalls them in reverse during cleanup.
 
-Run as an MCP server:
+## How do I use testenv-helm-install?
 
-```bash
-testenv-helm-install --mcp
-```
-
-This is typically called automatically by the testenv orchestrator.
-
-Forge invokes this automatically when configured in testenv:
-
-```yaml
-engines:
-  - alias: my-testenv
-    type: testenv
-    testenv:
-      - engine: go://testenv-kind
-      - engine: go://testenv-helm-install
-        spec:
-          charts:
-            - name: nginx
-              sourceType: helm-repo
-              url: https://kubernetes.github.io/ingress-nginx
-              chartName: ingress-nginx
-```
-
-## Available MCP Tools
-
-### `create`
-
-Install Helm charts into a Kubernetes cluster.
-
-**Input Schema:**
-```json
-{
-  "testID": "string (required)",
-  "stage": "string (required)",
-  "tmpDir": "string (required)",
-  "rootDir": "string (optional)",
-  "metadata": {
-    "testenv-kind.kubeconfigPath": "string"
-  },
-  "env": {
-    "KUBECONFIG": "string"
-  },
-  "spec": {
-    "charts": [...]
-  }
-}
-```
-
-**Output:**
-```json
-{
-  "testID": "string",
-  "files": {},
-  "metadata": {
-    "testenv-helm-install.chartCount": "2",
-    "testenv-helm-install.chart.0.name": "nginx",
-    "testenv-helm-install.chart.0.releaseName": "nginx",
-    "testenv-helm-install.chart.0.namespace": "ingress-nginx"
-  },
-  "managedResources": []
-}
-```
-
-### `delete`
-
-Uninstall Helm charts from a Kubernetes cluster.
-
-**Input Schema:**
-```json
-{
-  "testID": "string (required)",
-  "metadata": {
-    "testenv-helm-install.chartCount": "string",
-    "testenv-helm-install.chart.N.releaseName": "string",
-    "testenv-kind.kubeconfigPath": "string"
-  }
-}
-```
-
-### `docs-list`
-
-List all available documentation for testenv-helm-install.
-
-### `docs-get`
-
-Get a specific documentation by name.
-
-### `docs-validate`
-
-Validate documentation completeness.
-
-## Source Types
-
-### Helm Repository
-
-```yaml
-charts:
-  - name: nginx-release
-    sourceType: helm-repo
-    url: https://kubernetes.github.io/ingress-nginx
-    chartName: ingress-nginx
-    version: "4.0.0"
-    namespace: ingress-nginx
-    createNamespace: true
-```
-
-### Local Chart
-
-```yaml
-charts:
-  - name: my-app
-    sourceType: local
-    path: ./charts/my-app
-    namespace: default
-```
-
-### Git Repository
-
-```yaml
-charts:
-  - name: podinfo-from-git
-    sourceType: git
-    url: https://github.com/stefanprodan/podinfo
-    gitBranch: master
-    chartPath: charts/podinfo
-    namespace: default
-    createNamespace: true
-```
-
-### OCI Registry
-
-```yaml
-charts:
-  - name: podinfo-oci
-    sourceType: oci
-    url: oci://ghcr.io/stefanprodan/charts/podinfo
-    version: "6.0.0"
-    namespace: default
-```
-
-### S3 Bucket
-
-```yaml
-charts:
-  - name: my-chart
-    sourceType: s3
-    url: http://localhost:9000
-    s3BucketName: helm-charts
-    chartPath: charts/my-chart-1.0.0.tgz
-    namespace: default
-```
-
-## Common Use Cases
-
-### Basic Helm Chart Installation
+Add it to your testenv configuration after testenv-kind:
 
 ```yaml
 engines:
@@ -186,71 +32,19 @@ engines:
                 installCRDs: true
 ```
 
-### Using Registry FQDN from testenv-lcr
+## What source types are supported?
 
-```yaml
-engines:
-  - alias: integration-env
-    type: testenv
-    testenv:
-      - engine: go://testenv-kind
-      - engine: go://testenv-lcr
-        spec:
-          enabled: true
-      - engine: go://testenv-helm-install
-        spec:
-          charts:
-            - name: my-app
-              sourceType: local
-              path: ./charts/my-app
-              namespace: default
-              values:
-                image:
-                  repository: "{{.Env.TESTENV_LCR_FQDN}}/my-app"
-                  tag: latest
-```
+| Source | Required Fields | Example |
+|--------|-----------------|---------|
+| `helm-repo` | `url`, `chartName` | Helm repository (charts.jetstack.io) |
+| `local` | `path` | Local directory (./charts/my-app) |
+| `git` | `url`, `chartPath` | Git repository with chart path |
+| `oci` | `url` | OCI registry (oci://ghcr.io/...) |
+| `s3` | `url`, `s3BucketName`, `chartPath` | S3 bucket |
 
-### Multiple Charts with Dependencies
+## How do I configure chart values?
 
-```yaml
-engines:
-  - alias: full-stack
-    type: testenv
-    testenv:
-      - engine: go://testenv-kind
-      - engine: go://testenv-helm-install
-        spec:
-          charts:
-            # Install CRDs first
-            - name: cert-manager
-              sourceType: helm-repo
-              url: https://charts.jetstack.io
-              chartName: cert-manager
-              version: v1.13.0
-              namespace: cert-manager
-              createNamespace: true
-              values:
-                installCRDs: true
-
-            # Then ingress controller
-            - name: nginx-ingress
-              sourceType: helm-repo
-              url: https://kubernetes.github.io/ingress-nginx
-              chartName: ingress-nginx
-              namespace: ingress-nginx
-              createNamespace: true
-
-            # Finally the application
-            - name: my-app
-              sourceType: local
-              path: ./charts/my-app
-              namespace: default
-```
-
-## Values Configuration
-
-### Inline Values
-
+**Inline values:**
 ```yaml
 charts:
   - name: my-release
@@ -261,30 +55,9 @@ charts:
       replicaCount: 3
       image:
         repository: nginx
-        tag: latest
-      service:
-        type: LoadBalancer
 ```
 
-### Value References (ConfigMap/Secret)
-
-```yaml
-charts:
-  - name: my-release
-    sourceType: helm-repo
-    url: https://charts.example.com
-    chartName: my-chart
-    valueReferences:
-      - kind: ConfigMap
-        name: my-config
-      - kind: Secret
-        name: my-secrets
-        targetPath: credentials
-        optional: true
-```
-
-### Values Files
-
+**Values files:**
 ```yaml
 charts:
   - name: my-release
@@ -295,24 +68,34 @@ charts:
       - values-production.yaml
 ```
 
-## Implementation Details
+## How do I use the local registry in chart values?
 
-- Uses Helm CLI commands (requires helm in PATH)
-- Charts installed sequentially in order
-- Charts uninstalled in reverse order during cleanup
-- Creates namespaces automatically if specified
-- Supports custom release names
-- Template expansion for environment variables
+Reference testenv-lcr's registry via template expansion:
 
-## Requirements
+```yaml
+- engine: go://testenv-lcr
+  spec:
+    enabled: true
+- engine: go://testenv-helm-install
+  spec:
+    charts:
+      - name: my-app
+        sourceType: local
+        path: ./charts/my-app
+        values:
+          image:
+            repository: "{{.Env.TESTENV_LCR_FQDN}}/my-app"
+```
 
-- Helm CLI must be installed and available in PATH
-- Kubeconfig must be provided by testenv-kind
-- Charts must be accessible (public repos or configured auth)
+## What are the requirements?
 
-## See Also
+- Helm CLI installed and in PATH
+- Kubeconfig provided by testenv-kind
+- Charts accessible (public repos or configured auth)
 
-- [Testenv-Helm-Install Configuration Schema](schema.md)
-- [testenv MCP Server](../../testenv/docs/usage.md)
-- [testenv-kind MCP Server](../../testenv-kind/docs/usage.md)
-- [testenv-lcr MCP Server](../../testenv-lcr/docs/usage.md)
+## What's next?
+
+- [schema.md](schema.md) - Configuration reference
+- [MCP.md](../MCP.md) - MCP tool documentation
+- [testenv-kind](../../testenv-kind/docs/usage.md) - Required: provides the Kubernetes cluster
+- [testenv-lcr](../../testenv-lcr/docs/usage.md) - Optional: local container registry
