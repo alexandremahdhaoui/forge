@@ -8,8 +8,8 @@ import (
 	"fmt"
 )
 
-// Spec contains the configuration for this engine.
-// These fields are populated from the 'spec' field in forge.yaml.
+// Spec represents the Spec configuration.
+// Configuration for container-build engine
 type Spec struct {
 	// Build arguments (optional)
 	BuildArgs map[string]string `json:"buildArgs,omitempty"`
@@ -27,15 +27,13 @@ type Spec struct {
 	Target string `json:"target,omitempty"`
 }
 
-// FromMap creates a Spec from a map[string]interface{}.
-// This is used to parse the spec field from forge.yaml.
-func FromMap(m map[string]interface{}) (*Spec, error) {
+// SpecFromMap creates a Spec from a map[string]interface{}.
+func SpecFromMap(m map[string]interface{}) (*Spec, error) {
 	if m == nil {
 		return &Spec{}, nil
 	}
 
 	s := &Spec{}
-
 	// Parse buildArgs
 	if v, ok := m["buildArgs"]; ok && v != nil {
 		if mapVal, ok := v.(map[string]interface{}); ok {
@@ -53,7 +51,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field buildArgs: expected map[string]string, got %T", v)
 		}
 	}
-
 	// Parse context
 	if v, ok := m["context"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -62,7 +59,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field context: expected string, got %T", v)
 		}
 	}
-
 	// Parse dockerfile
 	if v, ok := m["dockerfile"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -71,7 +67,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field dockerfile: expected string, got %T", v)
 		}
 	}
-
 	// Parse push
 	if v, ok := m["push"]; ok && v != nil {
 		if val, ok := v.(bool); ok {
@@ -80,7 +75,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field push: expected bool, got %T", v)
 		}
 	}
-
 	// Parse registry
 	if v, ok := m["registry"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -89,7 +83,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field registry: expected string, got %T", v)
 		}
 	}
-
 	// Parse tags
 	if v, ok := m["tags"]; ok && v != nil {
 		if arr, ok := v.([]interface{}); ok {
@@ -107,7 +100,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field tags: expected []string, got %T", v)
 		}
 	}
-
 	// Parse target
 	if v, ok := m["target"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -116,46 +108,42 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field target: expected string, got %T", v)
 		}
 	}
-
 	return s, nil
 }
 
 // ToMap converts a Spec to a map[string]interface{}.
-// This is used for serialization and testing.
 func (s *Spec) ToMap() map[string]interface{} {
 	if s == nil {
 		return nil
 	}
 
 	m := make(map[string]interface{})
-
 	if len(s.BuildArgs) > 0 {
 		m["buildArgs"] = s.BuildArgs
 	}
-
 	if s.Context != "" {
 		m["context"] = s.Context
 	}
-
 	if s.Dockerfile != "" {
 		m["dockerfile"] = s.Dockerfile
 	}
-
 	if s.Push {
 		m["push"] = s.Push
 	}
-
 	if s.Registry != "" {
 		m["registry"] = s.Registry
 	}
-
 	if len(s.Tags) > 0 {
 		m["tags"] = s.Tags
 	}
-
 	if s.Target != "" {
 		m["target"] = s.Target
 	}
-
 	return m
+}
+
+// FromMap creates a Spec from a map[string]interface{}.
+// This is the main entry point for parsing the spec field from forge.yaml.
+func FromMap(m map[string]interface{}) (*Spec, error) {
+	return SpecFromMap(m)
 }

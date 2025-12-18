@@ -8,9 +8,9 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 )
 
-// Validate validates a Spec and returns validation results.
+// ValidateSpec validates a Spec and returns validation results.
 // It checks required fields and validates enum values.
-func Validate(s *Spec) *mcptypes.ConfigValidateOutput {
+func ValidateSpec(s *Spec) *mcptypes.ConfigValidateOutput {
 	if s == nil {
 		return &mcptypes.ConfigValidateOutput{
 			Valid: true,
@@ -18,6 +18,13 @@ func Validate(s *Spec) *mcptypes.ConfigValidateOutput {
 	}
 
 	var errors []mcptypes.ValidationError
+	// Validate required array field: builders
+	if len(s.Builders) == 0 {
+		errors = append(errors, mcptypes.ValidationError{
+			Field:   "spec.builders",
+			Message: "required field is missing or empty",
+		})
+	}
 
 	if len(errors) > 0 {
 		return &mcptypes.ConfigValidateOutput{
@@ -29,6 +36,12 @@ func Validate(s *Spec) *mcptypes.ConfigValidateOutput {
 	return &mcptypes.ConfigValidateOutput{
 		Valid: true,
 	}
+}
+
+// Validate validates a Spec and returns validation results.
+// This is the main entry point for validation.
+func Validate(s *Spec) *mcptypes.ConfigValidateOutput {
+	return ValidateSpec(s)
 }
 
 // ValidateMap validates a map[string]interface{} by first parsing it to a Spec.

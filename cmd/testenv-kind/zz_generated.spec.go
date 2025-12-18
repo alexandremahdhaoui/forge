@@ -8,8 +8,8 @@ import (
 	"fmt"
 )
 
-// Spec contains the configuration for this engine.
-// These fields are populated from the 'spec' field in forge.yaml.
+// Spec represents the Spec configuration.
+// Configuration for testenv-kind. All fields are optional.
 type Spec struct {
 	// Path to kind config file for cluster customization
 	Config string `json:"config,omitempty"`
@@ -23,15 +23,13 @@ type Spec struct {
 	WaitTimeout string `json:"waitTimeout,omitempty"`
 }
 
-// FromMap creates a Spec from a map[string]interface{}.
-// This is used to parse the spec field from forge.yaml.
-func FromMap(m map[string]interface{}) (*Spec, error) {
+// SpecFromMap creates a Spec from a map[string]interface{}.
+func SpecFromMap(m map[string]interface{}) (*Spec, error) {
 	if m == nil {
 		return &Spec{}, nil
 	}
 
 	s := &Spec{}
-
 	// Parse config
 	if v, ok := m["config"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -40,7 +38,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field config: expected string, got %T", v)
 		}
 	}
-
 	// Parse image
 	if v, ok := m["image"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -49,7 +46,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field image: expected string, got %T", v)
 		}
 	}
-
 	// Parse name
 	if v, ok := m["name"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -58,7 +54,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field name: expected string, got %T", v)
 		}
 	}
-
 	// Parse retain
 	if v, ok := m["retain"]; ok && v != nil {
 		if val, ok := v.(bool); ok {
@@ -67,7 +62,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field retain: expected bool, got %T", v)
 		}
 	}
-
 	// Parse waitTimeout
 	if v, ok := m["waitTimeout"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -76,38 +70,36 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field waitTimeout: expected string, got %T", v)
 		}
 	}
-
 	return s, nil
 }
 
 // ToMap converts a Spec to a map[string]interface{}.
-// This is used for serialization and testing.
 func (s *Spec) ToMap() map[string]interface{} {
 	if s == nil {
 		return nil
 	}
 
 	m := make(map[string]interface{})
-
 	if s.Config != "" {
 		m["config"] = s.Config
 	}
-
 	if s.Image != "" {
 		m["image"] = s.Image
 	}
-
 	if s.Name != "" {
 		m["name"] = s.Name
 	}
-
 	if s.Retain {
 		m["retain"] = s.Retain
 	}
-
 	if s.WaitTimeout != "" {
 		m["waitTimeout"] = s.WaitTimeout
 	}
-
 	return m
+}
+
+// FromMap creates a Spec from a map[string]interface{}.
+// This is the main entry point for parsing the spec field from forge.yaml.
+func FromMap(m map[string]interface{}) (*Spec, error) {
+	return SpecFromMap(m)
 }

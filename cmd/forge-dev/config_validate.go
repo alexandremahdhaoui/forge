@@ -115,9 +115,9 @@ func validateForgeDevConfig(input mcptypes.ConfigValidateInput) *mcptypes.Config
 		}
 	}
 
-	// Step 3: Read and validate spec.openapi.yaml
+	// Step 3: Read and validate spec.openapi.yaml using kin-openapi
 	specPath := filepath.Join(configPath, config.OpenAPI.SpecPath)
-	schema, err := ParseOpenAPISpec(specPath)
+	spec, err := LoadOpenAPISpec(specPath)
 	if err != nil {
 		errors = append(errors, mcptypes.ValidationError{
 			Field:   "spec.openapi.yaml",
@@ -130,29 +130,47 @@ func validateForgeDevConfig(input mcptypes.ConfigValidateInput) *mcptypes.Config
 		}
 	}
 
+	// Generate types using new adapter
+	types, err := GenerateForgeTypes(spec, config.Generate.PackageName)
+	if err != nil {
+		errors = append(errors, mcptypes.ValidationError{
+			Field:   "spec.openapi.yaml",
+			Message: fmt.Sprintf("failed to generate types from OpenAPI spec: %v", err),
+		})
+		return &mcptypes.ConfigValidateOutput{
+			Valid:    false,
+			Errors:   errors,
+			Warnings: warnings,
+		}
+	}
+
+	// Find the Spec type
+	var specType *ForgeTypeDefinition
+	for i := range types {
+		if types[i].Name == "Spec" {
+			specType = &types[i]
+			break
+		}
+	}
+
 	// Step 4: Validate Spec schema
-	if len(schema.Properties) == 0 {
+	if specType == nil {
+		errors = append(errors, mcptypes.ValidationError{
+			Field:   "Spec",
+			Message: "Spec schema is required but not found in OpenAPI spec",
+		})
+		return &mcptypes.ConfigValidateOutput{
+			Valid:    false,
+			Errors:   errors,
+			Warnings: warnings,
+		}
+	}
+
+	if len(specType.Properties) == 0 {
 		warnings = append(warnings, mcptypes.ValidationWarning{
 			Field:   "Spec",
 			Message: "Spec schema has no properties defined (empty spec)",
 		})
-	}
-
-	// Validate that required properties are defined
-	for _, reqProp := range schema.Required {
-		found := false
-		for _, prop := range schema.Properties {
-			if prop.Name == reqProp {
-				found = true
-				break
-			}
-		}
-		if !found {
-			errors = append(errors, mcptypes.ValidationError{
-				Field:   fmt.Sprintf("Spec.%s", reqProp),
-				Message: fmt.Sprintf("required property %q is declared but not defined", reqProp),
-			})
-		}
 	}
 
 	if len(errors) > 0 {

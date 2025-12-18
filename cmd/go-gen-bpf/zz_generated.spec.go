@@ -8,8 +8,8 @@ import (
 	"fmt"
 )
 
-// Spec contains the configuration for this engine.
-// These fields are populated from the 'spec' field in forge.yaml.
+// Spec represents the Spec configuration.
+// Configuration for go-gen-bpf engine using bpf2go
 type Spec struct {
 	// Version of bpf2go tool (default "latest")
 	Bpf2goVersion string `json:"bpf2goVersion,omitempty"`
@@ -33,15 +33,13 @@ type Spec struct {
 	Types []string `json:"types,omitempty"`
 }
 
-// FromMap creates a Spec from a map[string]interface{}.
-// This is used to parse the spec field from forge.yaml.
-func FromMap(m map[string]interface{}) (*Spec, error) {
+// SpecFromMap creates a Spec from a map[string]interface{}.
+func SpecFromMap(m map[string]interface{}) (*Spec, error) {
 	if m == nil {
 		return &Spec{}, nil
 	}
 
 	s := &Spec{}
-
 	// Parse bpf2goVersion
 	if v, ok := m["bpf2goVersion"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -50,7 +48,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field bpf2goVersion: expected string, got %T", v)
 		}
 	}
-
 	// Parse cc
 	if v, ok := m["cc"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -59,7 +56,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field cc: expected string, got %T", v)
 		}
 	}
-
 	// Parse cflags
 	if v, ok := m["cflags"]; ok && v != nil {
 		if arr, ok := v.([]interface{}); ok {
@@ -77,7 +73,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field cflags: expected []string, got %T", v)
 		}
 	}
-
 	// Parse goPackage
 	if v, ok := m["goPackage"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -86,7 +81,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field goPackage: expected string, got %T", v)
 		}
 	}
-
 	// Parse ident
 	if v, ok := m["ident"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -95,7 +89,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field ident: expected string, got %T", v)
 		}
 	}
-
 	// Parse outputDir
 	if v, ok := m["outputDir"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -104,7 +97,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field outputDir: expected string, got %T", v)
 		}
 	}
-
 	// Parse outputStem
 	if v, ok := m["outputStem"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -113,7 +105,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field outputStem: expected string, got %T", v)
 		}
 	}
-
 	// Parse sourceDir
 	if v, ok := m["sourceDir"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -122,7 +113,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field sourceDir: expected string, got %T", v)
 		}
 	}
-
 	// Parse tags
 	if v, ok := m["tags"]; ok && v != nil {
 		if arr, ok := v.([]interface{}); ok {
@@ -140,7 +130,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field tags: expected []string, got %T", v)
 		}
 	}
-
 	// Parse types
 	if v, ok := m["types"]; ok && v != nil {
 		if arr, ok := v.([]interface{}); ok {
@@ -158,58 +147,51 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field types: expected []string, got %T", v)
 		}
 	}
-
 	return s, nil
 }
 
 // ToMap converts a Spec to a map[string]interface{}.
-// This is used for serialization and testing.
 func (s *Spec) ToMap() map[string]interface{} {
 	if s == nil {
 		return nil
 	}
 
 	m := make(map[string]interface{})
-
 	if s.Bpf2goVersion != "" {
 		m["bpf2goVersion"] = s.Bpf2goVersion
 	}
-
 	if s.Cc != "" {
 		m["cc"] = s.Cc
 	}
-
 	if len(s.Cflags) > 0 {
 		m["cflags"] = s.Cflags
 	}
-
 	if s.GoPackage != "" {
 		m["goPackage"] = s.GoPackage
 	}
-
 	if s.Ident != "" {
 		m["ident"] = s.Ident
 	}
-
 	if s.OutputDir != "" {
 		m["outputDir"] = s.OutputDir
 	}
-
 	if s.OutputStem != "" {
 		m["outputStem"] = s.OutputStem
 	}
-
 	if s.SourceDir != "" {
 		m["sourceDir"] = s.SourceDir
 	}
-
 	if len(s.Tags) > 0 {
 		m["tags"] = s.Tags
 	}
-
 	if len(s.Types) > 0 {
 		m["types"] = s.Types
 	}
-
 	return m
+}
+
+// FromMap creates a Spec from a map[string]interface{}.
+// This is the main entry point for parsing the spec field from forge.yaml.
+func FromMap(m map[string]interface{}) (*Spec, error) {
+	return SpecFromMap(m)
 }

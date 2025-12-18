@@ -8,8 +8,8 @@ import (
 	"fmt"
 )
 
-// Spec contains the configuration for this engine.
-// These fields are populated from the 'spec' field in forge.yaml.
+// Spec represents the Spec configuration.
+// Configuration for go-gen-mocks. Uses mockery for mock generation.
 type Spec struct {
 	// Version of mockery to use (default v3.5.5)
 	MockeryVersion string `json:"mockeryVersion,omitempty"`
@@ -17,15 +17,13 @@ type Spec struct {
 	MocksDir string `json:"mocksDir,omitempty"`
 }
 
-// FromMap creates a Spec from a map[string]interface{}.
-// This is used to parse the spec field from forge.yaml.
-func FromMap(m map[string]interface{}) (*Spec, error) {
+// SpecFromMap creates a Spec from a map[string]interface{}.
+func SpecFromMap(m map[string]interface{}) (*Spec, error) {
 	if m == nil {
 		return &Spec{}, nil
 	}
 
 	s := &Spec{}
-
 	// Parse mockeryVersion
 	if v, ok := m["mockeryVersion"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -34,7 +32,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field mockeryVersion: expected string, got %T", v)
 		}
 	}
-
 	// Parse mocksDir
 	if v, ok := m["mocksDir"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -43,26 +40,27 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field mocksDir: expected string, got %T", v)
 		}
 	}
-
 	return s, nil
 }
 
 // ToMap converts a Spec to a map[string]interface{}.
-// This is used for serialization and testing.
 func (s *Spec) ToMap() map[string]interface{} {
 	if s == nil {
 		return nil
 	}
 
 	m := make(map[string]interface{})
-
 	if s.MockeryVersion != "" {
 		m["mockeryVersion"] = s.MockeryVersion
 	}
-
 	if s.MocksDir != "" {
 		m["mocksDir"] = s.MocksDir
 	}
-
 	return m
+}
+
+// FromMap creates a Spec from a map[string]interface{}.
+// This is the main entry point for parsing the spec field from forge.yaml.
+func FromMap(m map[string]interface{}) (*Spec, error) {
+	return SpecFromMap(m)
 }

@@ -8,8 +8,8 @@ import (
 	"fmt"
 )
 
-// Spec contains the configuration for this engine.
-// These fields are populated from the 'spec' field in forge.yaml.
+// Spec represents the Spec configuration.
+// Configuration for testenv-lcr. Controls local container registry behavior.
 type Spec struct {
 	// Whether the local container registry is enabled
 	Enabled bool `json:"enabled,omitempty"`
@@ -21,15 +21,13 @@ type Spec struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// FromMap creates a Spec from a map[string]interface{}.
-// This is used to parse the spec field from forge.yaml.
-func FromMap(m map[string]interface{}) (*Spec, error) {
+// SpecFromMap creates a Spec from a map[string]interface{}.
+func SpecFromMap(m map[string]interface{}) (*Spec, error) {
 	if m == nil {
 		return &Spec{}, nil
 	}
 
 	s := &Spec{}
-
 	// Parse enabled
 	if v, ok := m["enabled"]; ok && v != nil {
 		if val, ok := v.(bool); ok {
@@ -38,7 +36,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field enabled: expected bool, got %T", v)
 		}
 	}
-
 	// Parse imagePullSecretName
 	if v, ok := m["imagePullSecretName"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -47,7 +44,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field imagePullSecretName: expected string, got %T", v)
 		}
 	}
-
 	// Parse imagePullSecretNamespaces
 	if v, ok := m["imagePullSecretNamespaces"]; ok && v != nil {
 		if arr, ok := v.([]interface{}); ok {
@@ -65,7 +61,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field imagePullSecretNamespaces: expected []string, got %T", v)
 		}
 	}
-
 	// Parse namespace
 	if v, ok := m["namespace"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -74,34 +69,33 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field namespace: expected string, got %T", v)
 		}
 	}
-
 	return s, nil
 }
 
 // ToMap converts a Spec to a map[string]interface{}.
-// This is used for serialization and testing.
 func (s *Spec) ToMap() map[string]interface{} {
 	if s == nil {
 		return nil
 	}
 
 	m := make(map[string]interface{})
-
 	if s.Enabled {
 		m["enabled"] = s.Enabled
 	}
-
 	if s.ImagePullSecretName != "" {
 		m["imagePullSecretName"] = s.ImagePullSecretName
 	}
-
 	if len(s.ImagePullSecretNamespaces) > 0 {
 		m["imagePullSecretNamespaces"] = s.ImagePullSecretNamespaces
 	}
-
 	if s.Namespace != "" {
 		m["namespace"] = s.Namespace
 	}
-
 	return m
+}
+
+// FromMap creates a Spec from a map[string]interface{}.
+// This is the main entry point for parsing the spec field from forge.yaml.
+func FromMap(m map[string]interface{}) (*Spec, error) {
+	return SpecFromMap(m)
 }

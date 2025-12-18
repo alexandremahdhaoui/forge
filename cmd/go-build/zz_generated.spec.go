@@ -8,8 +8,8 @@ import (
 	"fmt"
 )
 
-// Spec contains the configuration for this engine.
-// These fields are populated from the 'spec' field in forge.yaml.
+// Spec represents the Spec configuration.
+// Configuration for go-build engine
 type Spec struct {
 	// Additional arguments to pass to go build (optional)
 	Args []string `json:"args,omitempty"`
@@ -17,15 +17,13 @@ type Spec struct {
 	Env map[string]string `json:"env,omitempty"`
 }
 
-// FromMap creates a Spec from a map[string]interface{}.
-// This is used to parse the spec field from forge.yaml.
-func FromMap(m map[string]interface{}) (*Spec, error) {
+// SpecFromMap creates a Spec from a map[string]interface{}.
+func SpecFromMap(m map[string]interface{}) (*Spec, error) {
 	if m == nil {
 		return &Spec{}, nil
 	}
 
 	s := &Spec{}
-
 	// Parse args
 	if v, ok := m["args"]; ok && v != nil {
 		if arr, ok := v.([]interface{}); ok {
@@ -43,7 +41,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field args: expected []string, got %T", v)
 		}
 	}
-
 	// Parse env
 	if v, ok := m["env"]; ok && v != nil {
 		if mapVal, ok := v.(map[string]interface{}); ok {
@@ -61,26 +58,27 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field env: expected map[string]string, got %T", v)
 		}
 	}
-
 	return s, nil
 }
 
 // ToMap converts a Spec to a map[string]interface{}.
-// This is used for serialization and testing.
 func (s *Spec) ToMap() map[string]interface{} {
 	if s == nil {
 		return nil
 	}
 
 	m := make(map[string]interface{})
-
 	if len(s.Args) > 0 {
 		m["args"] = s.Args
 	}
-
 	if len(s.Env) > 0 {
 		m["env"] = s.Env
 	}
-
 	return m
+}
+
+// FromMap creates a Spec from a map[string]interface{}.
+// This is the main entry point for parsing the spec field from forge.yaml.
+func FromMap(m map[string]interface{}) (*Spec, error) {
+	return SpecFromMap(m)
 }

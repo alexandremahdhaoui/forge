@@ -8,8 +8,8 @@ import (
 	"fmt"
 )
 
-// Spec contains the configuration for this engine.
-// These fields are populated from the 'spec' field in forge.yaml.
+// Spec represents the Spec configuration.
+// Configuration for go-gen-protobuf engine
 type Spec struct {
 	// Additional raw protoc arguments
 	ExtraArgs []string `json:"extraArgs,omitempty"`
@@ -29,15 +29,13 @@ type Spec struct {
 	ProtoPath []string `json:"protoPath,omitempty"`
 }
 
-// FromMap creates a Spec from a map[string]interface{}.
-// This is used to parse the spec field from forge.yaml.
-func FromMap(m map[string]interface{}) (*Spec, error) {
+// SpecFromMap creates a Spec from a map[string]interface{}.
+func SpecFromMap(m map[string]interface{}) (*Spec, error) {
 	if m == nil {
 		return &Spec{}, nil
 	}
 
 	s := &Spec{}
-
 	// Parse extraArgs
 	if v, ok := m["extraArgs"]; ok && v != nil {
 		if arr, ok := v.([]interface{}); ok {
@@ -55,7 +53,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field extraArgs: expected []string, got %T", v)
 		}
 	}
-
 	// Parse goGrpcOpt
 	if v, ok := m["goGrpcOpt"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -64,7 +61,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field goGrpcOpt: expected string, got %T", v)
 		}
 	}
-
 	// Parse goOpt
 	if v, ok := m["goOpt"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -73,7 +69,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field goOpt: expected string, got %T", v)
 		}
 	}
-
 	// Parse includes
 	if v, ok := m["includes"]; ok && v != nil {
 		if arr, ok := v.([]interface{}); ok {
@@ -91,7 +86,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field includes: expected []string, got %T", v)
 		}
 	}
-
 	// Parse outputDir
 	if v, ok := m["outputDir"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -100,7 +94,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field outputDir: expected string, got %T", v)
 		}
 	}
-
 	// Parse plugin
 	if v, ok := m["plugin"]; ok && v != nil {
 		if arr, ok := v.([]interface{}); ok {
@@ -118,7 +111,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field plugin: expected []string, got %T", v)
 		}
 	}
-
 	// Parse protoDir
 	if v, ok := m["protoDir"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -127,7 +119,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field protoDir: expected string, got %T", v)
 		}
 	}
-
 	// Parse protoPath
 	if v, ok := m["protoPath"]; ok && v != nil {
 		if arr, ok := v.([]interface{}); ok {
@@ -145,50 +136,45 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field protoPath: expected []string, got %T", v)
 		}
 	}
-
 	return s, nil
 }
 
 // ToMap converts a Spec to a map[string]interface{}.
-// This is used for serialization and testing.
 func (s *Spec) ToMap() map[string]interface{} {
 	if s == nil {
 		return nil
 	}
 
 	m := make(map[string]interface{})
-
 	if len(s.ExtraArgs) > 0 {
 		m["extraArgs"] = s.ExtraArgs
 	}
-
 	if s.GoGrpcOpt != "" {
 		m["goGrpcOpt"] = s.GoGrpcOpt
 	}
-
 	if s.GoOpt != "" {
 		m["goOpt"] = s.GoOpt
 	}
-
 	if len(s.Includes) > 0 {
 		m["includes"] = s.Includes
 	}
-
 	if s.OutputDir != "" {
 		m["outputDir"] = s.OutputDir
 	}
-
 	if len(s.Plugin) > 0 {
 		m["plugin"] = s.Plugin
 	}
-
 	if s.ProtoDir != "" {
 		m["protoDir"] = s.ProtoDir
 	}
-
 	if len(s.ProtoPath) > 0 {
 		m["protoPath"] = s.ProtoPath
 	}
-
 	return m
+}
+
+// FromMap creates a Spec from a map[string]interface{}.
+// This is the main entry point for parsing the spec field from forge.yaml.
+func FromMap(m map[string]interface{}) (*Spec, error) {
+	return SpecFromMap(m)
 }

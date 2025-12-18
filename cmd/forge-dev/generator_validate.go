@@ -29,6 +29,14 @@ type ValidateTemplateData struct {
 	EngineName string
 	// Properties contains all Spec properties.
 	Properties []PropertySchema
+	// Types contains all type definitions for the new kin-openapi-based generation path.
+	// When Types is set, templates iterate over Types to generate validation functions.
+	// This is nil for the backwards-compatible path.
+	Types []ForgeTypeDefinition
+	// MainType is the name of the main entry point type (always "Spec").
+	MainType string
+	// NeedsFmtImport indicates if the generated code needs the fmt import.
+	NeedsFmtImport bool
 }
 
 // GenerateValidateFile generates the zz_generated.validate.go file content.

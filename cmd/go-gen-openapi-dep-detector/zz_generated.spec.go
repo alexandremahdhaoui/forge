@@ -8,8 +8,8 @@ import (
 	"fmt"
 )
 
-// Spec contains the configuration for this engine.
-// These fields are populated from the 'spec' field in forge.yaml.
+// Spec represents the Spec configuration.
+// Configuration for go-gen-openapi-dep-detector
 type Spec struct {
 	// Whether to resolve external references
 	ResolveRefs bool `json:"resolveRefs,omitempty"`
@@ -19,15 +19,13 @@ type Spec struct {
 	SpecSources []string `json:"specSources,omitempty"`
 }
 
-// FromMap creates a Spec from a map[string]interface{}.
-// This is used to parse the spec field from forge.yaml.
-func FromMap(m map[string]interface{}) (*Spec, error) {
+// SpecFromMap creates a Spec from a map[string]interface{}.
+func SpecFromMap(m map[string]interface{}) (*Spec, error) {
 	if m == nil {
 		return &Spec{}, nil
 	}
 
 	s := &Spec{}
-
 	// Parse resolveRefs
 	if v, ok := m["resolveRefs"]; ok && v != nil {
 		if val, ok := v.(bool); ok {
@@ -36,7 +34,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field resolveRefs: expected bool, got %T", v)
 		}
 	}
-
 	// Parse rootDir
 	if v, ok := m["rootDir"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -45,7 +42,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field rootDir: expected string, got %T", v)
 		}
 	}
-
 	// Parse specSources
 	if v, ok := m["specSources"]; ok && v != nil {
 		if arr, ok := v.([]interface{}); ok {
@@ -63,30 +59,30 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field specSources: expected []string, got %T", v)
 		}
 	}
-
 	return s, nil
 }
 
 // ToMap converts a Spec to a map[string]interface{}.
-// This is used for serialization and testing.
 func (s *Spec) ToMap() map[string]interface{} {
 	if s == nil {
 		return nil
 	}
 
 	m := make(map[string]interface{})
-
 	if s.ResolveRefs {
 		m["resolveRefs"] = s.ResolveRefs
 	}
-
 	if s.RootDir != "" {
 		m["rootDir"] = s.RootDir
 	}
-
 	if len(s.SpecSources) > 0 {
 		m["specSources"] = s.SpecSources
 	}
-
 	return m
+}
+
+// FromMap creates a Spec from a map[string]interface{}.
+// This is the main entry point for parsing the spec field from forge.yaml.
+func FromMap(m map[string]interface{}) (*Spec, error) {
+	return SpecFromMap(m)
 }

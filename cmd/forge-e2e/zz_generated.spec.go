@@ -8,8 +8,8 @@ import (
 	"fmt"
 )
 
-// Spec contains the configuration for this engine.
-// These fields are populated from the 'spec' field in forge.yaml.
+// Spec represents the Spec configuration.
+// Configuration for forge-e2e test runner.
 type Spec struct {
 	// Filter tests by category (build, testenv, test-runner, prompt, system, error, cleanup, mcp, performance, artifact-store)
 	Category string `json:"category,omitempty"`
@@ -17,15 +17,13 @@ type Spec struct {
 	NamePattern string `json:"namePattern,omitempty"`
 }
 
-// FromMap creates a Spec from a map[string]interface{}.
-// This is used to parse the spec field from forge.yaml.
-func FromMap(m map[string]interface{}) (*Spec, error) {
+// SpecFromMap creates a Spec from a map[string]interface{}.
+func SpecFromMap(m map[string]interface{}) (*Spec, error) {
 	if m == nil {
 		return &Spec{}, nil
 	}
 
 	s := &Spec{}
-
 	// Parse category
 	if v, ok := m["category"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -34,7 +32,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field category: expected string, got %T", v)
 		}
 	}
-
 	// Parse namePattern
 	if v, ok := m["namePattern"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -43,26 +40,27 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field namePattern: expected string, got %T", v)
 		}
 	}
-
 	return s, nil
 }
 
 // ToMap converts a Spec to a map[string]interface{}.
-// This is used for serialization and testing.
 func (s *Spec) ToMap() map[string]interface{} {
 	if s == nil {
 		return nil
 	}
 
 	m := make(map[string]interface{})
-
 	if s.Category != "" {
 		m["category"] = s.Category
 	}
-
 	if s.NamePattern != "" {
 		m["namePattern"] = s.NamePattern
 	}
-
 	return m
+}
+
+// FromMap creates a Spec from a map[string]interface{}.
+// This is the main entry point for parsing the spec field from forge.yaml.
+func FromMap(m map[string]interface{}) (*Spec, error) {
+	return SpecFromMap(m)
 }

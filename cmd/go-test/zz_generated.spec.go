@@ -8,8 +8,8 @@ import (
 	"fmt"
 )
 
-// Spec contains the configuration for this engine.
-// These fields are populated from the 'spec' field in forge.yaml.
+// Spec represents the Spec configuration.
+// Configuration for go-test engine
 type Spec struct {
 	// Additional arguments to pass to go test (optional)
 	Args []string `json:"args,omitempty"`
@@ -29,15 +29,13 @@ type Spec struct {
 	Timeout string `json:"timeout,omitempty"`
 }
 
-// FromMap creates a Spec from a map[string]interface{}.
-// This is used to parse the spec field from forge.yaml.
-func FromMap(m map[string]interface{}) (*Spec, error) {
+// SpecFromMap creates a Spec from a map[string]interface{}.
+func SpecFromMap(m map[string]interface{}) (*Spec, error) {
 	if m == nil {
 		return &Spec{}, nil
 	}
 
 	s := &Spec{}
-
 	// Parse args
 	if v, ok := m["args"]; ok && v != nil {
 		if arr, ok := v.([]interface{}); ok {
@@ -55,7 +53,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field args: expected []string, got %T", v)
 		}
 	}
-
 	// Parse cover
 	if v, ok := m["cover"]; ok && v != nil {
 		if val, ok := v.(bool); ok {
@@ -64,7 +61,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field cover: expected bool, got %T", v)
 		}
 	}
-
 	// Parse coverprofile
 	if v, ok := m["coverprofile"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -73,7 +69,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field coverprofile: expected string, got %T", v)
 		}
 	}
-
 	// Parse env
 	if v, ok := m["env"]; ok && v != nil {
 		if mapVal, ok := v.(map[string]interface{}); ok {
@@ -91,7 +86,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field env: expected map[string]string, got %T", v)
 		}
 	}
-
 	// Parse packages
 	if v, ok := m["packages"]; ok && v != nil {
 		if arr, ok := v.([]interface{}); ok {
@@ -109,7 +103,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field packages: expected []string, got %T", v)
 		}
 	}
-
 	// Parse race
 	if v, ok := m["race"]; ok && v != nil {
 		if val, ok := v.(bool); ok {
@@ -118,7 +111,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field race: expected bool, got %T", v)
 		}
 	}
-
 	// Parse tags
 	if v, ok := m["tags"]; ok && v != nil {
 		if arr, ok := v.([]interface{}); ok {
@@ -136,7 +128,6 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field tags: expected []string, got %T", v)
 		}
 	}
-
 	// Parse timeout
 	if v, ok := m["timeout"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -145,50 +136,45 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field timeout: expected string, got %T", v)
 		}
 	}
-
 	return s, nil
 }
 
 // ToMap converts a Spec to a map[string]interface{}.
-// This is used for serialization and testing.
 func (s *Spec) ToMap() map[string]interface{} {
 	if s == nil {
 		return nil
 	}
 
 	m := make(map[string]interface{})
-
 	if len(s.Args) > 0 {
 		m["args"] = s.Args
 	}
-
 	if s.Cover {
 		m["cover"] = s.Cover
 	}
-
 	if s.Coverprofile != "" {
 		m["coverprofile"] = s.Coverprofile
 	}
-
 	if len(s.Env) > 0 {
 		m["env"] = s.Env
 	}
-
 	if len(s.Packages) > 0 {
 		m["packages"] = s.Packages
 	}
-
 	if s.Race {
 		m["race"] = s.Race
 	}
-
 	if len(s.Tags) > 0 {
 		m["tags"] = s.Tags
 	}
-
 	if s.Timeout != "" {
 		m["timeout"] = s.Timeout
 	}
-
 	return m
+}
+
+// FromMap creates a Spec from a map[string]interface{}.
+// This is the main entry point for parsing the spec field from forge.yaml.
+func FromMap(m map[string]interface{}) (*Spec, error) {
+	return SpecFromMap(m)
 }

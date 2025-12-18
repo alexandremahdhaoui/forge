@@ -17,565 +17,10 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 )
 
-func TestParseOpenAPISpec(t *testing.T) {
-	t.Run("valid spec with various types", func(t *testing.T) {
-		dir := t.TempDir()
-		specContent := `openapi: 3.0.3
-info:
-  title: Test Engine
-  version: 0.1.0
-components:
-  schemas:
-    Spec:
-      type: object
-      properties:
-        stringField:
-          type: string
-          description: A string field
-        boolField:
-          type: boolean
-          description: A boolean field
-        intField:
-          type: integer
-          description: An integer field
-        numberField:
-          type: number
-          description: A number field
-        arrayField:
-          type: array
-          items:
-            type: string
-          description: An array of strings
-        intArrayField:
-          type: array
-          items:
-            type: integer
-          description: An array of integers
-        mapField:
-          type: object
-          additionalProperties:
-            type: string
-          description: A map of strings
-      required:
-        - stringField
-`
-		specPath := filepath.Join(dir, "spec.openapi.yaml")
-		if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
-			t.Fatalf("failed to write spec file: %v", err)
-		}
-
-		schema, err := ParseOpenAPISpec(specPath)
-		if err != nil {
-			t.Fatalf("ParseOpenAPISpec failed: %v", err)
-		}
-
-		// Check properties count
-		if len(schema.Properties) != 7 {
-			t.Errorf("Expected 7 properties, got %d", len(schema.Properties))
-		}
-
-		// Check required fields
-		if len(schema.Required) != 1 || schema.Required[0] != "stringField" {
-			t.Errorf("Expected required=[stringField], got %v", schema.Required)
-		}
-
-		// Find and verify string field
-		stringField := findProperty(schema.Properties, "stringField")
-		if stringField == nil {
-			t.Fatal("stringField not found")
-		}
-		if stringField.Type != "string" {
-			t.Errorf("stringField.Type = %q, want %q", stringField.Type, "string")
-		}
-		if stringField.Description != "A string field" {
-			t.Errorf("stringField.Description = %q, want %q", stringField.Description, "A string field")
-		}
-		if !stringField.Required {
-			t.Error("stringField should be required")
-		}
-
-		// Verify bool field
-		boolField := findProperty(schema.Properties, "boolField")
-		if boolField == nil {
-			t.Fatal("boolField not found")
-		}
-		if boolField.Type != "boolean" {
-			t.Errorf("boolField.Type = %q, want %q", boolField.Type, "boolean")
-		}
-		if boolField.Required {
-			t.Error("boolField should not be required")
-		}
-
-		// Verify int field
-		intField := findProperty(schema.Properties, "intField")
-		if intField == nil {
-			t.Fatal("intField not found")
-		}
-		if intField.Type != "integer" {
-			t.Errorf("intField.Type = %q, want %q", intField.Type, "integer")
-		}
-
-		// Verify number field
-		numberField := findProperty(schema.Properties, "numberField")
-		if numberField == nil {
-			t.Fatal("numberField not found")
-		}
-		if numberField.Type != "number" {
-			t.Errorf("numberField.Type = %q, want %q", numberField.Type, "number")
-		}
-
-		// Verify array field
-		arrayField := findProperty(schema.Properties, "arrayField")
-		if arrayField == nil {
-			t.Fatal("arrayField not found")
-		}
-		if arrayField.Type != "array" {
-			t.Errorf("arrayField.Type = %q, want %q", arrayField.Type, "array")
-		}
-		if arrayField.Items == nil || arrayField.Items.Type != "string" {
-			t.Error("arrayField.Items should be string type")
-		}
-
-		// Verify int array field
-		intArrayField := findProperty(schema.Properties, "intArrayField")
-		if intArrayField == nil {
-			t.Fatal("intArrayField not found")
-		}
-		if intArrayField.Items == nil || intArrayField.Items.Type != "integer" {
-			t.Error("intArrayField.Items should be integer type")
-		}
-
-		// Verify map field
-		mapField := findProperty(schema.Properties, "mapField")
-		if mapField == nil {
-			t.Fatal("mapField not found")
-		}
-		if mapField.Type != "object" {
-			t.Errorf("mapField.Type = %q, want %q", mapField.Type, "object")
-		}
-		if mapField.AdditionalProperties == nil || mapField.AdditionalProperties.Type != "string" {
-			t.Error("mapField.AdditionalProperties should be string type")
-		}
-	})
-
-	t.Run("nested object", func(t *testing.T) {
-		dir := t.TempDir()
-		specContent := `openapi: 3.0.3
-info:
-  title: Test Engine
-  version: 0.1.0
-components:
-  schemas:
-    Spec:
-      type: object
-      properties:
-        nested:
-          type: object
-          properties:
-            subField:
-              type: string
-              description: A nested string field
-            subInt:
-              type: integer
-          required:
-            - subField
-`
-		specPath := filepath.Join(dir, "spec.openapi.yaml")
-		if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
-			t.Fatalf("failed to write spec file: %v", err)
-		}
-
-		schema, err := ParseOpenAPISpec(specPath)
-		if err != nil {
-			t.Fatalf("ParseOpenAPISpec failed: %v", err)
-		}
-
-		// Find nested property
-		nested := findProperty(schema.Properties, "nested")
-		if nested == nil {
-			t.Fatal("nested not found")
-		}
-		if nested.Type != "object" {
-			t.Errorf("nested.Type = %q, want %q", nested.Type, "object")
-		}
-		if len(nested.Properties) != 2 {
-			t.Errorf("Expected 2 nested properties, got %d", len(nested.Properties))
-		}
-
-		// Find subField
-		subField := findProperty(nested.Properties, "subField")
-		if subField == nil {
-			t.Fatal("subField not found")
-		}
-		if subField.Type != "string" {
-			t.Errorf("subField.Type = %q, want %q", subField.Type, "string")
-		}
-		if !subField.Required {
-			t.Error("subField should be required")
-		}
-
-		// Find subInt
-		subInt := findProperty(nested.Properties, "subInt")
-		if subInt == nil {
-			t.Fatal("subInt not found")
-		}
-		if subInt.Required {
-			t.Error("subInt should not be required")
-		}
-	})
-
-	t.Run("enum field", func(t *testing.T) {
-		dir := t.TempDir()
-		specContent := `openapi: 3.0.3
-info:
-  title: Test Engine
-  version: 0.1.0
-components:
-  schemas:
-    Spec:
-      type: object
-      properties:
-        status:
-          type: string
-          enum:
-            - pending
-            - running
-            - completed
-            - failed
-          description: The status of the operation
-`
-		specPath := filepath.Join(dir, "spec.openapi.yaml")
-		if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
-			t.Fatalf("failed to write spec file: %v", err)
-		}
-
-		schema, err := ParseOpenAPISpec(specPath)
-		if err != nil {
-			t.Fatalf("ParseOpenAPISpec failed: %v", err)
-		}
-
-		status := findProperty(schema.Properties, "status")
-		if status == nil {
-			t.Fatal("status not found")
-		}
-		if len(status.Enum) != 4 {
-			t.Errorf("Expected 4 enum values, got %d", len(status.Enum))
-		}
-		expectedEnums := []string{"pending", "running", "completed", "failed"}
-		for i, expected := range expectedEnums {
-			if status.Enum[i] != expected {
-				t.Errorf("Enum[%d] = %q, want %q", i, status.Enum[i], expected)
-			}
-		}
-	})
-
-	t.Run("default values", func(t *testing.T) {
-		dir := t.TempDir()
-		specContent := `openapi: 3.0.3
-info:
-  title: Test Engine
-  version: 0.1.0
-components:
-  schemas:
-    Spec:
-      type: object
-      properties:
-        timeout:
-          type: integer
-          default: 30
-          description: Timeout in seconds
-        verbose:
-          type: boolean
-          default: false
-        name:
-          type: string
-          default: "default-name"
-`
-		specPath := filepath.Join(dir, "spec.openapi.yaml")
-		if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
-			t.Fatalf("failed to write spec file: %v", err)
-		}
-
-		schema, err := ParseOpenAPISpec(specPath)
-		if err != nil {
-			t.Fatalf("ParseOpenAPISpec failed: %v", err)
-		}
-
-		timeout := findProperty(schema.Properties, "timeout")
-		if timeout == nil {
-			t.Fatal("timeout not found")
-		}
-		if timeout.Default != 30 {
-			t.Errorf("timeout.Default = %v, want 30", timeout.Default)
-		}
-
-		verbose := findProperty(schema.Properties, "verbose")
-		if verbose == nil {
-			t.Fatal("verbose not found")
-		}
-		if verbose.Default != false {
-			t.Errorf("verbose.Default = %v, want false", verbose.Default)
-		}
-
-		name := findProperty(schema.Properties, "name")
-		if name == nil {
-			t.Fatal("name not found")
-		}
-		if name.Default != "default-name" {
-			t.Errorf("name.Default = %v, want %q", name.Default, "default-name")
-		}
-	})
-
-	t.Run("missing file", func(t *testing.T) {
-		_, err := ParseOpenAPISpec("/nonexistent/path/spec.yaml")
-		if err == nil {
-			t.Error("Expected error for missing file")
-		}
-	})
-
-	t.Run("invalid yaml", func(t *testing.T) {
-		dir := t.TempDir()
-		specPath := filepath.Join(dir, "spec.openapi.yaml")
-		if err := os.WriteFile(specPath, []byte("invalid: yaml: content:"), 0o644); err != nil {
-			t.Fatalf("failed to write spec file: %v", err)
-		}
-
-		_, err := ParseOpenAPISpec(specPath)
-		if err == nil {
-			t.Error("Expected error for invalid YAML")
-		}
-	})
-
-	t.Run("missing openapi field", func(t *testing.T) {
-		dir := t.TempDir()
-		specContent := `info:
-  title: Test
-components:
-  schemas:
-    Spec:
-      type: object
-`
-		specPath := filepath.Join(dir, "spec.openapi.yaml")
-		if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
-			t.Fatalf("failed to write spec file: %v", err)
-		}
-
-		_, err := ParseOpenAPISpec(specPath)
-		if err == nil {
-			t.Error("Expected error for missing openapi field")
-		}
-	})
-
-	t.Run("missing Spec schema", func(t *testing.T) {
-		dir := t.TempDir()
-		specContent := `openapi: 3.0.3
-info:
-  title: Test
-components:
-  schemas:
-    OtherSchema:
-      type: object
-`
-		specPath := filepath.Join(dir, "spec.openapi.yaml")
-		if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
-			t.Fatalf("failed to write spec file: %v", err)
-		}
-
-		_, err := ParseOpenAPISpec(specPath)
-		if err == nil {
-			t.Error("Expected error for missing Spec schema")
-		}
-	})
-
-	t.Run("Spec not object type", func(t *testing.T) {
-		dir := t.TempDir()
-		specContent := `openapi: 3.0.3
-info:
-  title: Test
-components:
-  schemas:
-    Spec:
-      type: string
-`
-		specPath := filepath.Join(dir, "spec.openapi.yaml")
-		if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
-			t.Fatalf("failed to write spec file: %v", err)
-		}
-
-		_, err := ParseOpenAPISpec(specPath)
-		if err == nil {
-			t.Error("Expected error for Spec not being object type")
-		}
-	})
-
-	t.Run("error on $ref", func(t *testing.T) {
-		dir := t.TempDir()
-		specContent := `openapi: 3.0.3
-info:
-  title: Test
-components:
-  schemas:
-    OtherType:
-      type: object
-      properties:
-        foo:
-          type: string
-    Spec:
-      type: object
-      properties:
-        ref:
-          $ref: '#/components/schemas/OtherType'
-`
-		specPath := filepath.Join(dir, "spec.openapi.yaml")
-		if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
-			t.Fatalf("failed to write spec file: %v", err)
-		}
-
-		_, err := ParseOpenAPISpec(specPath)
-		if err == nil {
-			t.Error("Expected error for $ref")
-		}
-	})
-
-	t.Run("error on array of objects", func(t *testing.T) {
-		dir := t.TempDir()
-		specContent := `openapi: 3.0.3
-info:
-  title: Test
-components:
-  schemas:
-    Spec:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            type: object
-            properties:
-              name:
-                type: string
-`
-		specPath := filepath.Join(dir, "spec.openapi.yaml")
-		if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
-			t.Fatalf("failed to write spec file: %v", err)
-		}
-
-		_, err := ParseOpenAPISpec(specPath)
-		if err == nil {
-			t.Error("Expected error for array of objects")
-		}
-	})
-
-	t.Run("error on oneOf", func(t *testing.T) {
-		dir := t.TempDir()
-		specContent := `openapi: 3.0.3
-info:
-  title: Test
-components:
-  schemas:
-    Spec:
-      type: object
-      properties:
-        field:
-          oneOf:
-            - type: string
-            - type: integer
-`
-		specPath := filepath.Join(dir, "spec.openapi.yaml")
-		if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
-			t.Fatalf("failed to write spec file: %v", err)
-		}
-
-		_, err := ParseOpenAPISpec(specPath)
-		if err == nil {
-			t.Error("Expected error for oneOf")
-		}
-	})
-
-	t.Run("error on anyOf", func(t *testing.T) {
-		dir := t.TempDir()
-		specContent := `openapi: 3.0.3
-info:
-  title: Test
-components:
-  schemas:
-    Spec:
-      type: object
-      properties:
-        field:
-          anyOf:
-            - type: string
-            - type: integer
-`
-		specPath := filepath.Join(dir, "spec.openapi.yaml")
-		if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
-			t.Fatalf("failed to write spec file: %v", err)
-		}
-
-		_, err := ParseOpenAPISpec(specPath)
-		if err == nil {
-			t.Error("Expected error for anyOf")
-		}
-	})
-
-	t.Run("error on allOf", func(t *testing.T) {
-		dir := t.TempDir()
-		specContent := `openapi: 3.0.3
-info:
-  title: Test
-components:
-  schemas:
-    Spec:
-      type: object
-      properties:
-        field:
-          allOf:
-            - type: object
-              properties:
-                name:
-                  type: string
-`
-		specPath := filepath.Join(dir, "spec.openapi.yaml")
-		if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
-			t.Fatalf("failed to write spec file: %v", err)
-		}
-
-		_, err := ParseOpenAPISpec(specPath)
-		if err == nil {
-			t.Error("Expected error for allOf")
-		}
-	})
-
-	t.Run("error on array missing items", func(t *testing.T) {
-		dir := t.TempDir()
-		specContent := `openapi: 3.0.3
-info:
-  title: Test
-components:
-  schemas:
-    Spec:
-      type: object
-      properties:
-        arrayField:
-          type: array
-`
-		specPath := filepath.Join(dir, "spec.openapi.yaml")
-		if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
-			t.Fatalf("failed to write spec file: %v", err)
-		}
-
-		_, err := ParseOpenAPISpec(specPath)
-		if err == nil {
-			t.Error("Expected error for array missing items")
-		}
-	})
-}
-
+// Tests for PropertySchema.GoType() method which is still used by templates.
 func TestPropertySchemaGoType(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -632,6 +77,46 @@ func TestPropertySchemaGoType(t *testing.T) {
 			prop:     PropertySchema{Type: "unknown"},
 			expected: "interface{}",
 		},
+		{
+			name:     "ref resolved",
+			prop:     PropertySchema{Type: "ref", Ref: "#/components/schemas/VMResource", RefResolved: &NamedSchema{Name: "VMResource"}},
+			expected: "VMResource",
+		},
+		{
+			name:     "ref resolved with pointer",
+			prop:     PropertySchema{Type: "ref", Ref: "#/components/schemas/VMResource", RefResolved: &NamedSchema{Name: "VMResource"}, UsePointer: true},
+			expected: "*VMResource",
+		},
+		{
+			name:     "unresolved ref",
+			prop:     PropertySchema{Type: "ref", Ref: "#/components/schemas/VMResource"},
+			expected: "interface{}",
+		},
+		{
+			name: "array ref resolved",
+			prop: PropertySchema{
+				Type: "array",
+				Items: &PropertySchema{
+					Type:        "ref",
+					Ref:         "#/components/schemas/VMResource",
+					RefResolved: &NamedSchema{Name: "VMResource"},
+				},
+			},
+			expected: "[]VMResource",
+		},
+		{
+			name: "array ref resolved with pointer",
+			prop: PropertySchema{
+				Type: "array",
+				Items: &PropertySchema{
+					Type:        "ref",
+					Ref:         "#/components/schemas/VMResource",
+					RefResolved: &NamedSchema{Name: "VMResource"},
+					UsePointer:  true,
+				},
+			},
+			expected: "[]*VMResource",
+		},
 	}
 
 	for _, tt := range tests {
@@ -644,6 +129,7 @@ func TestPropertySchemaGoType(t *testing.T) {
 	}
 }
 
+// Tests for SpecSchema.IsRequired() method which is still used.
 func TestSpecSchemaIsRequired(t *testing.T) {
 	schema := &SpecSchema{
 		Required: []string{"field1", "field2"},
@@ -668,4 +154,249 @@ func findProperty(props []PropertySchema, name string) *PropertySchema {
 		}
 	}
 	return nil
+}
+
+// Tests for extractSchemaName which is still used by the adapter.
+func TestExtractSchemaName(t *testing.T) {
+	tests := []struct {
+		ref      string
+		expected string
+	}{
+		{"#/components/schemas/VMResource", "VMResource"},
+		{"#/components/schemas/Network", "Network"},
+		{"#/components/schemas/Spec", "Spec"},
+		{"./external.yaml#/components/schemas/X", ""},
+		{"", ""},
+		{"#/definitions/X", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.ref, func(t *testing.T) {
+			got := extractSchemaName(tt.ref)
+			if got != tt.expected {
+				t.Errorf("extractSchemaName(%q) = %q, want %q", tt.ref, got, tt.expected)
+			}
+		})
+	}
+}
+
+// Tests for SchemaRegistry methods which are reused by the new code.
+func TestSchemaRegistry_Basic(t *testing.T) {
+	t.Run("NewSchemaRegistry creates empty registry", func(t *testing.T) {
+		registry := NewSchemaRegistry()
+		if registry == nil {
+			t.Fatal("NewSchemaRegistry returned nil")
+		}
+		if registry.Get("nonexistent") != nil {
+			t.Error("Get on empty registry should return nil")
+		}
+		if registry.GetSpec() != nil {
+			t.Error("GetSpec on empty registry should return nil")
+		}
+	})
+
+	t.Run("Register and Get", func(t *testing.T) {
+		registry := NewSchemaRegistry()
+		schema := &NamedSchema{Name: "TestSchema"}
+		registry.Register("TestSchema", schema)
+
+		got := registry.Get("TestSchema")
+		if got != schema {
+			t.Errorf("Get returned wrong schema: got %v, want %v", got, schema)
+		}
+	})
+
+	t.Run("GetSpec returns Spec schema", func(t *testing.T) {
+		registry := NewSchemaRegistry()
+		specSchema := &NamedSchema{Name: "Spec"}
+		otherSchema := &NamedSchema{Name: "Other"}
+		registry.Register("Spec", specSchema)
+		registry.Register("Other", otherSchema)
+
+		got := registry.GetSpec()
+		if got != specSchema {
+			t.Errorf("GetSpec returned wrong schema: got %v, want %v", got, specSchema)
+		}
+	})
+}
+
+// Tests for the topological sort using Tarjan's SCC algorithm.
+func TestSchemaRegistry_ComputeOrder(t *testing.T) {
+	t.Run("single schema with no dependencies", func(t *testing.T) {
+		registry := NewSchemaRegistry()
+		registry.Register("Spec", &NamedSchema{
+			Name:       "Spec",
+			Properties: []PropertySchema{{Name: "field", Type: "string"}},
+		})
+
+		if err := registry.ComputeOrder(); err != nil {
+			t.Fatalf("ComputeOrder failed: %v", err)
+		}
+
+		order := registry.GetGenerationOrder()
+		if len(order) != 1 || order[0] != "Spec" {
+			t.Errorf("Expected order [Spec], got %v", order)
+		}
+	})
+
+	t.Run("dependencies ordered before dependents", func(t *testing.T) {
+		registry := NewSchemaRegistry()
+
+		// VMResource has no dependencies
+		registry.Register("VMResource", &NamedSchema{
+			Name:       "VMResource",
+			Properties: []PropertySchema{{Name: "name", Type: "string"}},
+		})
+
+		// Spec depends on VMResource
+		registry.Register("Spec", &NamedSchema{
+			Name: "Spec",
+			Properties: []PropertySchema{{
+				Name: "vm",
+				Ref:  "#/components/schemas/VMResource",
+			}},
+		})
+
+		if err := registry.ComputeOrder(); err != nil {
+			t.Fatalf("ComputeOrder failed: %v", err)
+		}
+
+		order := registry.GetGenerationOrder()
+		if len(order) != 2 {
+			t.Fatalf("Expected 2 schemas, got %d", len(order))
+		}
+
+		// VMResource must come before Spec
+		vmIndex, specIndex := -1, -1
+		for i, name := range order {
+			if name == "VMResource" {
+				vmIndex = i
+			}
+			if name == "Spec" {
+				specIndex = i
+			}
+		}
+		if vmIndex >= specIndex {
+			t.Errorf("VMResource (index %d) should come before Spec (index %d)", vmIndex, specIndex)
+		}
+	})
+
+	t.Run("alphabetical order for independent schemas", func(t *testing.T) {
+		registry := NewSchemaRegistry()
+
+		// No dependencies between schemas
+		registry.Register("Zebra", &NamedSchema{Name: "Zebra", Properties: []PropertySchema{{Name: "name", Type: "string"}}})
+		registry.Register("Apple", &NamedSchema{Name: "Apple", Properties: []PropertySchema{{Name: "name", Type: "string"}}})
+		registry.Register("Middle", &NamedSchema{Name: "Middle", Properties: []PropertySchema{{Name: "name", Type: "string"}}})
+
+		if err := registry.ComputeOrder(); err != nil {
+			t.Fatalf("ComputeOrder failed: %v", err)
+		}
+
+		order := registry.GetGenerationOrder()
+		expected := []string{"Apple", "Middle", "Zebra"}
+		for i, name := range expected {
+			if order[i] != name {
+				t.Errorf("Expected order[%d] = %q, got %q", i, name, order[i])
+			}
+		}
+	})
+}
+
+// Tests for circular reference detection using Tarjan's SCC.
+func TestSchemaRegistry_CircularRefs(t *testing.T) {
+	t.Run("self-referencing schema marks UsePointer", func(t *testing.T) {
+		registry := NewSchemaRegistry()
+
+		// LinkedList -> LinkedList (self-reference)
+		registry.Register("LinkedList", &NamedSchema{
+			Name: "LinkedList",
+			Properties: []PropertySchema{
+				{Name: "value", Type: "string"},
+				{Name: "next", Ref: "#/components/schemas/LinkedList"},
+			},
+		})
+
+		if err := registry.ComputeOrder(); err != nil {
+			t.Fatalf("ComputeOrder failed: %v", err)
+		}
+
+		schema := registry.Get("LinkedList")
+		nextProp := findProperty(schema.Properties, "next")
+		if nextProp == nil {
+			t.Fatal("next property not found")
+		}
+		if !nextProp.UsePointer {
+			t.Error("next.UsePointer should be true for self-reference")
+		}
+	})
+
+	t.Run("mutual recursion marks UsePointer on both", func(t *testing.T) {
+		registry := NewSchemaRegistry()
+
+		// Parent -> Child, Child -> Parent
+		registry.Register("Parent", &NamedSchema{
+			Name: "Parent",
+			Properties: []PropertySchema{
+				{Name: "name", Type: "string"},
+				{Name: "child", Ref: "#/components/schemas/Child"},
+			},
+		})
+		registry.Register("Child", &NamedSchema{
+			Name: "Child",
+			Properties: []PropertySchema{
+				{Name: "name", Type: "string"},
+				{Name: "parent", Ref: "#/components/schemas/Parent"},
+			},
+		})
+
+		if err := registry.ComputeOrder(); err != nil {
+			t.Fatalf("ComputeOrder failed: %v", err)
+		}
+
+		parentSchema := registry.Get("Parent")
+		childSchema := registry.Get("Child")
+
+		childProp := findProperty(parentSchema.Properties, "child")
+		parentProp := findProperty(childSchema.Properties, "parent")
+
+		if !childProp.UsePointer {
+			t.Error("child.UsePointer should be true in cycle")
+		}
+		if !parentProp.UsePointer {
+			t.Error("parent.UsePointer should be true in cycle")
+		}
+	})
+
+	t.Run("array items self-reference marks UsePointer", func(t *testing.T) {
+		registry := NewSchemaRegistry()
+
+		// Node has array of Node children
+		registry.Register("Node", &NamedSchema{
+			Name: "Node",
+			Properties: []PropertySchema{
+				{Name: "value", Type: "string"},
+				{
+					Name: "children",
+					Type: "array",
+					Items: &PropertySchema{
+						Ref: "#/components/schemas/Node",
+					},
+				},
+			},
+		})
+
+		if err := registry.ComputeOrder(); err != nil {
+			t.Fatalf("ComputeOrder failed: %v", err)
+		}
+
+		schema := registry.Get("Node")
+		childrenProp := findProperty(schema.Properties, "children")
+		if childrenProp == nil || childrenProp.Items == nil {
+			t.Fatal("children property or Items not found")
+		}
+		if !childrenProp.Items.UsePointer {
+			t.Error("children.Items.UsePointer should be true for self-reference")
+		}
+	})
 }

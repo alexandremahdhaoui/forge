@@ -4,41 +4,53 @@
 
 package main
 
-// Spec contains the configuration for this engine.
-// These fields are populated from the 'spec' field in forge.yaml.
+import (
+	"fmt"
+)
+
+// Spec represents the Spec configuration.
+// Configuration for parallel-builder engine
 type Spec struct {
 	// List of sub-builder configurations to run in parallel. Each item must be an object with 'engine' (required), 'name' (optional), and 'spec' (optional) fields.
 	Builders []interface{} `json:"builders"`
 }
 
-// FromMap creates a Spec from a map[string]interface{}.
-// This is used to parse the spec field from forge.yaml.
-func FromMap(m map[string]interface{}) (*Spec, error) {
+// SpecFromMap creates a Spec from a map[string]interface{}.
+func SpecFromMap(m map[string]interface{}) (*Spec, error) {
 	if m == nil {
 		return &Spec{}, nil
 	}
 
 	s := &Spec{}
-
 	// Parse builders
 	if v, ok := m["builders"]; ok && v != nil {
-		// Unsupported type []interface{} - store as-is
-		_ = v
+		if arr, ok := v.([]interface{}); ok {
+			s.Builders = make([]interface{}, 0, len(arr))
+			for _, item := range arr {
+				s.Builders = append(s.Builders, item.(interface{}))
+			}
+		} else {
+			return nil, fmt.Errorf("field builders: expected array, got %T", v)
+		}
 	}
-
 	return s, nil
 }
 
 // ToMap converts a Spec to a map[string]interface{}.
-// This is used for serialization and testing.
 func (s *Spec) ToMap() map[string]interface{} {
 	if s == nil {
 		return nil
 	}
 
 	m := make(map[string]interface{})
-
-	// Unsupported type []interface{}
-
+	if len(s.Builders) > 0 {
+		m["builders"] = s.Builders
+	}
 	return m
+}
+
+// FromMap creates a Spec from a map[string]interface{}.
+// This is the main entry point for parsing the spec field from forge.yaml.
+func FromMap(m map[string]interface{}) (*Spec, error) {
+	return SpecFromMap(m)
 }

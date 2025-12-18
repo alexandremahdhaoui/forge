@@ -8,8 +8,8 @@ import (
 	"fmt"
 )
 
-// Spec contains the configuration for this engine.
-// These fields are populated from the 'spec' field in forge.yaml.
+// Spec represents the Spec configuration.
+// Configuration for parallel-test-runner engine
 type Spec struct {
 	// Name of the runner whose coverage is used. If not specified or runner not found, Coverage.Enabled=false in result.
 	PrimaryCoverageRunner string `json:"primaryCoverageRunner,omitempty"`
@@ -17,15 +17,13 @@ type Spec struct {
 	Runners []interface{} `json:"runners"`
 }
 
-// FromMap creates a Spec from a map[string]interface{}.
-// This is used to parse the spec field from forge.yaml.
-func FromMap(m map[string]interface{}) (*Spec, error) {
+// SpecFromMap creates a Spec from a map[string]interface{}.
+func SpecFromMap(m map[string]interface{}) (*Spec, error) {
 	if m == nil {
 		return &Spec{}, nil
 	}
 
 	s := &Spec{}
-
 	// Parse primaryCoverageRunner
 	if v, ok := m["primaryCoverageRunner"]; ok && v != nil {
 		if val, ok := v.(string); ok {
@@ -34,30 +32,38 @@ func FromMap(m map[string]interface{}) (*Spec, error) {
 			return nil, fmt.Errorf("field primaryCoverageRunner: expected string, got %T", v)
 		}
 	}
-
 	// Parse runners
 	if v, ok := m["runners"]; ok && v != nil {
-		// Unsupported type []interface{} - store as-is
-		_ = v
+		if arr, ok := v.([]interface{}); ok {
+			s.Runners = make([]interface{}, 0, len(arr))
+			for _, item := range arr {
+				s.Runners = append(s.Runners, item.(interface{}))
+			}
+		} else {
+			return nil, fmt.Errorf("field runners: expected array, got %T", v)
+		}
 	}
-
 	return s, nil
 }
 
 // ToMap converts a Spec to a map[string]interface{}.
-// This is used for serialization and testing.
 func (s *Spec) ToMap() map[string]interface{} {
 	if s == nil {
 		return nil
 	}
 
 	m := make(map[string]interface{})
-
 	if s.PrimaryCoverageRunner != "" {
 		m["primaryCoverageRunner"] = s.PrimaryCoverageRunner
 	}
-
-	// Unsupported type []interface{}
-
+	if len(s.Runners) > 0 {
+		m["runners"] = s.Runners
+	}
 	return m
+}
+
+// FromMap creates a Spec from a map[string]interface{}.
+// This is the main entry point for parsing the spec field from forge.yaml.
+func FromMap(m map[string]interface{}) (*Spec, error) {
+	return SpecFromMap(m)
 }

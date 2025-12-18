@@ -23,11 +23,8 @@ import (
 	"time"
 
 	"github.com/alexandremahdhaoui/forge/internal/mcpcaller"
-	"github.com/alexandremahdhaoui/forge/pkg/enginedocs"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
-	"github.com/alexandremahdhaoui/forge/pkg/mcpserver"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // ParallelBuilderSpec defines the input specification for parallel builds.
@@ -45,27 +42,6 @@ type BuilderConfig struct {
 	Engine string `json:"engine"`
 	// Spec contains the build specification passed to the sub-builder.
 	Spec map[string]any `json:"spec"`
-}
-
-// runMCPServer starts the parallel-builder MCP server.
-func runMCPServer() error {
-	// Use generated MCP server setup (registers build, buildBatch, and config-validate tools)
-	server, err := SetupMCPServer(Name, Version, Build)
-	if err != nil {
-		return err
-	}
-
-	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
-		return err
-	}
-
-	// Override config-validate tool with custom recursive validation handler
-	mcpserver.RegisterTool(server, &mcp.Tool{
-		Name:        "config-validate",
-		Description: "Validate parallel-builder configuration and recursively validate sub-builders",
-	}, handleRecursiveConfigValidate)
-
-	return server.RunDefault()
 }
 
 // Build implements the BuildFunc for executing multiple builders in parallel.

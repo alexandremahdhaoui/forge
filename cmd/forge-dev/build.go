@@ -107,17 +107,23 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		log.Printf("forge-dev: force flag set, regenerating %s", config.Name)
 	}
 
-	// Step 5: Parse OpenAPI spec
-	schema, err := ParseOpenAPISpec(specPath)
+	// Step 5: Load and parse OpenAPI spec using kin-openapi
+	spec, err := LoadOpenAPISpec(specPath)
 	if err != nil {
-		return nil, fmt.Errorf("parsing OpenAPI spec: %w", err)
+		return nil, fmt.Errorf("loading OpenAPI spec: %w", err)
+	}
+
+	// Generate types using new adapter
+	types, err := GenerateForgeTypes(spec, config.Generate.PackageName)
+	if err != nil {
+		return nil, fmt.Errorf("generating types: %w", err)
 	}
 
 	// Step 6: Generate all three files using templates
 	generatedFiles := []string{}
 
 	// Generate zz_generated.spec.go
-	specContent, err := GenerateSpecFile(schema, config, checksum)
+	specContent, err := GenerateSpecFileFromTypes(types, config, checksum)
 	if err != nil {
 		return nil, fmt.Errorf("generating spec file: %w", err)
 	}
@@ -129,7 +135,7 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 
 	// Generate zz_generated.validate.go
 	validateFilePath := filepath.Join(srcDir, GeneratedValidateFile)
-	validateContent, err := GenerateValidateFile(schema, config, checksum)
+	validateContent, err := GenerateValidateFileFromTypes(types, config, checksum)
 	if err != nil {
 		return nil, fmt.Errorf("generating validate file: %w", err)
 	}
@@ -182,7 +188,9 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	}
 
 	// Generate docs/schema.md
+	// Convert types to SpecSchema for backwards compatibility with GenerateSchemaMD
 	schemaMDPath := filepath.Join(docsDir, "schema.md")
+	schema := ForgeTypesToSpecSchema(types)
 	schemaMDContent, err := GenerateSchemaMD(schema, config)
 	if err != nil {
 		return nil, fmt.Errorf("generating schema.md: %w", err)

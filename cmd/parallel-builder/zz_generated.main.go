@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/alexandremahdhaoui/forge/pkg/enginecli"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
@@ -35,7 +36,24 @@ func main() {
 	})
 }
 
-// NOTE: Custom runMCPServer is defined in mcp.go for recursive config-validate registration
+// runMCPServer creates and runs the MCP server.
+func runMCPServer() error {
+	server, err := SetupMCPServer(Name, Version, Build)
+	if err != nil {
+		return fmt.Errorf("setting up MCP server: %w", err)
+	}
+
+	// Register docs MCP tools (docs-list, docs-get)
+	if err := RegisterDocsMCPTools(server); err != nil {
+		return fmt.Errorf("registering docs MCP tools: %w", err)
+	}
+
+	if err := server.Run(context.Background()); err != nil {
+		return fmt.Errorf("running MCP server: %w", err)
+	}
+
+	return nil
+}
 
 // Build is the build function that must be implemented by the engine author.
 // Signature: func(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.Artifact, error)

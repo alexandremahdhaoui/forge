@@ -10,6 +10,440 @@ import (
 )
 {{end}}
 
+{{if .Types}}
+{{- /* New multi-type generation path using ForgeTypeDefinition and forge* functions */}}
+{{- range .Types}}
+{{- if isTypeEnum .}}
+// {{.Name}} represents an enum type.
+type {{.Name}} string
+
+{{- $enumTypeName := .Name}}
+const (
+{{- range typeEnumValues .}}
+	{{$enumTypeName}}{{.}} {{$enumTypeName}} = "{{.}}"
+{{- end}}
+)
+{{- else if isUnion .}}
+// {{.Name}} is a union type (oneOf/anyOf).
+// Variants: {{range $i, $v := unionVariants .}}{{if $i}}, {{end}}{{$v}}{{end}}
+type {{.Name}} struct {
+	// Type discriminator field
+	Type string `json:"{{discField .}},omitempty"`
+	// Union variant data (only one should be set)
+{{- range unionVariants .}}
+	{{.}} *{{.}} `json:"-"`
+{{- end}}
+}
+{{- else}}
+// {{.Name}} represents the {{.Name}} configuration.
+{{- if .Description}}
+{{commentify .Description}}
+{{- end}}
+type {{.Name}} struct {
+{{- range .Properties}}
+{{- if .Description}}
+	{{commentify .Description}}
+{{- end}}
+	{{.Name}} {{forgeGoType .}} {{jsonTag .JsonName .Required}}
+{{- end}}
+}
+{{- end}}
+
+{{end}}
+{{- /* Generate FromMap functions for each type */}}
+{{- range .Types}}
+{{- if not (isTypeEnum .)}}
+{{- if not (isUnion .)}}
+// {{.Name}}FromMap creates a {{.Name}} from a map[string]interface{}.
+func {{.Name}}FromMap(m map[string]interface{}) (*{{.Name}}, error) {
+	if m == nil {
+		return &{{.Name}}{}, nil
+	}
+
+	s := &{{.Name}}{}
+{{- range .Properties}}
+	// Parse {{.JsonName}}
+	if v, ok := m["{{.JsonName}}"]; ok && v != nil {
+{{- if forgeIsRef .}}
+		if obj, ok := v.(map[string]interface{}); ok {
+			ref, err := {{forgeRefType .}}FromMap(obj)
+			if err != nil {
+				return nil, fmt.Errorf("field {{.JsonName}}: %w", err)
+			}
+{{- if forgeUsePointer .}}
+			s.{{.Name}} = ref
+{{- else}}
+			if ref != nil {
+				s.{{.Name}} = *ref
+			}
+{{- end}}
+		} else {
+			return nil, fmt.Errorf("field {{.JsonName}}: expected object, got %T", v)
+		}
+{{- else if forgeIsArrayRef .}}
+		if arr, ok := v.([]interface{}); ok {
+			s.{{.Name}} = make([]{{forgeArrayRefType .}}, 0, len(arr))
+			for i, item := range arr {
+				if obj, ok := item.(map[string]interface{}); ok {
+					ref, err := {{forgeArrayRefType .}}FromMap(obj)
+					if err != nil {
+						return nil, fmt.Errorf("field {{.JsonName}}[%d]: %w", i, err)
+					}
+					if ref != nil {
+						s.{{.Name}} = append(s.{{.Name}}, *ref)
+					}
+				} else {
+					return nil, fmt.Errorf("field {{.JsonName}}[%d]: expected object, got %T", i, item)
+				}
+			}
+		} else {
+			return nil, fmt.Errorf("field {{.JsonName}}: expected []object, got %T", v)
+		}
+{{- else if eq (forgeGoType .) "string"}}
+		if val, ok := v.(string); ok {
+			s.{{.Name}} = val
+		} else {
+			return nil, fmt.Errorf("field {{.JsonName}}: expected string, got %T", v)
+		}
+{{- else if eq (forgeGoType .) "bool"}}
+		if val, ok := v.(bool); ok {
+			s.{{.Name}} = val
+		} else {
+			return nil, fmt.Errorf("field {{.JsonName}}: expected bool, got %T", v)
+		}
+{{- else if eq (forgeGoType .) "int"}}
+		switch val := v.(type) {
+		case int:
+			s.{{.Name}} = val
+		case int64:
+			s.{{.Name}} = int(val)
+		case float64:
+			s.{{.Name}} = int(val)
+		default:
+			return nil, fmt.Errorf("field {{.JsonName}}: expected int, got %T", v)
+		}
+{{- else if eq (forgeGoType .) "float64"}}
+		switch val := v.(type) {
+		case float64:
+			s.{{.Name}} = val
+		case int:
+			s.{{.Name}} = float64(val)
+		case int64:
+			s.{{.Name}} = float64(val)
+		default:
+			return nil, fmt.Errorf("field {{.JsonName}}: expected float64, got %T", v)
+		}
+{{- else if eq (forgeGoType .) "[]string"}}
+		if arr, ok := v.([]interface{}); ok {
+			s.{{.Name}} = make([]string, 0, len(arr))
+			for i, item := range arr {
+				if str, ok := item.(string); ok {
+					s.{{.Name}} = append(s.{{.Name}}, str)
+				} else {
+					return nil, fmt.Errorf("field {{.JsonName}}[%d]: expected string, got %T", i, item)
+				}
+			}
+		} else if arr, ok := v.([]string); ok {
+			s.{{.Name}} = arr
+		} else {
+			return nil, fmt.Errorf("field {{.JsonName}}: expected []string, got %T", v)
+		}
+{{- else if eq (forgeGoType .) "[]int"}}
+		if arr, ok := v.([]interface{}); ok {
+			s.{{.Name}} = make([]int, 0, len(arr))
+			for i, item := range arr {
+				switch val := item.(type) {
+				case int:
+					s.{{.Name}} = append(s.{{.Name}}, val)
+				case int64:
+					s.{{.Name}} = append(s.{{.Name}}, int(val))
+				case float64:
+					s.{{.Name}} = append(s.{{.Name}}, int(val))
+				default:
+					return nil, fmt.Errorf("field {{.JsonName}}[%d]: expected int, got %T", i, item)
+				}
+			}
+		} else {
+			return nil, fmt.Errorf("field {{.JsonName}}: expected []int, got %T", v)
+		}
+{{- else if eq (forgeGoType .) "map[string]string"}}
+		if mapVal, ok := v.(map[string]interface{}); ok {
+			s.{{.Name}} = make(map[string]string, len(mapVal))
+			for key, val := range mapVal {
+				if str, ok := val.(string); ok {
+					s.{{.Name}}[key] = str
+				} else {
+					return nil, fmt.Errorf("field {{.JsonName}}[%s]: expected string, got %T", key, val)
+				}
+			}
+		} else if mapVal, ok := v.(map[string]string); ok {
+			s.{{.Name}} = mapVal
+		} else {
+			return nil, fmt.Errorf("field {{.JsonName}}: expected map[string]string, got %T", v)
+		}
+{{- else if forgeIsMap .}}
+		if mapVal, ok := v.(map[string]interface{}); ok {
+			s.{{.Name}} = make(map[string]{{forgeMapValueType .}}, len(mapVal))
+			for key, val := range mapVal {
+				s.{{.Name}}[key] = val.({{forgeMapValueType .}})
+			}
+		} else {
+			return nil, fmt.Errorf("field {{.JsonName}}: expected map, got %T", v)
+		}
+{{- else if forgeIsArray .}}
+		if arr, ok := v.([]interface{}); ok {
+			s.{{.Name}} = make([]{{forgeArrayItemType .}}, 0, len(arr))
+			for _, item := range arr {
+				s.{{.Name}} = append(s.{{.Name}}, item.({{forgeArrayItemType .}}))
+			}
+		} else {
+			return nil, fmt.Errorf("field {{.JsonName}}: expected array, got %T", v)
+		}
+{{- else}}
+		// Unsupported type {{forgeGoType .}} - store as-is
+		_ = v
+{{- end}}
+	}
+{{- end}}
+	return s, nil
+}
+{{- end}}
+{{- end}}
+
+{{end}}
+{{- /* Generate ToMap methods for each type */}}
+{{- range .Types}}
+{{- if not (isTypeEnum .)}}
+{{- if not (isUnion .)}}
+// ToMap converts a {{.Name}} to a map[string]interface{}.
+func (s *{{.Name}}) ToMap() map[string]interface{} {
+	if s == nil {
+		return nil
+	}
+
+	m := make(map[string]interface{})
+{{- range .Properties}}
+{{- if forgeIsRef .}}
+{{- if forgeUsePointer .}}
+	if s.{{.Name}} != nil {
+		m["{{.JsonName}}"] = s.{{.Name}}.ToMap()
+	}
+{{- else}}
+	// Reference type {{forgeRefType .}}
+	refMap := s.{{.Name}}.ToMap()
+	if len(refMap) > 0 {
+		m["{{.JsonName}}"] = refMap
+	}
+{{- end}}
+{{- else if forgeIsArrayRef .}}
+	if len(s.{{.Name}}) > 0 {
+		arr := make([]interface{}, 0, len(s.{{.Name}}))
+		for _, item := range s.{{.Name}} {
+			arr = append(arr, item.ToMap())
+		}
+		m["{{.JsonName}}"] = arr
+	}
+{{- else if eq (forgeGoType .) "string"}}
+	if s.{{.Name}} != "" {
+		m["{{.JsonName}}"] = s.{{.Name}}
+	}
+{{- else if eq (forgeGoType .) "bool"}}
+	if s.{{.Name}} {
+		m["{{.JsonName}}"] = s.{{.Name}}
+	}
+{{- else if eq (forgeGoType .) "int"}}
+	if s.{{.Name}} != 0 {
+		m["{{.JsonName}}"] = s.{{.Name}}
+	}
+{{- else if eq (forgeGoType .) "float64"}}
+	if s.{{.Name}} != 0 {
+		m["{{.JsonName}}"] = s.{{.Name}}
+	}
+{{- else if or (eq (forgeGoType .) "[]string") (eq (forgeGoType .) "[]int")}}
+	if len(s.{{.Name}}) > 0 {
+		m["{{.JsonName}}"] = s.{{.Name}}
+	}
+{{- else if eq (forgeGoType .) "map[string]string"}}
+	if len(s.{{.Name}}) > 0 {
+		m["{{.JsonName}}"] = s.{{.Name}}
+	}
+{{- else if or (forgeIsMap .) (forgeIsArray .)}}
+	if len(s.{{.Name}}) > 0 {
+		m["{{.JsonName}}"] = s.{{.Name}}
+	}
+{{- else}}
+	// Unsupported type {{forgeGoType .}}
+{{- end}}
+{{- end}}
+	return m
+}
+{{- end}}
+{{- end}}
+
+{{end}}
+// FromMap creates a Spec from a map[string]interface{}.
+// This is the main entry point for parsing the spec field from forge.yaml.
+func FromMap(m map[string]interface{}) (*Spec, error) {
+	return SpecFromMap(m)
+}
+
+{{- else if .Registry}}
+{{- /* Multi-schema generation: generate structs for all schemas in topological order */}}
+{{- range .Registry.GetGenerationOrder}}
+{{- $schema := $.Registry.Get .}}
+// {{$schema.Name}} represents the {{$schema.Name}} configuration.
+type {{$schema.Name}} struct {
+{{- range $schema.Properties}}
+	// {{.Description}}
+	{{.Name | camel}} {{goType .}} {{jsonTag .Name .Required}}
+{{- end}}
+}
+
+{{end}}
+// FromMap creates a Spec from a map[string]interface{}.
+// This is used to parse the spec field from forge.yaml.
+func FromMap(m map[string]interface{}) (*Spec, error) {
+	if m == nil {
+		return &Spec{}, nil
+	}
+
+	s := &Spec{}
+{{range .Properties}}
+	// Parse {{.Name}}
+	if v, ok := m["{{.Name}}"]; ok && v != nil {
+{{- if eq .GoType "string"}}
+		if val, ok := v.(string); ok {
+			s.{{.Name | camel}} = val
+		} else {
+			return nil, fmt.Errorf("field {{.Name}}: expected string, got %T", v)
+		}
+{{- else if eq .GoType "bool"}}
+		if val, ok := v.(bool); ok {
+			s.{{.Name | camel}} = val
+		} else {
+			return nil, fmt.Errorf("field {{.Name}}: expected bool, got %T", v)
+		}
+{{- else if eq .GoType "int"}}
+		switch val := v.(type) {
+		case int:
+			s.{{.Name | camel}} = val
+		case int64:
+			s.{{.Name | camel}} = int(val)
+		case float64:
+			s.{{.Name | camel}} = int(val)
+		default:
+			return nil, fmt.Errorf("field {{.Name}}: expected int, got %T", v)
+		}
+{{- else if eq .GoType "float64"}}
+		switch val := v.(type) {
+		case float64:
+			s.{{.Name | camel}} = val
+		case int:
+			s.{{.Name | camel}} = float64(val)
+		case int64:
+			s.{{.Name | camel}} = float64(val)
+		default:
+			return nil, fmt.Errorf("field {{.Name}}: expected float64, got %T", v)
+		}
+{{- else if eq .GoType "[]string"}}
+		if arr, ok := v.([]interface{}); ok {
+			s.{{.Name | camel}} = make([]string, 0, len(arr))
+			for i, item := range arr {
+				if str, ok := item.(string); ok {
+					s.{{.Name | camel}} = append(s.{{.Name | camel}}, str)
+				} else {
+					return nil, fmt.Errorf("field {{.Name}}[%d]: expected string, got %T", i, item)
+				}
+			}
+		} else if arr, ok := v.([]string); ok {
+			s.{{.Name | camel}} = arr
+		} else {
+			return nil, fmt.Errorf("field {{.Name}}: expected []string, got %T", v)
+		}
+{{- else if eq .GoType "[]int"}}
+		if arr, ok := v.([]interface{}); ok {
+			s.{{.Name | camel}} = make([]int, 0, len(arr))
+			for i, item := range arr {
+				switch val := item.(type) {
+				case int:
+					s.{{.Name | camel}} = append(s.{{.Name | camel}}, val)
+				case int64:
+					s.{{.Name | camel}} = append(s.{{.Name | camel}}, int(val))
+				case float64:
+					s.{{.Name | camel}} = append(s.{{.Name | camel}}, int(val))
+				default:
+					return nil, fmt.Errorf("field {{.Name}}[%d]: expected int, got %T", i, item)
+				}
+			}
+		} else {
+			return nil, fmt.Errorf("field {{.Name}}: expected []int, got %T", v)
+		}
+{{- else if eq .GoType "map[string]string"}}
+		if mapVal, ok := v.(map[string]interface{}); ok {
+			s.{{.Name | camel}} = make(map[string]string, len(mapVal))
+			for key, val := range mapVal {
+				if str, ok := val.(string); ok {
+					s.{{.Name | camel}}[key] = str
+				} else {
+					return nil, fmt.Errorf("field {{.Name}}[%s]: expected string, got %T", key, val)
+				}
+			}
+		} else if mapVal, ok := v.(map[string]string); ok {
+			s.{{.Name | camel}} = mapVal
+		} else {
+			return nil, fmt.Errorf("field {{.Name}}: expected map[string]string, got %T", v)
+		}
+{{- else}}
+		// Unsupported type {{.GoType}} - store as-is
+		_ = v
+{{- end}}
+	}
+{{end}}
+	return s, nil
+}
+
+// ToMap converts a Spec to a map[string]interface{}.
+// This is used for serialization and testing.
+func (s *Spec) ToMap() map[string]interface{} {
+	if s == nil {
+		return nil
+	}
+
+	m := make(map[string]interface{})
+{{range .Properties}}
+{{- if eq .GoType "string"}}
+	if s.{{.Name | camel}} != "" {
+		m["{{.Name}}"] = s.{{.Name | camel}}
+	}
+{{- else if eq .GoType "bool"}}
+	if s.{{.Name | camel}} {
+		m["{{.Name}}"] = s.{{.Name | camel}}
+	}
+{{- else if eq .GoType "int"}}
+	if s.{{.Name | camel}} != 0 {
+		m["{{.Name}}"] = s.{{.Name | camel}}
+	}
+{{- else if eq .GoType "float64"}}
+	if s.{{.Name | camel}} != 0 {
+		m["{{.Name}}"] = s.{{.Name | camel}}
+	}
+{{- else if or (eq .GoType "[]string") (eq .GoType "[]int")}}
+	if len(s.{{.Name | camel}}) > 0 {
+		m["{{.Name}}"] = s.{{.Name | camel}}
+	}
+{{- else if eq .GoType "map[string]string"}}
+	if len(s.{{.Name | camel}}) > 0 {
+		m["{{.Name}}"] = s.{{.Name | camel}}
+	}
+{{- else}}
+	// Unsupported type {{.GoType}}
+{{- end}}
+{{end}}
+	return m
+}
+
+{{- else}}
+{{- /* Backwards compatibility: single Spec struct when no registry */}}
 // Spec contains the configuration for this engine.
 // These fields are populated from the 'spec' field in forge.yaml.
 type Spec struct {
@@ -160,3 +594,4 @@ func (s *Spec) ToMap() map[string]interface{} {
 {{end}}
 	return m
 }
+{{end}}

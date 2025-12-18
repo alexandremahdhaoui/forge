@@ -4,10 +4,203 @@
 
 package {{.PackageName}}
 
+{{if .Types}}
+import (
+{{- if .NeedsFmtImport}}
+	"fmt"
+{{- end}}
+
+	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
+)
+{{- else}}
 import (
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 )
+{{- end}}
 
+{{if .Types}}
+{{- /* New multi-type validation path using ForgeTypeDefinition and forge* functions */}}
+{{- range .Types}}
+{{- if not (isTypeEnum .)}}
+{{- if not (isUnion .)}}
+// Validate{{.Name}} validates a {{.Name}} and returns validation results.
+// It checks required fields and validates enum values.
+func Validate{{.Name}}(s *{{.Name}}) *mcptypes.ConfigValidateOutput {
+	if s == nil {
+		return &mcptypes.ConfigValidateOutput{
+			Valid: true,
+		}
+	}
+
+	var errors []mcptypes.ValidationError
+{{- range .Properties}}
+{{- if .Required}}
+{{- if eq (forgeGoType .) "string"}}
+	// Validate required field: {{.JsonName}}
+	if s.{{.Name}} == "" {
+		errors = append(errors, mcptypes.ValidationError{
+			Field:   "spec.{{.JsonName}}",
+			Message: "required field is missing",
+		})
+	}
+{{- else if eq (forgeGoType .) "[]string"}}
+	// Validate required field: {{.JsonName}}
+	if len(s.{{.Name}}) == 0 {
+		errors = append(errors, mcptypes.ValidationError{
+			Field:   "spec.{{.JsonName}}",
+			Message: "required field is missing or empty",
+		})
+	}
+{{- else if eq (forgeGoType .) "map[string]string"}}
+	// Validate required field: {{.JsonName}}
+	if len(s.{{.Name}}) == 0 {
+		errors = append(errors, mcptypes.ValidationError{
+			Field:   "spec.{{.JsonName}}",
+			Message: "required field is missing or empty",
+		})
+	}
+{{- else if forgeIsRef .}}
+	// Validate required reference field: {{.JsonName}}
+{{- if forgeUsePointer .}}
+	if s.{{.Name}} == nil {
+		errors = append(errors, mcptypes.ValidationError{
+			Field:   "spec.{{.JsonName}}",
+			Message: "required field is missing",
+		})
+	}
+{{- end}}
+{{- else if forgeIsArrayRef .}}
+	// Validate required array of references: {{.JsonName}}
+	if len(s.{{.Name}}) == 0 {
+		errors = append(errors, mcptypes.ValidationError{
+			Field:   "spec.{{.JsonName}}",
+			Message: "required field is missing or empty",
+		})
+	}
+{{- else if forgeIsArray .}}
+	// Validate required array field: {{.JsonName}}
+	if len(s.{{.Name}}) == 0 {
+		errors = append(errors, mcptypes.ValidationError{
+			Field:   "spec.{{.JsonName}}",
+			Message: "required field is missing or empty",
+		})
+	}
+{{- else if forgeIsMap .}}
+	// Validate required map field: {{.JsonName}}
+	if len(s.{{.Name}}) == 0 {
+		errors = append(errors, mcptypes.ValidationError{
+			Field:   "spec.{{.JsonName}}",
+			Message: "required field is missing or empty",
+		})
+	}
+{{- end}}
+{{- end}}
+{{- if forgeIsEnum .}}
+	// Validate enum field: {{.JsonName}}
+	if s.{{.Name}} != "" {
+		validValues := []string{ {{- range $i, $v := forgeEnumValues .}}{{if $i}}, {{end}}"{{$v}}"{{end -}} }
+		valid := false
+		for _, v := range validValues {
+			if s.{{.Name}} == v {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			errors = append(errors, mcptypes.ValidationError{
+				Field:   "spec.{{.JsonName}}",
+				Message: "must be one of: {{range $i, $v := forgeEnumValues .}}{{if $i}}, {{end}}{{$v}}{{end}}",
+			})
+		}
+	}
+{{- end}}
+{{- if forgeIsRef .}}
+	// Validate nested reference: {{.JsonName}}
+{{- if forgeUsePointer .}}
+	if s.{{.Name}} != nil {
+		nestedResult := Validate{{forgeRefType .}}(s.{{.Name}})
+		if !nestedResult.Valid {
+			for _, e := range nestedResult.Errors {
+				errors = append(errors, mcptypes.ValidationError{
+					Field:   "spec.{{.JsonName}}." + e.Field,
+					Message: e.Message,
+				})
+			}
+		}
+	}
+{{- else}}
+	{
+		nested := s.{{.Name}}
+		nestedResult := Validate{{forgeRefType .}}(&nested)
+		if !nestedResult.Valid {
+			for _, e := range nestedResult.Errors {
+				errors = append(errors, mcptypes.ValidationError{
+					Field:   "spec.{{.JsonName}}." + e.Field,
+					Message: e.Message,
+				})
+			}
+		}
+	}
+{{- end}}
+{{- end}}
+{{- if forgeIsArrayRef .}}
+	// Validate array of references: {{.JsonName}}
+	for i, item := range s.{{.Name}} {
+		nestedResult := Validate{{forgeArrayRefType .}}(&item)
+		if !nestedResult.Valid {
+			for _, e := range nestedResult.Errors {
+				errors = append(errors, mcptypes.ValidationError{
+					Field:   fmt.Sprintf("spec.{{.JsonName}}[%d].%s", i, e.Field),
+					Message: e.Message,
+				})
+			}
+		}
+	}
+{{- end}}
+{{- end}}
+
+	if len(errors) > 0 {
+		return &mcptypes.ConfigValidateOutput{
+			Valid:  false,
+			Errors: errors,
+		}
+	}
+
+	return &mcptypes.ConfigValidateOutput{
+		Valid: true,
+	}
+}
+{{- end}}
+{{- end}}
+
+{{end}}
+// Validate validates a Spec and returns validation results.
+// This is the main entry point for validation.
+func Validate(s *Spec) *mcptypes.ConfigValidateOutput {
+	return ValidateSpec(s)
+}
+
+// ValidateMap validates a map[string]interface{} by first parsing it to a Spec.
+// This is a convenience function for validating spec data from forge.yaml.
+func ValidateMap(m map[string]interface{}) *mcptypes.ConfigValidateOutput {
+	s, err := FromMap(m)
+	if err != nil {
+		return &mcptypes.ConfigValidateOutput{
+			Valid: false,
+			Errors: []mcptypes.ValidationError{
+				{
+					Field:   "spec",
+					Message: err.Error(),
+				},
+			},
+		}
+	}
+
+	return Validate(s)
+}
+
+{{- else}}
+{{- /* Existing validation path for simple Spec - unchanged */}}
 // Validate validates a Spec and returns validation results.
 // It checks required fields and validates enum values.
 func Validate(s *Spec) *mcptypes.ConfigValidateOutput {
@@ -97,3 +290,4 @@ func ValidateMap(m map[string]interface{}) *mcptypes.ConfigValidateOutput {
 
 	return Validate(s)
 }
+{{- end}}
