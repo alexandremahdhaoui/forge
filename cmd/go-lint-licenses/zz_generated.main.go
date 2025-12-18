@@ -17,8 +17,10 @@ import (
 const Name = "go-lint-licenses"
 
 // Version information (set via ldflags during build).
+// Default is "dev" so GetEffectiveVersion() reads actual version from Go's debug.ReadBuildInfo()
+// when running via "go run module@version".
 var (
-	Version        = "0.15.0"
+	Version        = "dev"
 	CommitSHA      = "unknown"
 	BuildTimestamp = "unknown"
 )

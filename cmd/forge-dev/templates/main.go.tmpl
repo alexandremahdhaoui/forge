@@ -29,8 +29,10 @@ import (
 const Name = "{{.EngineName}}"
 
 // Version information (set via ldflags during build).
+// Default is "dev" so GetEffectiveVersion() reads actual version from Go's debug.ReadBuildInfo()
+// when running via "go run module@version".
 var (
-	Version        = "{{.Version}}"
+	Version        = "dev"
 	CommitSHA      = "unknown"
 	BuildTimestamp = "unknown"
 )
