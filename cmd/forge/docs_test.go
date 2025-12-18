@@ -607,7 +607,10 @@ func TestDiscoverEngineDocs(t *testing.T) {
 			t.Fatalf("Failed to create forge dir: %v", err)
 		}
 
-		engines, err := discoverEngineDocs()
+		// Set local mode for testing
+		t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
+
+		engines, _, err := discoverEngineDocs()
 		if err != nil {
 			t.Fatalf("discoverEngineDocs failed: %v", err)
 		}
@@ -647,7 +650,10 @@ func TestDiscoverEngineDocs(t *testing.T) {
 			t.Fatalf("Failed to create engine2 dir: %v", err)
 		}
 
-		engines, err := discoverEngineDocs()
+		// Set local mode for testing
+		t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
+
+		engines, _, err := discoverEngineDocs()
 		if err != nil {
 			t.Fatalf("discoverEngineDocs failed: %v", err)
 		}
@@ -656,11 +662,14 @@ func TestDiscoverEngineDocs(t *testing.T) {
 		}
 	})
 
-	t.Run("returns error when cmd directory does not exist", func(t *testing.T) {
+	t.Run("returns error when cmd directory does not exist in local mode", func(t *testing.T) {
 		_, cleanup := setupTestProject(t)
 		defer cleanup()
 
-		_, err := discoverEngineDocs()
+		// Set local mode for testing - should error when cmd doesn't exist
+		t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
+
+		_, _, err := discoverEngineDocs()
 		if err == nil {
 			t.Error("Expected error when cmd directory doesn't exist, got nil")
 		}
@@ -796,12 +805,15 @@ func TestGetEngineDoc(t *testing.T) {
 			t.Fatalf("Failed to create cmd dir: %v", err)
 		}
 
+		// Set local mode for testing
+		t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
+
 		_, err := getEngineDoc("nonexistent", "usage")
 		if err == nil {
 			t.Error("Expected error for non-existent engine, got nil")
 		}
-		if !strings.Contains(err.Error(), "not found or has no docs") {
-			t.Errorf("Expected 'not found or has no docs' error, got: %v", err)
+		if !strings.Contains(err.Error(), "nonexistent") || !strings.Contains(err.Error(), "not found") {
+			t.Errorf("Expected error mentioning 'nonexistent' and 'not found', got: %v", err)
 		}
 	})
 
@@ -1034,12 +1046,15 @@ func TestListDocsByEngine(t *testing.T) {
 			t.Fatalf("Failed to create cmd dir: %v", err)
 		}
 
+		// Set local mode for testing
+		t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
+
 		_, err := listDocsByEngine("nonexistent")
 		if err == nil {
 			t.Error("Expected error for unknown engine, got nil")
 		}
-		if !strings.Contains(err.Error(), "not found or has no docs") {
-			t.Errorf("Expected 'not found or has no docs' error, got: %v", err)
+		if !strings.Contains(err.Error(), "nonexistent") || !strings.Contains(err.Error(), "not found") {
+			t.Errorf("Expected error mentioning 'nonexistent' and 'not found', got: %v", err)
 		}
 	})
 

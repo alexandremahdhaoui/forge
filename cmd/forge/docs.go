@@ -33,9 +33,11 @@ const (
 )
 
 const (
-	docsListURL   = "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main/docs/docs-list.yaml"
-	localDocsList = "docs/docs-list.yaml"
-	localDocsDir  = "docs"
+	docsListURL      = "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main/docs/docs-list.yaml"
+	localDocsList    = "docs/docs-list.yaml"
+	localDocsDir     = "docs"
+	enginesListURL   = "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main/docs/engines-list.yaml"
+	localEnginesList = "docs/engines-list.yaml"
 )
 
 // DocStore represents the docs-list.yaml structure
@@ -52,6 +54,19 @@ type DocEntry struct {
 	Description string   `yaml:"description"`
 	URL         string   `yaml:"url"`
 	Tags        []string `yaml:"tags"`
+}
+
+// EnginesStore represents the engines registry (docs/engines-list.yaml)
+type EnginesStore struct {
+	Version string        `yaml:"version" json:"version"`
+	BaseURL string        `yaml:"baseURL" json:"baseURL"`
+	Engines []EngineEntry `yaml:"engines" json:"engines"`
+}
+
+// EngineEntry represents a single engine in the registry
+type EngineEntry struct {
+	Name string `yaml:"name" json:"name"`
+	Path string `yaml:"path" json:"path"`
 }
 
 // Engine represents an engine with documentation
@@ -219,6 +234,65 @@ func fetchDocsStore() (*DocStore, error) {
 	return &store, nil
 }
 
+// fetchEnginesStore fetches the engines registry from local file or HTTP.
+// When FORGE_RUN_LOCAL_ENABLED is set, it tries local first.
+// Otherwise, it fetches from HTTP (the default for users outside the repo).
+func fetchEnginesStore() (*EnginesStore, error) {
+	var data []byte
+	var err error
+
+	// Check if we should use local mode
+	if os.Getenv("FORGE_RUN_LOCAL_ENABLED") == "true" {
+		data, err = os.ReadFile(localEnginesList)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read local engines list (FORGE_RUN_LOCAL_ENABLED=true): %w", err)
+		}
+	} else {
+		// Default: fetch from HTTP
+		content, fetchErr := fetchURL(enginesListURL)
+		if fetchErr != nil {
+			return nil, fmt.Errorf("failed to fetch engines list from %s: %w", enginesListURL, fetchErr)
+		}
+		data = []byte(content)
+	}
+
+	var store EnginesStore
+	if err := yaml.Unmarshal(data, &store); err != nil {
+		return nil, fmt.Errorf("failed to parse engines list: %w", err)
+	}
+
+	return &store, nil
+}
+
+// fetchEngineDocStore fetches a specific engine's doc store via HTTP.
+func fetchEngineDocStore(engineName string, enginesStore *EnginesStore) (*enginedocs.DocStore, error) {
+	// Find engine in the store
+	var enginePath string
+	for _, engine := range enginesStore.Engines {
+		if engine.Name == engineName {
+			enginePath = engine.Path
+			break
+		}
+	}
+	if enginePath == "" {
+		return nil, fmt.Errorf("engine %q not found in engines registry", engineName)
+	}
+
+	// Construct URL and fetch
+	url := enginesStore.BaseURL + "/" + enginePath + "/docs/list.yaml"
+	content, err := fetchURL(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch engine docs from %s: %w", url, err)
+	}
+
+	var store enginedocs.DocStore
+	if err := yaml.Unmarshal([]byte(content), &store); err != nil {
+		return nil, fmt.Errorf("failed to parse engine docs: %w", err)
+	}
+
+	return &store, nil
+}
+
 // AggregatedDocEntry extends DocEntry with engine information
 type AggregatedDocEntry struct {
 	DocEntry
@@ -238,33 +312,48 @@ type AggregationError struct {
 	Error  string `json:"error"`
 }
 
-// discoverEngineDocs finds all engine directories that have docs/list.yaml
-func discoverEngineDocs() ([]string, error) {
-	var engines []string
+// discoverEngineDocs finds all engine directories that have docs/list.yaml.
+// Returns (paths, nil, nil) when in local mode (FORGE_RUN_LOCAL_ENABLED=true).
+// Returns (paths, enginesStore, nil) when in HTTP mode (default).
+func discoverEngineDocs() ([]string, *EnginesStore, error) {
+	// Check if local mode is enabled
+	if os.Getenv("FORGE_RUN_LOCAL_ENABLED") == "true" {
+		// LOCAL MODE: scan cmd/ directory (existing logic)
+		entries, err := os.ReadDir("cmd")
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to read cmd directory: %w", err)
+		}
 
-	// Look for cmd/*/docs/list.yaml
-	entries, err := os.ReadDir("cmd")
+		var engines []string
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			// Skip forge itself (it has global docs)
+			if entry.Name() == "forge" {
+				continue
+			}
+
+			listPath := filepath.Join("cmd", entry.Name(), "docs", "list.yaml")
+			if _, err := os.Stat(listPath); err == nil {
+				engines = append(engines, filepath.Join("cmd", entry.Name()))
+			}
+		}
+		return engines, nil, nil
+	}
+
+	// HTTP MODE (default): fetch from engines-list.yaml
+	enginesStore, err := fetchEnginesStore()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read cmd directory: %w", err)
+		return nil, nil, err
 	}
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		// Skip forge itself (it has global docs)
-		if entry.Name() == "forge" {
-			continue
-		}
-
-		listPath := filepath.Join("cmd", entry.Name(), "docs", "list.yaml")
-		if _, err := os.Stat(listPath); err == nil {
-			engines = append(engines, filepath.Join("cmd", entry.Name()))
-		}
+	var engines []string
+	for _, engine := range enginesStore.Engines {
+		engines = append(engines, engine.Path)
 	}
-
-	return engines, nil
+	return engines, enginesStore, nil
 }
 
 // listEngines returns all engines with documentation and their doc counts
@@ -282,7 +371,7 @@ func listEngines() ([]Engine, error) {
 	}
 
 	// Discover engine directories with docs
-	engineDirs, err := discoverEngineDocs()
+	engineDirs, enginesStore, err := discoverEngineDocs()
 	if err != nil {
 		// If no engines found but we have global docs, that's okay
 		if len(engines) > 0 {
@@ -298,6 +387,16 @@ func listEngines() ([]Engine, error) {
 
 		content, err := os.ReadFile(listPath)
 		if err != nil {
+			// If local read fails and we have enginesStore, try remote
+			if enginesStore != nil {
+				store, fetchErr := fetchEngineDocStore(engineName, enginesStore)
+				if fetchErr == nil {
+					engines = append(engines, Engine{
+						Name:     engineName,
+						DocCount: len(store.Docs),
+					})
+				}
+			}
 			continue // Skip engines that fail to load
 		}
 
@@ -349,7 +448,29 @@ func listDocsByEngine(engineName string) ([]EngineDoc, error) {
 	listPath := filepath.Join("cmd", engineName, "docs", "list.yaml")
 	content, err := os.ReadFile(listPath)
 	if err != nil {
-		return nil, fmt.Errorf("engine '%s' not found or has no docs: %w", engineName, err)
+		// Local read failed, try remote fetching
+		enginesStore, fetchErr := fetchEnginesStore()
+		if fetchErr != nil {
+			return nil, fmt.Errorf("engine '%s' not found (local: %v, remote: %v)", engineName, err, fetchErr)
+		}
+
+		store, fetchErr := fetchEngineDocStore(engineName, enginesStore)
+		if fetchErr != nil {
+			return nil, fmt.Errorf("engine '%s' not found or has no docs: %w", engineName, fetchErr)
+		}
+
+		var docs []EngineDoc
+		for _, doc := range store.Docs {
+			docs = append(docs, EngineDoc{
+				Engine:      engineName,
+				Name:        doc.Name,
+				Title:       doc.Title,
+				Description: doc.Description,
+				Path:        doc.URL,
+				Tags:        doc.Tags,
+			})
+		}
+		return docs, nil
 	}
 
 	var store enginedocs.DocStore
@@ -393,7 +514,7 @@ func listAllDocs() ([]EngineDoc, error) {
 	}
 
 	// Discover and load engine docs
-	engineDirs, err := discoverEngineDocs()
+	engineDirs, enginesStore, err := discoverEngineDocs()
 	if err != nil {
 		// If no engines found but we have global docs, return those
 		if len(allDocs) > 0 {
@@ -408,6 +529,22 @@ func listAllDocs() ([]EngineDoc, error) {
 
 		content, err := os.ReadFile(listPath)
 		if err != nil {
+			// If local read fails and we have enginesStore, try remote
+			if enginesStore != nil {
+				store, fetchErr := fetchEngineDocStore(engineName, enginesStore)
+				if fetchErr == nil {
+					for _, doc := range store.Docs {
+						allDocs = append(allDocs, EngineDoc{
+							Engine:      engineName,
+							Name:        doc.Name,
+							Title:       doc.Title,
+							Description: doc.Description,
+							Path:        doc.URL,
+							Tags:        doc.Tags,
+						})
+					}
+				}
+			}
 			continue
 		}
 
@@ -579,14 +716,29 @@ func aggregatedDocsGet(name string) (string, error) {
 func getEngineDoc(engineName, docName string) (string, error) {
 	listPath := filepath.Join("cmd", engineName, "docs", "list.yaml")
 
+	var store *enginedocs.DocStore
+	var remoteBaseURL string // Used for constructing doc content URL in remote mode
+
 	content, err := os.ReadFile(listPath)
 	if err != nil {
-		return "", fmt.Errorf("engine '%s' not found or has no docs: %w", engineName, err)
-	}
+		// Local read failed, try remote fetching
+		enginesStore, fetchErr := fetchEnginesStore()
+		if fetchErr != nil {
+			return "", fmt.Errorf("engine '%s' not found (local: %v, remote: %v)", engineName, err, fetchErr)
+		}
 
-	var store enginedocs.DocStore
-	if err := yaml.Unmarshal(content, &store); err != nil {
-		return "", fmt.Errorf("failed to parse list.yaml for engine '%s': %w", engineName, err)
+		remoteStore, fetchErr := fetchEngineDocStore(engineName, enginesStore)
+		if fetchErr != nil {
+			return "", fmt.Errorf("engine '%s' not found or has no docs: %w", engineName, fetchErr)
+		}
+		store = remoteStore
+		remoteBaseURL = enginesStore.BaseURL // Use enginesStore.BaseURL for doc content
+	} else {
+		var localStore enginedocs.DocStore
+		if err := yaml.Unmarshal(content, &localStore); err != nil {
+			return "", fmt.Errorf("failed to parse list.yaml for engine '%s': %w", engineName, err)
+		}
+		store = &localStore
 	}
 
 	// Find the document
@@ -607,9 +759,15 @@ func getEngineDoc(engineName, docName string) (string, error) {
 		return string(docContent), nil
 	}
 
-	// Fall back to remote URL if BaseURL is set
-	if store.BaseURL != "" {
-		docURL := store.BaseURL + "/" + doc.URL
+	// Fall back to remote URL
+	// Priority: 1) store.BaseURL (from engine's list.yaml), 2) remoteBaseURL (from enginesStore)
+	baseURL := store.BaseURL
+	if baseURL == "" && remoteBaseURL != "" {
+		baseURL = remoteBaseURL
+	}
+
+	if baseURL != "" {
+		docURL := baseURL + "/" + doc.URL
 		return fetchURL(docURL)
 	}
 

@@ -1,0 +1,55 @@
+version: "1.0"
+baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+engines:
+  - name: ci-orchestrator
+    path: cmd/ci-orchestrator
+  - name: container-build
+    path: cmd/container-build
+  - name: forge-e2e
+    path: cmd/forge-e2e
+  - name: generic-builder
+    path: cmd/generic-builder
+  - name: generic-test-runner
+    path: cmd/generic-test-runner
+  - name: go-build
+    path: cmd/go-build
+  - name: go-dependency-detector
+    path: cmd/go-dependency-detector
+  - name: go-format
+    path: cmd/go-format
+  - name: go-gen-bpf
+    path: cmd/go-gen-bpf
+  - name: go-gen-mocks
+    path: cmd/go-gen-mocks
+  - name: go-gen-mocks-dep-detector
+    path: cmd/go-gen-mocks-dep-detector
+  - name: go-gen-openapi
+    path: cmd/go-gen-openapi
+  - name: go-gen-openapi-dep-detector
+    path: cmd/go-gen-openapi-dep-detector
+  - name: go-gen-protobuf
+    path: cmd/go-gen-protobuf
+  - name: go-lint
+    path: cmd/go-lint
+  - name: go-lint-licenses
+    path: cmd/go-lint-licenses
+  - name: go-lint-tags
+    path: cmd/go-lint-tags
+  - name: go-test
+    path: cmd/go-test
+  - name: parallel-builder
+    path: cmd/parallel-builder
+  - name: parallel-test-runner
+    path: cmd/parallel-test-runner
+  - name: test-report
+    path: cmd/test-report
+  - name: testenv
+    path: cmd/testenv
+  - name: testenv-helm-install
+    path: cmd/testenv-helm-install
+  - name: testenv-kind
+    path: cmd/testenv-kind
+  - name: testenv-lcr
+    path: cmd/testenv-lcr
+  - name: testenv-stub
+    path: cmd/testenv-stub
