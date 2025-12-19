@@ -137,6 +137,67 @@ generate:
 		}
 	})
 
+	t.Run("config with specTypes enabled", func(t *testing.T) {
+		dir := t.TempDir()
+		configContent := `name: my-engine
+type: builder
+version: 0.15.0
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main
+  specTypes:
+    enabled: true
+    outputPath: pkg/api/v1
+    packageName: v1
+`
+		if err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte(configContent), 0o644); err != nil {
+			t.Fatalf("failed to write config file: %v", err)
+		}
+
+		config, err := ReadConfig(dir)
+		if err != nil {
+			t.Fatalf("ReadConfig failed: %v", err)
+		}
+
+		if config.Generate.SpecTypes == nil {
+			t.Fatal("SpecTypes should not be nil")
+		}
+		if !config.Generate.SpecTypes.Enabled {
+			t.Error("SpecTypes.Enabled should be true")
+		}
+		if config.Generate.SpecTypes.OutputPath != "pkg/api/v1" {
+			t.Errorf("SpecTypes.OutputPath = %q, want %q", config.Generate.SpecTypes.OutputPath, "pkg/api/v1")
+		}
+		if config.Generate.SpecTypes.PackageName != "v1" {
+			t.Errorf("SpecTypes.PackageName = %q, want %q", config.Generate.SpecTypes.PackageName, "v1")
+		}
+	})
+
+	t.Run("config without specTypes - backward compatible", func(t *testing.T) {
+		dir := t.TempDir()
+		configContent := `name: go-build
+type: builder
+version: 0.15.0
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main
+`
+		if err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte(configContent), 0o644); err != nil {
+			t.Fatalf("failed to write config file: %v", err)
+		}
+
+		config, err := ReadConfig(dir)
+		if err != nil {
+			t.Fatalf("ReadConfig failed: %v", err)
+		}
+
+		if config.Generate.SpecTypes != nil {
+			t.Error("SpecTypes should be nil for legacy config")
+		}
+	})
+
 	t.Run("missing file", func(t *testing.T) {
 		dir := t.TempDir()
 
@@ -442,6 +503,223 @@ func TestValidateConfig(t *testing.T) {
 		errors := ValidateConfig(config)
 		if len(errors) < 4 {
 			t.Errorf("Expected at least 4 errors for empty config, got %d", len(errors))
+		}
+	})
+
+	// SpecTypes validation tests
+	t.Run("specTypes enabled with missing outputPath", func(t *testing.T) {
+		config := &Config{
+			Name:    "go-build",
+			Type:    EngineTypeBuilder,
+			Version: "0.15.0",
+			OpenAPI: OpenAPIConfig{
+				SpecPath: "./spec.openapi.yaml",
+			},
+			Generate: GenerateConfig{
+				PackageName: "main",
+				SpecTypes: &SpecTypesConfig{
+					Enabled:     true,
+					PackageName: "v1",
+				},
+			},
+		}
+
+		errors := ValidateConfig(config)
+		if !hasErrorForField(errors, "generate.specTypes.outputPath") {
+			t.Error("Expected error for missing outputPath when specTypes.enabled is true")
+		}
+	})
+
+	t.Run("specTypes enabled with missing packageName", func(t *testing.T) {
+		config := &Config{
+			Name:    "go-build",
+			Type:    EngineTypeBuilder,
+			Version: "0.15.0",
+			OpenAPI: OpenAPIConfig{
+				SpecPath: "./spec.openapi.yaml",
+			},
+			Generate: GenerateConfig{
+				PackageName: "main",
+				SpecTypes: &SpecTypesConfig{
+					Enabled:    true,
+					OutputPath: "pkg/api/v1",
+				},
+			},
+		}
+
+		errors := ValidateConfig(config)
+		if !hasErrorForField(errors, "generate.specTypes.packageName") {
+			t.Error("Expected error for missing packageName when specTypes.enabled is true")
+		}
+	})
+
+	t.Run("specTypes enabled with invalid packageName", func(t *testing.T) {
+		config := &Config{
+			Name:    "go-build",
+			Type:    EngineTypeBuilder,
+			Version: "0.15.0",
+			OpenAPI: OpenAPIConfig{
+				SpecPath: "./spec.openapi.yaml",
+			},
+			Generate: GenerateConfig{
+				PackageName: "main",
+				SpecTypes: &SpecTypesConfig{
+					Enabled:     true,
+					OutputPath:  "pkg/api/v1",
+					PackageName: "V1", // Invalid: uppercase
+				},
+			},
+		}
+
+		errors := ValidateConfig(config)
+		if !hasErrorForField(errors, "generate.specTypes.packageName") {
+			t.Error("Expected error for invalid packageName")
+		}
+	})
+
+	t.Run("specTypes enabled with absolute outputPath", func(t *testing.T) {
+		config := &Config{
+			Name:    "go-build",
+			Type:    EngineTypeBuilder,
+			Version: "0.15.0",
+			OpenAPI: OpenAPIConfig{
+				SpecPath: "./spec.openapi.yaml",
+			},
+			Generate: GenerateConfig{
+				PackageName: "main",
+				SpecTypes: &SpecTypesConfig{
+					Enabled:     true,
+					OutputPath:  "/absolute/path/to/pkg",
+					PackageName: "v1",
+				},
+			},
+		}
+
+		errors := ValidateConfig(config)
+		if !hasErrorForField(errors, "generate.specTypes.outputPath") {
+			t.Error("Expected error for absolute outputPath")
+		}
+	})
+
+	t.Run("specTypes enabled with escaping outputPath", func(t *testing.T) {
+		config := &Config{
+			Name:    "go-build",
+			Type:    EngineTypeBuilder,
+			Version: "0.15.0",
+			OpenAPI: OpenAPIConfig{
+				SpecPath: "./spec.openapi.yaml",
+			},
+			Generate: GenerateConfig{
+				PackageName: "main",
+				SpecTypes: &SpecTypesConfig{
+					Enabled:     true,
+					OutputPath:  "../foo",
+					PackageName: "v1",
+				},
+			},
+		}
+
+		errors := ValidateConfig(config)
+		if !hasErrorForField(errors, "generate.specTypes.outputPath") {
+			t.Error("Expected error for escaping outputPath")
+		}
+	})
+
+	t.Run("specTypes enabled with current directory outputPath", func(t *testing.T) {
+		config := &Config{
+			Name:    "go-build",
+			Type:    EngineTypeBuilder,
+			Version: "0.15.0",
+			OpenAPI: OpenAPIConfig{
+				SpecPath: "./spec.openapi.yaml",
+			},
+			Generate: GenerateConfig{
+				PackageName: "main",
+				SpecTypes: &SpecTypesConfig{
+					Enabled:     true,
+					OutputPath:  ".",
+					PackageName: "v1",
+				},
+			},
+		}
+
+		errors := ValidateConfig(config)
+		if !hasErrorForField(errors, "generate.specTypes.outputPath") {
+			t.Error("Expected error for current directory outputPath")
+		}
+	})
+
+	t.Run("specTypes enabled with valid config", func(t *testing.T) {
+		config := &Config{
+			Name:    "go-build",
+			Type:    EngineTypeBuilder,
+			Version: "0.15.0",
+			OpenAPI: OpenAPIConfig{
+				SpecPath: "./spec.openapi.yaml",
+			},
+			Generate: GenerateConfig{
+				PackageName: "main",
+				SpecTypes: &SpecTypesConfig{
+					Enabled:     true,
+					OutputPath:  "pkg/api/v1",
+					PackageName: "v1",
+				},
+			},
+		}
+
+		errors := ValidateConfig(config)
+		// Should have no specTypes-related errors
+		if hasErrorForField(errors, "generate.specTypes.outputPath") {
+			t.Error("Unexpected error for valid outputPath")
+		}
+		if hasErrorForField(errors, "generate.specTypes.packageName") {
+			t.Error("Unexpected error for valid packageName")
+		}
+		if len(errors) > 0 {
+			t.Errorf("ValidateConfig returned errors for valid config: %v", errors)
+		}
+	})
+
+	t.Run("specTypes disabled - no validation", func(t *testing.T) {
+		config := &Config{
+			Name:    "go-build",
+			Type:    EngineTypeBuilder,
+			Version: "0.15.0",
+			OpenAPI: OpenAPIConfig{
+				SpecPath: "./spec.openapi.yaml",
+			},
+			Generate: GenerateConfig{
+				PackageName: "main",
+				SpecTypes: &SpecTypesConfig{
+					Enabled: false,
+					// Missing outputPath and packageName, but should be OK since enabled=false
+				},
+			},
+		}
+
+		errors := ValidateConfig(config)
+		if len(errors) > 0 {
+			t.Errorf("ValidateConfig returned errors for disabled specTypes: %v", errors)
+		}
+	})
+
+	t.Run("specTypes nil - backward compatible", func(t *testing.T) {
+		config := &Config{
+			Name:    "go-build",
+			Type:    EngineTypeBuilder,
+			Version: "0.15.0",
+			OpenAPI: OpenAPIConfig{
+				SpecPath: "./spec.openapi.yaml",
+			},
+			Generate: GenerateConfig{
+				PackageName: "main",
+				// SpecTypes is nil
+			},
+		}
+
+		errors := ValidateConfig(config)
+		if len(errors) > 0 {
+			t.Errorf("ValidateConfig returned errors for nil specTypes: %v", errors)
 		}
 	})
 }

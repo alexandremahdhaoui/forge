@@ -37,6 +37,8 @@ type ValidateTemplateData struct {
 	MainType string
 	// NeedsFmtImport indicates if the generated code needs the fmt import.
 	NeedsFmtImport bool
+	// SpecTypesContext holds external spec types info (nil when disabled).
+	SpecTypesContext *SpecTypesContext
 }
 
 // GenerateValidateFile generates the zz_generated.validate.go file content.

@@ -14,11 +14,14 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+{{- if .SpecTypesContext}}
+	{{.SpecTypesContext.PackageName}} "{{.SpecTypesContext.ImportPath}}"
+{{- end}}
 )
 
 // BuildFunc is the signature for the build operation with typed Spec.
 // This is the function that engine authors implement.
-type BuildFunc func(ctx context.Context, input mcptypes.BuildInput, s *Spec) (*forge.Artifact, error)
+type BuildFunc func(ctx context.Context, input mcptypes.BuildInput, s *{{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}Spec) (*forge.Artifact, error)
 
 // SetupMCPServer creates and configures the MCP server with all required tools.
 // It registers build, buildBatch, and config-validate tools.
@@ -49,7 +52,7 @@ func SetupMCPServer(name string, version string, buildFn BuildFunc) (*mcpserver.
 func wrapBuildFunc(fn BuildFunc) engineframework.BuilderFunc {
 	return func(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, error) {
 		// Parse Spec from input
-		spec, err := FromMap(input.Spec)
+		spec, err := {{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}FromMap(input.Spec)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse spec: %w", err)
 		}

@@ -13,16 +13,19 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+{{- if .SpecTypesContext}}
+	{{.SpecTypesContext.PackageName}} "{{.SpecTypesContext.ImportPath}}"
+{{- end}}
 )
 
 // CreateFunc is the signature for the create operation with typed Spec.
 // This is the function that engine authors implement.
-type CreateFunc func(ctx context.Context, input engineframework.CreateInput, s *Spec) (*engineframework.TestEnvArtifact, error)
+type CreateFunc func(ctx context.Context, input engineframework.CreateInput, s *{{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}Spec) (*engineframework.TestEnvArtifact, error)
 
 // DeleteFunc is the signature for the delete operation with typed Spec.
 // This is the function that engine authors implement.
 // Note: Spec may be nil for delete operations if metadata is sufficient.
-type DeleteFunc func(ctx context.Context, input engineframework.DeleteInput, s *Spec) error
+type DeleteFunc func(ctx context.Context, input engineframework.DeleteInput, s *{{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}Spec) error
 
 // SetupMCPServer creates and configures the MCP server with all required tools.
 // It registers create, delete, and config-validate tools.
@@ -55,7 +58,7 @@ func wrapCreateFunc(fn CreateFunc) engineframework.CreateFunc {
 	return func(ctx context.Context, input engineframework.CreateInput) (*engineframework.TestEnvArtifact, error) {
 		// Parse Spec from input
 		// CreateInput.Spec is map[string]any (same as map[string]interface{})
-		spec, err := FromMap(input.Spec)
+		spec, err := {{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}FromMap(input.Spec)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse spec: %w", err)
 		}
@@ -85,7 +88,7 @@ func wrapDeleteFunc(fn DeleteFunc) engineframework.DeleteFunc {
 		// We pass nil Spec to the typed function.
 		// If an engine needs Spec during delete, it should store relevant data
 		// in Metadata during create.
-		var spec *Spec
+		var spec *{{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}Spec
 
 		// Call the typed delete function with nil spec
 		return fn(ctx, input, spec)

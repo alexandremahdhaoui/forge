@@ -42,6 +42,8 @@ type SpecTemplateData struct {
 	Types []ForgeTypeDefinition
 	// MainType is the name of the main entry point type (always "Spec").
 	MainType string
+	// SpecTypesContext holds external spec types info (nil when disabled).
+	SpecTypesContext *SpecTypesContext
 }
 
 // GenerateSpecFile generates the zz_generated.spec.go file content.
@@ -125,15 +127,22 @@ func needsFmtImport(properties []PropertySchema) bool {
 
 // GenerateSpecFileFromTypes generates the zz_generated.spec.go file content using ForgeTypeDefinition.
 // This is the new generation path that uses kin-openapi-based types.
-func GenerateSpecFileFromTypes(types []ForgeTypeDefinition, config *Config, checksum string) ([]byte, error) {
+func GenerateSpecFileFromTypes(types []ForgeTypeDefinition, config *Config, checksum string, specTypesCtx *SpecTypesContext) ([]byte, error) {
+	// Determine package name: use specTypesCtx.PackageName when enabled, otherwise config.Generate.PackageName
+	packageName := config.Generate.PackageName
+	if specTypesCtx != nil {
+		packageName = specTypesCtx.PackageName
+	}
+
 	// Prepare template data
 	data := SpecTemplateData{
-		PackageName:    config.Generate.PackageName,
-		ChecksumHeader: ChecksumHeader(checksum),
-		EngineName:     config.Name,
-		Types:          types,
-		MainType:       "Spec",
-		NeedsFmtImport: needsFmtImportForTypes(types),
+		PackageName:      packageName,
+		ChecksumHeader:   ChecksumHeader(checksum),
+		EngineName:       config.Name,
+		Types:            types,
+		MainType:         "Spec",
+		NeedsFmtImport:   needsFmtImportForTypes(types),
+		SpecTypesContext: specTypesCtx,
 	}
 
 	// Parse and execute template
@@ -159,15 +168,18 @@ func GenerateSpecFileFromTypes(types []ForgeTypeDefinition, config *Config, chec
 
 // GenerateValidateFileFromTypes generates the zz_generated.validate.go file content using ForgeTypeDefinition.
 // This is the new generation path that uses kin-openapi-based types.
-func GenerateValidateFileFromTypes(types []ForgeTypeDefinition, config *Config, checksum string) ([]byte, error) {
+func GenerateValidateFileFromTypes(types []ForgeTypeDefinition, config *Config, checksum string, specTypesCtx *SpecTypesContext) ([]byte, error) {
 	// Prepare template data
+	// NOTE: validate.go always uses config.Generate.PackageName (always "main")
+	// because it's generated alongside MCP code, not the spec types.
 	data := SpecTemplateData{
-		PackageName:    config.Generate.PackageName,
-		ChecksumHeader: ChecksumHeader(checksum),
-		EngineName:     config.Name,
-		Types:          types,
-		MainType:       "Spec",
-		NeedsFmtImport: needsFmtImportForValidation(types),
+		PackageName:      config.Generate.PackageName,
+		ChecksumHeader:   ChecksumHeader(checksum),
+		EngineName:       config.Name,
+		Types:            types,
+		MainType:         "Spec",
+		NeedsFmtImport:   needsFmtImportForValidation(types),
+		SpecTypesContext: specTypesCtx,
 	}
 
 	// Parse and execute template

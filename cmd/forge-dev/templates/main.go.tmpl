@@ -23,6 +23,9 @@ import (
 {{- if eq .EngineType "dependency-detector"}}
 	"github.com/alexandremahdhaoui/forge/pkg/mcpserver"
 {{- end}}
+{{- if .SpecTypesContext}}
+	{{.SpecTypesContext.PackageName}} "{{.SpecTypesContext.ImportPath}}"
+{{- end}}
 )
 
 // Name is the engine name.
@@ -87,7 +90,7 @@ func runMCPServer() error {
 // Signature: func(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.Artifact, error)
 // This is a placeholder - the actual implementation should be in a separate file.
 var _ = func() BuildFunc {
-	return func(_ context.Context, _ mcptypes.BuildInput, _ *Spec) (*forge.Artifact, error) {
+	return func(_ context.Context, _ mcptypes.BuildInput, _ *{{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}Spec) (*forge.Artifact, error) {
 		panic("{{.BuildFunc}} function not implemented - create a separate file with the implementation")
 	}
 }
@@ -98,7 +101,7 @@ var _ = func() BuildFunc {
 // Signature: func(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestReport, error)
 // This is a placeholder - the actual implementation should be in a separate file.
 var _ = func() TestRunnerFunc {
-	return func(_ context.Context, _ mcptypes.RunInput, _ *Spec) (*forge.TestReport, error) {
+	return func(_ context.Context, _ mcptypes.RunInput, _ *{{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}Spec) (*forge.TestReport, error) {
 		panic("{{.RunFunc}} function not implemented - create a separate file with the implementation")
 	}
 }
@@ -109,7 +112,7 @@ var _ = func() TestRunnerFunc {
 // Signature: func(ctx context.Context, input engineframework.CreateInput, spec *Spec) (*engineframework.TestEnvArtifact, error)
 // This is a placeholder - the actual implementation should be in a separate file.
 var _ = func() CreateFunc {
-	return func(_ context.Context, _ engineframework.CreateInput, _ *Spec) (*engineframework.TestEnvArtifact, error) {
+	return func(_ context.Context, _ engineframework.CreateInput, _ *{{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}Spec) (*engineframework.TestEnvArtifact, error) {
 		panic("{{.CreateFunc}} function not implemented - create a separate file with the implementation")
 	}
 }
@@ -118,7 +121,7 @@ var _ = func() CreateFunc {
 // Signature: func(ctx context.Context, input engineframework.DeleteInput, spec *Spec) error
 // This is a placeholder - the actual implementation should be in a separate file.
 var _ = func() DeleteFunc {
-	return func(_ context.Context, _ engineframework.DeleteInput, _ *Spec) error {
+	return func(_ context.Context, _ engineframework.DeleteInput, _ *{{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}Spec) error {
 		panic("{{.DeleteFunc}} function not implemented - create a separate file with the implementation")
 	}
 }

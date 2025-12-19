@@ -30,6 +30,8 @@ type MCPTemplateData struct {
 	EngineName string
 	// EngineType is the type of engine (builder, test-runner, testenv-subengine).
 	EngineType EngineType
+	// SpecTypesContext holds external spec types info (nil when disabled).
+	SpecTypesContext *SpecTypesContext
 }
 
 // GenerateMCPFile generates the zz_generated.mcp.go file content.
@@ -37,13 +39,14 @@ type MCPTemplateData struct {
 // - builder: mcp_builder.go.tmpl
 // - test-runner: mcp_testrunner.go.tmpl
 // - testenv-subengine: mcp_testenv.go.tmpl
-func GenerateMCPFile(config *Config, checksum string) ([]byte, error) {
+func GenerateMCPFile(config *Config, checksum string, specTypesCtx *SpecTypesContext) ([]byte, error) {
 	// Prepare template data
 	data := MCPTemplateData{
-		PackageName:    config.Generate.PackageName,
-		ChecksumHeader: ChecksumHeader(checksum),
-		EngineName:     config.Name,
-		EngineType:     config.Type,
+		PackageName:      config.Generate.PackageName,
+		ChecksumHeader:   ChecksumHeader(checksum),
+		EngineName:       config.Name,
+		EngineType:       config.Type,
+		SpecTypesContext: specTypesCtx,
 	}
 
 	// Select template based on engine type

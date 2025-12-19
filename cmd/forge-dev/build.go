@@ -67,6 +67,16 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		return nil, fmt.Errorf("invalid forge-dev.yaml: %v", errs[0])
 	}
 
+	// Resolve SpecTypesContext if specTypes is configured
+	var specTypesCtx *SpecTypesContext
+	if config.Generate.SpecTypes != nil && config.Generate.SpecTypes.Enabled {
+		var err error
+		specTypesCtx, err = ResolveSpecTypesContext(srcDir, config.Generate.SpecTypes)
+		if err != nil {
+			return nil, fmt.Errorf("resolving spec types context: %w", err)
+		}
+	}
+
 	// Validate docs/usage.md exists (required, not generated)
 	usagePath := filepath.Join(srcDir, "docs", "usage.md")
 	if _, err := os.Stat(usagePath); os.IsNotExist(err) {
@@ -85,7 +95,11 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 
 	// Step 4: Check if regeneration is needed (compare checksums from existing generated files)
 	// Skip checksum comparison if force flag is set
+	// Determine where spec file is/will be located
 	specFilePath := filepath.Join(srcDir, GeneratedSpecFile)
+	if specTypesCtx != nil {
+		specFilePath = filepath.Join(specTypesCtx.OutputDir, GeneratedSpecFile)
+	}
 	if !input.Force {
 		existingChecksum, err := ReadChecksumFromFile(specFilePath)
 		if err != nil {
@@ -123,9 +137,15 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	generatedFiles := []string{}
 
 	// Generate zz_generated.spec.go
-	specContent, err := GenerateSpecFileFromTypes(types, config, checksum)
+	specContent, err := GenerateSpecFileFromTypes(types, config, checksum, specTypesCtx)
 	if err != nil {
 		return nil, fmt.Errorf("generating spec file: %w", err)
+	}
+	// Ensure output directory exists (for external spec types)
+	if specTypesCtx != nil {
+		if err := os.MkdirAll(specTypesCtx.OutputDir, 0o755); err != nil {
+			return nil, fmt.Errorf("creating spec types directory: %w", err)
+		}
 	}
 	if err := os.WriteFile(specFilePath, specContent, 0o644); err != nil {
 		return nil, fmt.Errorf("writing spec file: %w", err)
@@ -135,7 +155,7 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 
 	// Generate zz_generated.validate.go
 	validateFilePath := filepath.Join(srcDir, GeneratedValidateFile)
-	validateContent, err := GenerateValidateFileFromTypes(types, config, checksum)
+	validateContent, err := GenerateValidateFileFromTypes(types, config, checksum, specTypesCtx)
 	if err != nil {
 		return nil, fmt.Errorf("generating validate file: %w", err)
 	}
@@ -147,7 +167,7 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 
 	// Generate zz_generated.mcp.go
 	mcpFilePath := filepath.Join(srcDir, GeneratedMCPFile)
-	mcpContent, err := GenerateMCPFile(config, checksum)
+	mcpContent, err := GenerateMCPFile(config, checksum, specTypesCtx)
 	if err != nil {
 		return nil, fmt.Errorf("generating mcp file: %w", err)
 	}
@@ -159,7 +179,7 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 
 	// Generate zz_generated.main.go
 	mainFilePath := filepath.Join(srcDir, GeneratedMainFile)
-	mainContent, err := GenerateMainFile(config, checksum)
+	mainContent, err := GenerateMainFile(config, checksum, specTypesCtx)
 	if err != nil {
 		return nil, fmt.Errorf("generating main file: %w", err)
 	}

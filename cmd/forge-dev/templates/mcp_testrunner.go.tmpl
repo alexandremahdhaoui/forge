@@ -14,11 +14,14 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"github.com/alexandremahdhaoui/forge/pkg/mcputil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+{{- if .SpecTypesContext}}
+	{{.SpecTypesContext.PackageName}} "{{.SpecTypesContext.ImportPath}}"
+{{- end}}
 )
 
 // TestRunnerFunc is the signature for the test run operation with typed Spec.
 // This is the function that engine authors implement.
-type TestRunnerFunc func(ctx context.Context, input mcptypes.RunInput, s *Spec) (*forge.TestReport, error)
+type TestRunnerFunc func(ctx context.Context, input mcptypes.RunInput, s *{{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}Spec) (*forge.TestReport, error)
 
 // SetupMCPServer creates and configures the MCP server with all required tools.
 // It registers run and config-validate tools.
@@ -49,7 +52,7 @@ func SetupMCPServer(name string, version string, runFn TestRunnerFunc) (*mcpserv
 func wrapTestRunnerFunc(fn TestRunnerFunc) engineframework.TestRunnerFunc {
 	return func(ctx context.Context, input mcptypes.RunInput) (*forge.TestReport, error) {
 		// Parse Spec from input
-		spec, err := FromMap(input.Spec)
+		spec, err := {{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}FromMap(input.Spec)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse spec: %w", err)
 		}

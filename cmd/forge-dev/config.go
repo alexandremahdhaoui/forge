@@ -90,6 +90,21 @@ type GenerateConfig struct {
 	CreateFunc string `yaml:"createFunc,omitempty"`
 	// DeleteFunc is the function name for testenv-subengine delete operation (default: "Delete").
 	DeleteFunc string `yaml:"deleteFunc,omitempty"`
+	// SpecTypes configures external spec types generation (optional).
+	SpecTypes *SpecTypesConfig `yaml:"specTypes,omitempty"`
+}
+
+// SpecTypesConfig contains configuration for external spec types generation.
+type SpecTypesConfig struct {
+	// Enabled enables generating spec types to a separate package.
+	// When false (default), spec types are generated in the same package as MCP code.
+	Enabled bool `yaml:"enabled"`
+	// OutputPath is the path relative to project root (go.mod location) where spec types will be generated.
+	// Required when Enabled is true. Example: "pkg/api/v1"
+	OutputPath string `yaml:"outputPath,omitempty"`
+	// PackageName is the Go package name for the spec types.
+	// Required when Enabled is true. Example: "v1"
+	PackageName string `yaml:"packageName,omitempty"`
 }
 
 // GetBuildFunc returns the BuildFunc from config, or "Build" if not set.
@@ -232,7 +247,63 @@ func ValidateConfig(c *Config) []ValidationError {
 		})
 	}
 
+	// Validate generate.specTypes when enabled
+	if c.Generate.SpecTypes != nil && c.Generate.SpecTypes.Enabled {
+		// OutputPath is required when enabled
+		if c.Generate.SpecTypes.OutputPath == "" {
+			errors = append(errors, ValidationError{
+				Field:   "generate.specTypes.outputPath",
+				Message: "required when specTypes.enabled is true",
+			})
+		} else if err := validateOutputPath(c.Generate.SpecTypes.OutputPath); err != nil {
+			errors = append(errors, ValidationError{
+				Field:   "generate.specTypes.outputPath",
+				Message: err.Error(),
+			})
+		}
+
+		// PackageName is required when enabled
+		if c.Generate.SpecTypes.PackageName == "" {
+			errors = append(errors, ValidationError{
+				Field:   "generate.specTypes.packageName",
+				Message: "required when specTypes.enabled is true",
+			})
+		} else if !packageNameRegexp.MatchString(c.Generate.SpecTypes.PackageName) {
+			errors = append(errors, ValidationError{
+				Field:   "generate.specTypes.packageName",
+				Message: "must be a valid Go package name (lowercase alphanumeric with underscores, starting with a letter)",
+			})
+		}
+	}
+
 	return errors
+}
+
+// validateOutputPath validates the output path for specTypes.
+func validateOutputPath(path string) error {
+	if path == "" {
+		return fmt.Errorf("output path cannot be empty")
+	}
+
+	// Normalize the path
+	cleanPath := filepath.Clean(path)
+
+	// Check if path is absolute
+	if filepath.IsAbs(cleanPath) {
+		return fmt.Errorf("output path must be relative, not absolute")
+	}
+
+	// Check if path escapes the project root
+	if cleanPath == ".." || strings.HasPrefix(cleanPath, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("output path must not escape the project root")
+	}
+
+	// Check if path is current directory
+	if cleanPath == "." {
+		return fmt.Errorf("output path must not be the current directory")
+	}
+
+	return nil
 }
 
 // isValidEngineType checks if the given type is a valid engine type.

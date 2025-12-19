@@ -41,6 +41,8 @@ type MainTemplateData struct {
 	CreateFunc string
 	// DeleteFunc is the delete function name for testenv-subengine engines.
 	DeleteFunc string
+	// SpecTypesContext holds external spec types info (nil when disabled).
+	SpecTypesContext *SpecTypesContext
 }
 
 // GenerateMainFile generates the zz_generated.main.go file content.
@@ -48,19 +50,20 @@ type MainTemplateData struct {
 // - main() function calling enginecli.Bootstrap
 // - runMCPServer() function calling SetupMCPServer
 // - Version information variables
-func GenerateMainFile(config *Config, checksum string) ([]byte, error) {
+func GenerateMainFile(config *Config, checksum string, specTypesCtx *SpecTypesContext) ([]byte, error) {
 	// Prepare template data
 	data := MainTemplateData{
-		PackageName:    config.Generate.PackageName,
-		ChecksumHeader: ChecksumHeader(checksum),
-		EngineName:     config.Name,
-		EngineType:     string(config.Type),
-		Version:        config.Version,
-		Description:    config.Description,
-		BuildFunc:      config.GetBuildFunc(),
-		RunFunc:        config.GetRunFunc(),
-		CreateFunc:     config.GetCreateFunc(),
-		DeleteFunc:     config.GetDeleteFunc(),
+		PackageName:      config.Generate.PackageName,
+		ChecksumHeader:   ChecksumHeader(checksum),
+		EngineName:       config.Name,
+		EngineType:       string(config.Type),
+		Version:          config.Version,
+		Description:      config.Description,
+		BuildFunc:        config.GetBuildFunc(),
+		RunFunc:          config.GetRunFunc(),
+		CreateFunc:       config.GetCreateFunc(),
+		DeleteFunc:       config.GetDeleteFunc(),
+		SpecTypesContext: specTypesCtx,
 	}
 
 	// Parse and execute template

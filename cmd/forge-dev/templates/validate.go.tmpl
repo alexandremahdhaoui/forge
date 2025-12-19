@@ -11,10 +11,16 @@ import (
 {{- end}}
 
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
+{{- if .SpecTypesContext}}
+	{{.SpecTypesContext.PackageName}} "{{.SpecTypesContext.ImportPath}}"
+{{- end}}
 )
 {{- else}}
 import (
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
+{{- if .SpecTypesContext}}
+	{{.SpecTypesContext.PackageName}} "{{.SpecTypesContext.ImportPath}}"
+{{- end}}
 )
 {{- end}}
 
@@ -25,7 +31,7 @@ import (
 {{- if not (isUnion .)}}
 // Validate{{.Name}} validates a {{.Name}} and returns validation results.
 // It checks required fields and validates enum values.
-func Validate{{.Name}}(s *{{.Name}}) *mcptypes.ConfigValidateOutput {
+func Validate{{.Name}}(s *{{if $.SpecTypesContext}}{{$.SpecTypesContext.Prefix}}{{end}}{{.Name}}) *mcptypes.ConfigValidateOutput {
 	if s == nil {
 		return &mcptypes.ConfigValidateOutput{
 			Valid: true,
@@ -176,14 +182,14 @@ func Validate{{.Name}}(s *{{.Name}}) *mcptypes.ConfigValidateOutput {
 {{end}}
 // Validate validates a Spec and returns validation results.
 // This is the main entry point for validation.
-func Validate(s *Spec) *mcptypes.ConfigValidateOutput {
+func Validate(s *{{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}Spec) *mcptypes.ConfigValidateOutput {
 	return ValidateSpec(s)
 }
 
 // ValidateMap validates a map[string]interface{} by first parsing it to a Spec.
 // This is a convenience function for validating spec data from forge.yaml.
 func ValidateMap(m map[string]interface{}) *mcptypes.ConfigValidateOutput {
-	s, err := FromMap(m)
+	s, err := {{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}FromMap(m)
 	if err != nil {
 		return &mcptypes.ConfigValidateOutput{
 			Valid: false,
@@ -203,7 +209,7 @@ func ValidateMap(m map[string]interface{}) *mcptypes.ConfigValidateOutput {
 {{- /* Existing validation path for simple Spec - unchanged */}}
 // Validate validates a Spec and returns validation results.
 // It checks required fields and validates enum values.
-func Validate(s *Spec) *mcptypes.ConfigValidateOutput {
+func Validate(s *{{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}Spec) *mcptypes.ConfigValidateOutput {
 	if s == nil {
 		return &mcptypes.ConfigValidateOutput{
 			Valid: true,
@@ -275,7 +281,7 @@ func Validate(s *Spec) *mcptypes.ConfigValidateOutput {
 // ValidateMap validates a map[string]interface{} by first parsing it to a Spec.
 // This is a convenience function for validating spec data from forge.yaml.
 func ValidateMap(m map[string]interface{}) *mcptypes.ConfigValidateOutput {
-	s, err := FromMap(m)
+	s, err := {{if .SpecTypesContext}}{{.SpecTypesContext.Prefix}}{{end}}FromMap(m)
 	if err != nil {
 		return &mcptypes.ConfigValidateOutput{
 			Valid: false,

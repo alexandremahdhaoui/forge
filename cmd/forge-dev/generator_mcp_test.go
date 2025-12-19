@@ -33,7 +33,7 @@ func TestGenerateMCPFile_Builder(t *testing.T) {
 		},
 	}
 
-	got, err := GenerateMCPFile(config, "sha256:builder123")
+	got, err := GenerateMCPFile(config, "sha256:builder123", nil)
 	if err != nil {
 		t.Fatalf("GenerateMCPFile() error = %v", err)
 	}
@@ -78,7 +78,7 @@ func TestGenerateMCPFile_TestRunner(t *testing.T) {
 		},
 	}
 
-	got, err := GenerateMCPFile(config, "sha256:runner456")
+	got, err := GenerateMCPFile(config, "sha256:runner456", nil)
 	if err != nil {
 		t.Fatalf("GenerateMCPFile() error = %v", err)
 	}
@@ -123,7 +123,7 @@ func TestGenerateMCPFile_TestEnvSubengine(t *testing.T) {
 		},
 	}
 
-	got, err := GenerateMCPFile(config, "sha256:testenv789")
+	got, err := GenerateMCPFile(config, "sha256:testenv789", nil)
 	if err != nil {
 		t.Fatalf("GenerateMCPFile() error = %v", err)
 	}
@@ -173,7 +173,7 @@ func TestGenerateMCPFile_DependencyDetector(t *testing.T) {
 		},
 	}
 
-	got, err := GenerateMCPFile(config, "sha256:depdetector123")
+	got, err := GenerateMCPFile(config, "sha256:depdetector123", nil)
 	if err != nil {
 		t.Fatalf("GenerateMCPFile() error = %v", err)
 	}
@@ -222,7 +222,7 @@ func TestGenerateMCPFile_InvalidType(t *testing.T) {
 		},
 	}
 
-	_, err := GenerateMCPFile(config, "sha256:invalid")
+	_, err := GenerateMCPFile(config, "sha256:invalid", nil)
 	if err == nil {
 		t.Error("GenerateMCPFile() expected error for invalid engine type")
 	}

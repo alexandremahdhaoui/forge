@@ -425,7 +425,7 @@ func TestGenerateSpecFileFromTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GenerateSpecFileFromTypes(tt.types, tt.config, tt.checksum)
+			got, err := GenerateSpecFileFromTypes(tt.types, tt.config, tt.checksum, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GenerateSpecFileFromTypes() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -547,7 +547,7 @@ func TestGenerateValidateFileFromTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GenerateValidateFileFromTypes(tt.types, tt.config, tt.checksum)
+			got, err := GenerateValidateFileFromTypes(tt.types, tt.config, tt.checksum, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GenerateValidateFileFromTypes() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -685,6 +685,185 @@ func TestNeedsFmtImportForTypes(t *testing.T) {
 				t.Errorf("needsFmtImportForTypes() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestGenerateSpecFileFromTypes_PackageName verifies that the generated spec file
+// uses the correct package name based on SpecTypesContext.
+// - When specTypesCtx == nil: uses config.Generate.PackageName (e.g., "main")
+// - When specTypesCtx.PackageName == "v1": uses "v1"
+func TestGenerateSpecFileFromTypes_PackageName(t *testing.T) {
+	types := []ForgeTypeDefinition{
+		{
+			Name:     "Spec",
+			JsonName: "Spec",
+			Properties: []ForgeProperty{
+				{Name: "Name", JsonName: "name", GoType: "string", Required: true, Description: "The name field"},
+			},
+		},
+	}
+
+	config := &Config{
+		Name: "test-engine",
+		Type: EngineTypeBuilder,
+		Generate: GenerateConfig{
+			PackageName: "main",
+		},
+	}
+
+	tests := []struct {
+		name           string
+		specTypesCtx   *SpecTypesContext
+		wantPackage    string
+		wantNotPackage string
+	}{
+		{
+			name:           "nil specTypesCtx uses config.Generate.PackageName",
+			specTypesCtx:   nil,
+			wantPackage:    "package main",
+			wantNotPackage: "package v1",
+		},
+		{
+			name: "specTypesCtx.PackageName overrides config package name",
+			specTypesCtx: &SpecTypesContext{
+				ImportPath:  "github.com/test/project/pkg/api/v1",
+				PackageName: "v1",
+				Prefix:      "v1.",
+				OutputDir:   "/tmp/test/pkg/api/v1",
+			},
+			wantPackage:    "package v1",
+			wantNotPackage: "package main",
+		},
+		{
+			name: "specTypesCtx with different package name",
+			specTypesCtx: &SpecTypesContext{
+				ImportPath:  "github.com/test/project/pkg/api/v2alpha1",
+				PackageName: "v2alpha1",
+				Prefix:      "v2alpha1.",
+				OutputDir:   "/tmp/test/pkg/api/v2alpha1",
+			},
+			wantPackage:    "package v2alpha1",
+			wantNotPackage: "package main",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GenerateSpecFileFromTypes(types, config, "sha256:test", tt.specTypesCtx)
+			if err != nil {
+				t.Fatalf("GenerateSpecFileFromTypes() error = %v", err)
+			}
+
+			code := string(got)
+
+			// Verify the expected package declaration is present
+			if !strings.Contains(code, tt.wantPackage) {
+				t.Errorf("Generated code missing expected package declaration %q\nCode:\n%s", tt.wantPackage, code)
+			}
+
+			// Verify the other package declaration is NOT present
+			if strings.Contains(code, tt.wantNotPackage) {
+				t.Errorf("Generated code should not contain %q\nCode:\n%s", tt.wantNotPackage, code)
+			}
+
+			// Verify the generated code compiles
+			fset := token.NewFileSet()
+			_, parseErr := parser.ParseFile(fset, "spec.go", got, parser.AllErrors)
+			if parseErr != nil {
+				t.Errorf("Generated code does not compile: %v\nCode:\n%s", parseErr, code)
+			}
+		})
+	}
+}
+
+// TestGenerateSpecFileFromTypes_StructureWithExternalPackage verifies the generated code structure
+// is correct when using external spec types (SpecTypesContext enabled).
+// All FromMap and ToMap functions should be generated correctly.
+func TestGenerateSpecFileFromTypes_StructureWithExternalPackage(t *testing.T) {
+	types := []ForgeTypeDefinition{
+		{
+			Name:     "Item",
+			JsonName: "Item",
+			Properties: []ForgeProperty{
+				{Name: "ID", JsonName: "id", GoType: "string", Required: true},
+			},
+		},
+		{
+			Name:     "Spec",
+			JsonName: "Spec",
+			Properties: []ForgeProperty{
+				{Name: "Name", JsonName: "name", GoType: "string", Required: true},
+				{Name: "Items", JsonName: "items", GoType: "[]Item", IsArray: true, IsArrayOfRef: true, ArrayItemType: "Item"},
+			},
+		},
+	}
+
+	config := &Config{
+		Name: "test-engine",
+		Type: EngineTypeBuilder,
+		Generate: GenerateConfig{
+			PackageName: "main",
+		},
+	}
+
+	specTypesCtx := &SpecTypesContext{
+		ImportPath:  "github.com/test/project/pkg/api/v1",
+		PackageName: "v1",
+		Prefix:      "v1.",
+		OutputDir:   "/tmp/test/pkg/api/v1",
+	}
+
+	got, err := GenerateSpecFileFromTypes(types, config, "sha256:structure-test", specTypesCtx)
+	if err != nil {
+		t.Fatalf("GenerateSpecFileFromTypes() error = %v", err)
+	}
+
+	code := string(got)
+
+	// Verify package declaration
+	if !strings.Contains(code, "package v1") {
+		t.Errorf("Generated code missing 'package v1'\nCode:\n%s", code)
+	}
+
+	// Verify type definitions exist
+	expectedTypes := []string{
+		"type Item struct",
+		"type Spec struct",
+	}
+	for _, expectedType := range expectedTypes {
+		if !strings.Contains(code, expectedType) {
+			t.Errorf("Generated code missing type definition %q\nCode:\n%s", expectedType, code)
+		}
+	}
+
+	// Verify FromMap functions exist
+	expectedFromMapFuncs := []string{
+		"func ItemFromMap(",
+		"func SpecFromMap(",
+		"func FromMap(",
+	}
+	for _, expectedFunc := range expectedFromMapFuncs {
+		if !strings.Contains(code, expectedFunc) {
+			t.Errorf("Generated code missing FromMap function %q\nCode:\n%s", expectedFunc, code)
+		}
+	}
+
+	// Verify ToMap methods exist
+	expectedToMapMethods := []string{
+		"func (s *Item) ToMap()",
+		"func (s *Spec) ToMap()",
+	}
+	for _, expectedMethod := range expectedToMapMethods {
+		if !strings.Contains(code, expectedMethod) {
+			t.Errorf("Generated code missing ToMap method %q\nCode:\n%s", expectedMethod, code)
+		}
+	}
+
+	// Verify the generated code compiles
+	fset := token.NewFileSet()
+	_, parseErr := parser.ParseFile(fset, "spec.go", got, parser.AllErrors)
+	if parseErr != nil {
+		t.Errorf("Generated code does not compile: %v\nCode:\n%s", parseErr, code)
 	}
 }
 
