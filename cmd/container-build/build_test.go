@@ -118,3 +118,82 @@ func TestEnvsStructTags(t *testing.T) {
 		t.Error("KanikoCacheDir should have empty zero value")
 	}
 }
+
+func TestGetStringField(t *testing.T) {
+	tests := []struct {
+		name string
+		m    map[string]interface{}
+		keys []string
+		want string
+	}{
+		{
+			name: "single key found",
+			m:    map[string]interface{}{"foo": "bar"},
+			keys: []string{"foo"},
+			want: "bar",
+		},
+		{
+			name: "first key found with multiple keys",
+			m:    map[string]interface{}{"filePath": "a.go"},
+			keys: []string{"filePath", "filepath"},
+			want: "a.go",
+		},
+		{
+			name: "second key found as fallback",
+			m:    map[string]interface{}{"filepath": "b.go"},
+			keys: []string{"filePath", "filepath"},
+			want: "b.go",
+		},
+		{
+			name: "key not found",
+			m:    map[string]interface{}{"other": "val"},
+			keys: []string{"foo"},
+			want: "",
+		},
+		{
+			name: "empty map",
+			m:    map[string]interface{}{},
+			keys: []string{"foo"},
+			want: "",
+		},
+		{
+			name: "non-string value",
+			m:    map[string]interface{}{"foo": 123},
+			keys: []string{"foo"},
+			want: "",
+		},
+		{
+			name: "empty string value",
+			m:    map[string]interface{}{"foo": ""},
+			keys: []string{"foo"},
+			want: "",
+		},
+		{
+			name: "nil map",
+			m:    nil,
+			keys: []string{"foo"},
+			want: "",
+		},
+		{
+			name: "no keys provided",
+			m:    map[string]interface{}{"foo": "bar"},
+			keys: []string{},
+			want: "",
+		},
+		{
+			name: "first key empty string second key valid",
+			m:    map[string]interface{}{"first": "", "second": "valid"},
+			keys: []string{"first", "second"},
+			want: "valid",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getStringField(tt.m, tt.keys...)
+			if got != tt.want {
+				t.Errorf("getStringField() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

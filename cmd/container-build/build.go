@@ -594,6 +594,17 @@ func detectDependenciesFromSpec(dependsOn []forge.DependsOnSpec, spec forge.Buil
 	return deduplicated, detectorEngines, nil
 }
 
+// getStringField extracts a string field from a map, checking multiple key names in order.
+// Returns empty string if none of the keys are present or if the value is not a string.
+func getStringField(m map[string]interface{}, keys ...string) string {
+	for _, key := range keys {
+		if v, ok := m[key].(string); ok && v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // deduplicateDependencies removes duplicate dependencies based on (Type, FilePath, ExternalPackage).
 func deduplicateDependencies(deps []forge.ArtifactDependency) []forge.ArtifactDependency {
 	seen := make(map[string]bool)
@@ -644,10 +655,23 @@ func callDependencyDetectorForContainer(cmdName string, cmdArgs []string, spec f
 	}
 	defer func() { _ = session.Close() }()
 
-	// Prepare input - for containers, analyze the Containerfile/Dockerfile
+	// Extract detector configuration from detectorSpec
+	// The detectorSpec contains the user's dependsOn configuration with the actual
+	// source file and function to analyze (e.g., a Go main.go file, not the Containerfile)
+	//
+	// Note: Check both camelCase (MCP protocol) and lowercase (YAML convention) for compatibility
+	filePath := getStringField(detectorSpec, "filePath", "filepath")
+	if filePath == "" {
+		return nil, fmt.Errorf("detector spec missing required 'filepath' or 'filePath' field")
+	}
+	funcName := getStringField(detectorSpec, "funcName")
+	if funcName == "" {
+		return nil, fmt.Errorf("detector spec missing required 'funcName' field")
+	}
+
 	input := map[string]any{
-		"filePath": spec.Src, // Containerfile path
-		"funcName": "",       // Not applicable for containers
+		"filePath": filePath,
+		"funcName": funcName,
 		"spec":     detectorSpec,
 	}
 
