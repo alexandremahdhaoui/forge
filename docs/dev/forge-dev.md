@@ -67,6 +67,34 @@ forge build generate-my-engine  # Assuming forge.yaml has the build target
 | `description` | No | Human-readable description |
 | `openapi.specPath` | Yes | Path to OpenAPI spec file |
 | `generate.packageName` | Yes | Go package name (usually `main`) |
+| `generate.specTypes.enabled` | No | Generate spec types to a separate package |
+| `generate.specTypes.outputPath` | When enabled | Path relative to go.mod (e.g., `pkg/api/v1`) |
+| `generate.specTypes.packageName` | When enabled | Go package name for spec types (e.g., `v1`) |
+
+## How do I generate spec types in a separate package?
+
+For engines with multi-package architectures, you can generate the `Spec` struct and helper types in a separate importable package:
+
+```yaml
+name: my-engine
+type: builder
+version: 0.15.0
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main
+  specTypes:
+    enabled: true
+    outputPath: pkg/api/v1    # Relative to go.mod location
+    packageName: v1
+```
+
+When enabled:
+- `zz_generated.spec.go` is written to `outputPath` with the specified package name
+- Other generated files import and use qualified type references (e.g., `v1.Spec`)
+- Import path is derived from `go.mod` module name + `outputPath`
+
+This allows other packages in your project to import and use the spec types directly.
 
 ## What goes in spec.openapi.yaml?
 
