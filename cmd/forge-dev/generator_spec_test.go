@@ -936,3 +936,89 @@ func TestNeedsFmtImportForValidation(t *testing.T) {
 		})
 	}
 }
+
+// TestGenerateSpecFileFromTypes_MultipleNonPointerRefs is a regression test for the
+// duplicate variable declaration bug in ToMap() when a struct has multiple non-pointer
+// $ref fields. The bug occurred because the template used:
+//
+//	refMap := s.FieldA.ToMap()
+//	...
+//	refMap := s.FieldB.ToMap()  // ERROR: duplicate declaration
+//
+// The fix scopes refMap within the if statement:
+//
+//	if refMap := s.FieldA.ToMap(); len(refMap) > 0 { ... }
+//	if refMap := s.FieldB.ToMap(); len(refMap) > 0 { ... }
+func TestGenerateSpecFileFromTypes_MultipleNonPointerRefs(t *testing.T) {
+	// Define types where Spec has multiple non-pointer $ref fields
+	types := []ForgeTypeDefinition{
+		{
+			Name:     "NetworkConfig",
+			JsonName: "NetworkConfig",
+			Properties: []ForgeProperty{
+				{Name: "Subnet", JsonName: "subnet", GoType: "string", Required: true},
+			},
+		},
+		{
+			Name:     "StorageConfig",
+			JsonName: "StorageConfig",
+			Properties: []ForgeProperty{
+				{Name: "Size", JsonName: "size", GoType: "int", Required: true},
+			},
+		},
+		{
+			Name:     "ComputeConfig",
+			JsonName: "ComputeConfig",
+			Properties: []ForgeProperty{
+				{Name: "Cores", JsonName: "cores", GoType: "int", Required: true},
+			},
+		},
+		{
+			Name:     "Spec",
+			JsonName: "Spec",
+			Properties: []ForgeProperty{
+				{Name: "Name", JsonName: "name", GoType: "string", Required: true},
+				// Three non-pointer reference fields - this would trigger the bug
+				// if refMap is not scoped properly in ToMap()
+				{Name: "Network", JsonName: "network", GoType: "NetworkConfig", IsRef: true, RefType: "NetworkConfig", IsPointer: false},
+				{Name: "Storage", JsonName: "storage", GoType: "StorageConfig", IsRef: true, RefType: "StorageConfig", IsPointer: false},
+				{Name: "Compute", JsonName: "compute", GoType: "ComputeConfig", IsRef: true, RefType: "ComputeConfig", IsPointer: false},
+			},
+		},
+	}
+
+	config := &Config{
+		Name: "test-engine",
+		Type: EngineTypeBuilder,
+		Generate: GenerateConfig{
+			PackageName: "main",
+		},
+	}
+
+	got, err := GenerateSpecFileFromTypes(types, config, "sha256:multiref-test", nil)
+	if err != nil {
+		t.Fatalf("GenerateSpecFileFromTypes() error = %v", err)
+	}
+
+	code := string(got)
+
+	// Verify all three ToMap reference handling blocks exist
+	expectedPatterns := []string{
+		"s.Network.ToMap()",
+		"s.Storage.ToMap()",
+		"s.Compute.ToMap()",
+	}
+	for _, pattern := range expectedPatterns {
+		if !strings.Contains(code, pattern) {
+			t.Errorf("Generated code missing pattern %q\nCode:\n%s", pattern, code)
+		}
+	}
+
+	// The critical test: verify the generated code compiles
+	// This would fail with "refMap redeclared in this block" if the bug exists
+	fset := token.NewFileSet()
+	_, parseErr := parser.ParseFile(fset, "spec.go", got, parser.AllErrors)
+	if parseErr != nil {
+		t.Errorf("Generated code does not compile (likely duplicate variable declaration bug): %v\nCode:\n%s", parseErr, code)
+	}
+}

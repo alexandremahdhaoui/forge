@@ -230,8 +230,7 @@ func (s *{{.Name}}) ToMap() map[string]interface{} {
 	}
 {{- else}}
 	// Reference type {{forgeRefType .}}
-	refMap := s.{{.Name}}.ToMap()
-	if len(refMap) > 0 {
+	if refMap := s.{{.Name}}.ToMap(); len(refMap) > 0 {
 		m["{{.JsonName}}"] = refMap
 	}
 {{- end}}
