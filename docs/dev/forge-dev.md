@@ -200,4 +200,11 @@ forge build my-engine          # Generates code first (via depends)
 forge test-all                 # Run all tests including your engine
 ```
 
+In a Go workspace, you can build from the workspace root:
+```bash
+go run ./forge/cmd/forge --config=./my-repo/forge.yaml build my-engine
+```
+
+See [Workspace Development](../user/workspace-development.md) for the full setup guide.
+
 The generated code includes validation that runs automatically when your engine is invoked via MCP.

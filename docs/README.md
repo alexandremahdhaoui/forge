@@ -11,6 +11,7 @@
 |--------------|----------|
 | Build my project | [User: Getting Started](./user/getting-started.md) |
 | Run tests | [Testing](./user/testing.md) |
+| Use forge in a Go workspace | [Workspace Development](./user/workspace-development.md) |
 | Create a custom engine | [Dev: Getting Started](./dev/getting-started.md) |
 | Understand the architecture | [Architecture Overview](./architecture/overview.md) |
 | Configure forge.yaml | [forge.yaml Schema](./user/forge-yaml-schema.md) |
@@ -25,6 +26,7 @@ Documentation for using forge to build, test, and manage your projects.
 - **[forge.yaml Schema](./user/forge-yaml-schema.md)** - Configuration reference
 - **[Generic Builder](./user/generic-builder.md)** - Custom build commands
 - **[Generic Test Runner](./user/generic-test-runner.md)** - Custom test commands
+- **[Workspace Development](./user/workspace-development.md)** - Multi-repo Go workspace setup
 - **[Lazy Rebuild](./user/lazy-rebuild.md)** - Skip unchanged artifacts
 - **[Migrating from Makefile](./user/migrating-from-makefile.md)** - Replace your Makefile
 

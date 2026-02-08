@@ -55,6 +55,21 @@ components:
 forge build generate-my-engine  # Then implement build logic in SetupMCPServer callback
 ```
 
+## How do I develop engines in a Go workspace?
+
+If forge lives alongside other repos in a Go workspace (`go.work`), you can run forge from
+the workspace root or from a sibling repo:
+
+```bash
+# From workspace root, targeting your engine's repo
+go run ./forge/cmd/forge --config=./my-engine-repo/forge.yaml build
+
+# From a sibling repo
+go run ../forge/cmd/forge build
+```
+
+See [Workspace Development](../user/workspace-development.md) for the full setup guide.
+
 ## What's next?
 
 - [forge-dev](./forge-dev.md) - Code generation from OpenAPI specs

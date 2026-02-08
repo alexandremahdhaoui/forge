@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/alexandremahdhaoui/forge/internal/cmdutil"
 	"github.com/alexandremahdhaoui/forge/pkg/engineversion"
@@ -61,6 +63,13 @@ func main() {
 
 	if len(args) < 1 {
 		printUsage()
+		os.Exit(1)
+	}
+
+	// Change to the directory containing forge.yaml if --config specifies a path with directory components.
+	// This ensures all relative paths in forge.yaml resolve correctly.
+	if err := changeToProjectDir(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -138,6 +147,26 @@ func main() {
 	}
 }
 
+// changeToProjectDir changes the working directory to the directory containing
+// the config file when --config specifies a path with directory components.
+// This ensures all relative paths in forge.yaml resolve correctly when forge
+// is invoked from a parent directory (e.g. a Go workspace root).
+func changeToProjectDir() error {
+	if configPath == "" {
+		return nil
+	}
+	dir := filepath.Dir(configPath)
+	if dir == "." {
+		return nil
+	}
+	if err := os.Chdir(dir); err != nil {
+		return fmt.Errorf("cannot change to project directory %q: %w", dir, err)
+	}
+	configPath = filepath.Base(configPath)
+	fmt.Fprintf(os.Stderr, "forge: changed working directory to %s\n", dir)
+	return nil
+}
+
 // parseGlobalFlags parses global flags like --config and returns remaining args
 func parseGlobalFlags(args []string) []string {
 	result := make([]string, 0, len(args))
@@ -152,6 +181,12 @@ func parseGlobalFlags(args []string) []string {
 			}
 			configPath = args[i+1]
 			i++ // Skip the next argument (the path)
+		} else if val, ok := strings.CutPrefix(arg, "--config="); ok {
+			configPath = val
+			if configPath == "" {
+				fmt.Fprintf(os.Stderr, "Error: --config requires a path argument\n")
+				os.Exit(1)
+			}
 		} else {
 			result = append(result, arg)
 		}

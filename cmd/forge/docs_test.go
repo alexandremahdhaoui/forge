@@ -880,6 +880,7 @@ func TestListEngines(t *testing.T) {
 	// Cannot be parallel because changes working directory
 
 	t.Run("lists engines with doc counts", func(t *testing.T) {
+		t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
 		tmpDir, cleanup := setupTestProject(t)
 		defer cleanup()
 
@@ -961,6 +962,7 @@ func TestListEngines(t *testing.T) {
 	})
 
 	t.Run("handles no engines gracefully", func(t *testing.T) {
+		t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
 		tmpDir, cleanup := setupTestProject(t)
 		defer cleanup()
 
@@ -1085,6 +1087,7 @@ func TestListAllDocs(t *testing.T) {
 	// Cannot be parallel because changes working directory
 
 	t.Run("lists all docs from all engines", func(t *testing.T) {
+		t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
 		tmpDir, cleanup := setupTestProject(t)
 		defer cleanup()
 
@@ -1116,6 +1119,7 @@ func TestListAllDocs(t *testing.T) {
 	})
 
 	t.Run("returns forge docs when no engines exist", func(t *testing.T) {
+		t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
 		tmpDir, cleanup := setupTestProject(t)
 		defer cleanup()
 

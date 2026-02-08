@@ -343,6 +343,18 @@ go run ./cmd/forge build
 ls build/bin/
 ```
 
+### Go Workspace Development
+
+When developing forge alongside other repos in a Go workspace (`go.work`), use the
+`--config` flag to target any repo from the workspace root:
+
+```bash
+go run ./forge/cmd/forge --config=./my-app/forge.yaml build
+go run ./forge/cmd/forge --config=./my-app/forge.yaml test-all
+```
+
+See [Workspace Development](./docs/user/workspace-development.md) for the full setup guide.
+
 ### Running Tests
 
 ```bash
