@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
@@ -29,7 +30,7 @@ import (
 // Test output goes to stderr, JSON report goes to stdout.
 // runTests executes the test suite using gotestsum and returns a structured report along with artifact file paths.
 // testEnv contains environment variables to pass to the test process (e.g., artifact file paths, metadata).
-func runTests(stage, name, tmpDir string, testEnv map[string]string) (*TestReport, string, string, error) {
+func runTests(stage, name, tmpDir string, spec *Spec, testEnv map[string]string) (*TestReport, string, string, error) {
 	startTime := time.Now()
 
 	// Generate output file paths in tmpDir
@@ -43,12 +44,38 @@ func runTests(stage, name, tmpDir string, testEnv map[string]string) (*TestRepor
 		"--format-hide-empty-pkg",
 		"--junitfile", junitFile,
 		"--",
-		"-tags", stage,
-		"-race",
-		"-count=1",
-		"-cover",
-		"-coverprofile", coverageFile,
-		"./...",
+	}
+
+	// Tags: spec.Tags overrides default (stage name)
+	tags := stage
+	if spec != nil && len(spec.Tags) > 0 {
+		tags = strings.Join(spec.Tags, ",")
+	}
+	args = append(args, "-tags", tags)
+
+	// Race: always enabled (default behavior, no way to opt-out with current spec schema)
+	args = append(args, "-race")
+
+	args = append(args, "-count=1")
+
+	// Timeout: spec.Timeout adds -timeout flag (no default = go test default of 10m)
+	if spec != nil && spec.Timeout != "" {
+		args = append(args, "-timeout", spec.Timeout)
+	}
+
+	// Cover: always enabled (default behavior)
+	args = append(args, "-cover", "-coverprofile", coverageFile)
+
+	// Additional args from spec
+	if spec != nil && len(spec.Args) > 0 {
+		args = append(args, spec.Args...)
+	}
+
+	// Packages: spec.Packages overrides default (./...)
+	if spec != nil && len(spec.Packages) > 0 {
+		args = append(args, spec.Packages...)
+	} else {
+		args = append(args, "./...")
 	}
 
 	cmd := exec.Command("go", args...)

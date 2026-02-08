@@ -87,7 +87,14 @@ func Run(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestR
 		}
 	}
 
-	report, junitFile, coverageFile, err := runTests(input.Stage, input.Name, tmpDir, testEnv)
+	// Apply spec-level environment variables
+	if spec != nil && len(spec.Env) > 0 {
+		for key, value := range spec.Env {
+			testEnv[key] = value
+		}
+	}
+
+	report, junitFile, coverageFile, err := runTests(input.Stage, input.Name, tmpDir, spec, testEnv)
 	if err != nil {
 		return nil, fmt.Errorf("test run failed: %w", err)
 	}
