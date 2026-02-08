@@ -612,13 +612,18 @@ test:
 		t.Error("MCP handler returned error result")
 	}
 
-	// Verify artifact contains TestReport objects, not TestEnvironment
+	// Verify artifact contains lightweight summaries (id, stage, status, startTime)
+	// and does NOT contain verbose fields like testStats or coverage
 	if artifact != nil {
 		artifactJSON, _ := json.Marshal(artifact)
-		if !strings.Contains(string(artifactJSON), "testStats") {
-			t.Error("MCP handler should return test reports (with testStats field)")
+		s := string(artifactJSON)
+		if !strings.Contains(s, "startTime") {
+			t.Error("MCP handler should return report summaries (with startTime field)")
+		}
+		if strings.Contains(s, "testStats") {
+			t.Error("MCP handler should return lightweight summaries, not full reports (should not contain testStats)")
 		}
 	}
 
-	t.Log("✓ MCP handler correctly returns test reports")
+	t.Log("✓ MCP handler correctly returns lightweight report summaries")
 }

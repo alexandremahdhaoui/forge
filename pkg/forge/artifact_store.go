@@ -83,6 +83,24 @@ type Artifact struct {
 	DependencyDetectorSpec map[string]interface{} `json:"dependencyDetectorSpec,omitempty" yaml:"dependencyDetectorSpec,omitempty"`
 }
 
+// ArtifactSummary is a lightweight view of an Artifact without dependencies or version details.
+type ArtifactSummary struct {
+	Name      string `json:"name" yaml:"name"`
+	Type      string `json:"type" yaml:"type"`
+	Location  string `json:"location" yaml:"location"`
+	Timestamp string `json:"timestamp" yaml:"timestamp"`
+}
+
+// Summary returns a lightweight summary of this Artifact.
+func (a Artifact) Summary() ArtifactSummary {
+	return ArtifactSummary{
+		Name:      a.Name,
+		Type:      a.Type,
+		Location:  a.Location,
+		Timestamp: a.Timestamp,
+	}
+}
+
 // TestReport represents a test execution report stored in the artifact store.
 type TestReport struct {
 	// ID is the unique identifier for this test report (UUID)
@@ -120,6 +138,24 @@ type TestReport struct {
 
 	// UpdatedAt is when this report was last updated
 	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// TestReportSummary is a lightweight view of a TestReport without stats, coverage, or error details.
+type TestReportSummary struct {
+	ID        string    `json:"id" yaml:"id"`
+	Stage     string    `json:"stage" yaml:"stage"`
+	Status    string    `json:"status" yaml:"status"`
+	StartTime time.Time `json:"startTime" yaml:"startTime"`
+}
+
+// Summary returns a lightweight summary of this TestReport.
+func (r TestReport) Summary() TestReportSummary {
+	return TestReportSummary{
+		ID:        r.ID,
+		Stage:     r.Stage,
+		Status:    r.Status,
+		StartTime: r.StartTime,
+	}
 }
 
 // TestStats contains statistics about test execution.

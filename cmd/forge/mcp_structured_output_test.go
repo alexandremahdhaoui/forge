@@ -122,14 +122,15 @@ func TestStructuredOutputSchemas(t *testing.T) {
 		{
 			name: "TestAllResult",
 			data: TestAllResult{
-				BuildArtifacts: []forge.Artifact{
+				BuildArtifacts: []forge.ArtifactSummary{
 					{
-						Name:     "app1",
-						Type:     "binary",
-						Location: "./build/bin/app1",
+						Name:      "app1",
+						Type:      "binary",
+						Location:  "./build/bin/app1",
+						Timestamp: "2025-01-15T10:30:00Z",
 					},
 				},
-				TestReports: []forge.TestReport{
+				TestReports: []forge.TestReportSummary{
 					{
 						ID:     "report-1",
 						Stage:  "unit",

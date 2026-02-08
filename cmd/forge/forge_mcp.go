@@ -31,6 +31,11 @@ type BuildInput struct {
 	ArtifactName string `json:"artifactName,omitempty"` // Alternative to Name
 }
 
+// BuildGetInput represents the input parameters for the build-get tool.
+type BuildGetInput struct {
+	Name string `json:"name"`
+}
+
 // TestCreateInput represents the input parameters for the test-create tool.
 type TestCreateInput struct {
 	Stage string `json:"stage"`
@@ -68,23 +73,23 @@ type TestAllInput struct {
 
 // TestAllResult represents the aggregated results from test-all command.
 type TestAllResult struct {
-	BuildArtifacts []forge.Artifact   `json:"buildArtifacts"`
-	TestReports    []forge.TestReport `json:"testReports"`
-	Summary        string             `json:"summary"`
-	StoppedEarly   bool               `json:"stoppedEarly"` // True if execution stopped due to failure
+	BuildArtifacts []forge.ArtifactSummary   `json:"buildArtifacts"`
+	TestReports    []forge.TestReportSummary `json:"testReports"`
+	Summary        string                    `json:"summary"`
+	StoppedEarly   bool                      `json:"stoppedEarly"` // True if execution stopped due to failure
 }
 
 // BuildResult represents the result of a build operation.
 type BuildResult struct {
-	Artifacts []forge.Artifact `json:"artifacts"`
-	Summary   string           `json:"summary"`
+	Artifacts []forge.ArtifactSummary `json:"artifacts"`
+	Summary   string                  `json:"summary"`
 }
 
 // TestListResult represents the result of listing test reports.
 type TestListResult struct {
-	Reports []forge.TestReport `json:"reports"`
-	Stage   string             `json:"stage"`
-	Count   int                `json:"count"`
+	Reports []forge.TestReportSummary `json:"reports"`
+	Stage   string                    `json:"stage"`
+	Count   int                       `json:"count"`
 }
 
 // ConfigValidateInput represents the input parameters for the config-validate tool.
@@ -135,19 +140,25 @@ func runMCPServer() error {
 	// Register build tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "build",
-		Description: "Build artifacts from forge.yaml configuration",
+		Description: "Build artifacts from forge.yaml configuration. Returns lightweight summaries (name, type, location, timestamp). Use build-get for full artifact details including dependencies.",
 	}, handleBuildTool)
+
+	// Register build-get tool
+	mcpserver.RegisterTool(server, &mcp.Tool{
+		Name:        "build-get",
+		Description: "Get full details of a built artifact by name, including dependencies and version info.",
+	}, handleBuildGetTool)
 
 	// Register test-create tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "test-create",
-		Description: "Create a test environment for a specific test stage",
+		Description: "Create a test environment for a specific test stage. Returns the full test environment details.",
 	}, handleTestCreateTool)
 
 	// Register test-get tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "test-get",
-		Description: "Get details of a test environment by ID",
+		Description: "Get full details of a test environment by ID, including files, metadata, managed resources, and env vars.",
 	}, handleTestGetTool)
 
 	// Register test-delete tool
@@ -159,19 +170,19 @@ func runMCPServer() error {
 	// Register test-list tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "test-list",
-		Description: "List all test environments for a specific test stage",
+		Description: "List test reports for a stage. Returns lightweight summaries (id, stage, status, startTime). Use test-get for full test environment details.",
 	}, handleTestListTool)
 
 	// Register test-run tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "test-run",
-		Description: "Run tests for a specific test stage",
+		Description: "Run tests for a specific test stage. Returns the full test report with stats, coverage, and error details.",
 	}, handleTestRunTool)
 
 	// Register test-all tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "test-all",
-		Description: "Build all artifacts and run all test stages sequentially (stops on first failure)",
+		Description: "Build all artifacts and run all test stages sequentially (stops on first failure). Returns lightweight summaries. Use build-get for artifact details and test-get with stage/testID for full test environment details.",
 	}, handleTestAllTool)
 
 	// Register config-validate tool
@@ -325,9 +336,15 @@ func handleBuildTool(
 		}, nil, nil
 	}
 
+	// Convert to lightweight summaries
+	artifactSummaries := make([]forge.ArtifactSummary, 0, len(allArtifacts))
+	for _, a := range allArtifacts {
+		artifactSummaries = append(artifactSummaries, a.Summary())
+	}
+
 	// Create BuildResult wrapper
 	buildResult := BuildResult{
-		Artifacts: allArtifacts,
+		Artifacts: artifactSummaries,
 		Summary:   fmt.Sprintf("Successfully built %d artifact(s)", totalBuilt),
 	}
 
@@ -341,6 +358,51 @@ func handleBuildTool(
 	// Return all built artifacts wrapped in BuildResult
 	result, artifact := mcputil.SuccessResultWithArtifact(buildResult.Summary, buildResult)
 	return result, artifact, nil
+}
+
+// handleBuildGetTool handles the "build-get" tool call from MCP clients.
+func handleBuildGetTool(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input BuildGetInput,
+) (*mcp.CallToolResult, any, error) {
+	log.Printf("Getting artifact details: %s", input.Name)
+
+	config, err := loadConfig()
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("Failed to load configuration: %v", err)},
+			},
+			IsError: true,
+		}, nil, nil
+	}
+
+	store, err := forge.ReadArtifactStore(config.ArtifactStorePath)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("Failed to read artifact store: %v", err)},
+			},
+			IsError: true,
+		}, nil, nil
+	}
+
+	artifact, err := forge.GetLatestArtifact(store, input.Name)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("Artifact not found: %s", input.Name)},
+			},
+			IsError: true,
+		}, nil, nil
+	}
+
+	result, art := mcputil.SuccessResultWithArtifact(
+		fmt.Sprintf("Successfully retrieved artifact: %s", input.Name),
+		artifact,
+	)
+	return result, art, nil
 }
 
 // handleTestCreateTool handles the "test-create" tool call from MCP clients.
@@ -636,24 +698,24 @@ func handleTestListTool(
 	// List test reports (NOT environments) - aligned with new CLI behavior
 	reports := forge.ListTestReports(&store, testSpec.Name)
 
-	// Convert []*forge.TestReport to []forge.TestReport for consistency
-	reportsList := make([]forge.TestReport, 0, len(reports))
+	// Convert to lightweight summaries (use test-get for full details)
+	summaries := make([]forge.TestReportSummary, 0, len(reports))
 	for _, r := range reports {
 		if r != nil {
-			reportsList = append(reportsList, *r)
+			summaries = append(summaries, r.Summary())
 		}
 	}
 
 	// Wrap in TestListResult object
 	testListResult := TestListResult{
-		Reports: reportsList,
+		Reports: summaries,
 		Stage:   input.Stage,
-		Count:   len(reportsList),
+		Count:   len(summaries),
 	}
 
 	// Return structured TestListResult object
 	result, artifact := mcputil.SuccessResultWithArtifact(
-		fmt.Sprintf("Successfully listed %d test report(s) for stage: %s", len(reportsList), input.Stage),
+		fmt.Sprintf("Successfully listed %d test report(s) for stage: %s", len(summaries), input.Stage),
 		testListResult,
 	)
 	return result, artifact, nil
@@ -858,41 +920,42 @@ func handleTestAllTool(
 		}, nil, nil
 	}
 
-	// Collect all build artifacts (most recent ones)
-	buildArtifacts := store.Artifacts
+	// Convert build artifacts to lightweight summaries
+	buildSummaries := make([]forge.ArtifactSummary, 0, len(store.Artifacts))
+	for _, a := range store.Artifacts {
+		buildSummaries = append(buildSummaries, a.Summary())
+	}
 
 	// Collect test reports ONLY for completed stages (fail-fast behavior)
 	// With fail-fast, not all config.Test stages will have run
-	var testReports []forge.TestReport
+	var reportSummaries []forge.TestReportSummary
 	for _, testSpec := range config.Test {
 		reports := forge.ListTestReports(&store, testSpec.Name)
 		// Get the most recent report for each stage, if it exists
 		if len(reports) > 0 {
-			// Check if this report was created during THIS test-all run
-			// by verifying it's the most recent
-			testReports = append(testReports, *reports[0])
+			reportSummaries = append(reportSummaries, reports[0].Summary())
 		}
 		// If no report exists for this stage, it means execution stopped before this stage
 		// due to fail-fast, so we don't include it in results
 	}
 
 	// Determine if execution stopped early (fewer reports than total test stages)
-	stoppedEarly := len(testReports) < len(config.Test)
+	stoppedEarly := len(reportSummaries) < len(config.Test)
 
 	// Create summary
 	var summary string
 	if stoppedEarly {
 		summary = fmt.Sprintf("%d artifact(s) built, %d of %d test stage(s) run (stopped early due to failure)",
-			len(buildArtifacts), len(testReports), len(config.Test))
+			len(buildSummaries), len(reportSummaries), len(config.Test))
 	} else {
 		summary = fmt.Sprintf("%d artifact(s) built, %d test stage(s) run",
-			len(buildArtifacts), len(testReports))
+			len(buildSummaries), len(reportSummaries))
 	}
 
 	// Count passed/failed test stages
 	passedStages := 0
 	failedStages := 0
-	for _, report := range testReports {
+	for _, report := range reportSummaries {
 		if report.Status == "passed" {
 			passedStages++
 		} else {
@@ -903,8 +966,8 @@ func handleTestAllTool(
 
 	// Create aggregated result
 	testAllResult := TestAllResult{
-		BuildArtifacts: buildArtifacts,
-		TestReports:    testReports,
+		BuildArtifacts: buildSummaries,
+		TestReports:    reportSummaries,
 		Summary:        summary,
 		StoppedEarly:   stoppedEarly,
 	}

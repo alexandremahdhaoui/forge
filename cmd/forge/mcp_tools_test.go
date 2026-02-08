@@ -182,16 +182,31 @@ func TestMCPWrapperTypes(t *testing.T) {
 		{
 			name: "BuildResult",
 			data: BuildResult{
-				Artifacts: []forge.Artifact{
-					{Name: "test", Type: "binary", Location: "./test"},
+				Artifacts: []forge.ArtifactSummary{
+					{Name: "test", Type: "binary", Location: "./test", Timestamp: "2025-01-15T10:30:00Z"},
 				},
 				Summary: "Built 1 artifact",
 			},
 		},
 		{
+			name: "ArtifactSummary",
+			data: forge.ArtifactSummary{
+				Name:      "test-app",
+				Type:      "binary",
+				Location:  "./build/bin/test-app",
+				Timestamp: "2025-01-15T10:30:00Z",
+			},
+		},
+		{
+			name: "BuildGetInput",
+			data: BuildGetInput{
+				Name: "test-app",
+			},
+		},
+		{
 			name: "TestListResult",
 			data: TestListResult{
-				Reports: []forge.TestReport{
+				Reports: []forge.TestReportSummary{
 					{ID: "test-1", Stage: "unit", Status: "passed"},
 				},
 				Stage: "unit",
@@ -201,10 +216,10 @@ func TestMCPWrapperTypes(t *testing.T) {
 		{
 			name: "TestAllResult",
 			data: TestAllResult{
-				BuildArtifacts: []forge.Artifact{
-					{Name: "test", Type: "binary", Location: "./test"},
+				BuildArtifacts: []forge.ArtifactSummary{
+					{Name: "test", Type: "binary", Location: "./test", Timestamp: "2025-01-15T10:30:00Z"},
 				},
-				TestReports: []forge.TestReport{
+				TestReports: []forge.TestReportSummary{
 					{ID: "test-1", Stage: "unit", Status: "passed"},
 				},
 				Summary: "1 artifact built, 1 test passed",

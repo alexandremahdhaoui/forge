@@ -28,7 +28,7 @@ Or configure in your AI agent's MCP settings:
 
 ### `build`
 
-Build artifacts defined in forge.yaml configuration. Can build all artifacts or a specific artifact by name.
+Build artifacts defined in forge.yaml configuration. Returns lightweight summaries. Use `build-get` for full artifact details including dependencies.
 
 **Input Schema:**
 ```json
@@ -47,39 +47,35 @@ Build artifacts defined in forge.yaml configuration. Can build all artifacts or 
 
 **Output:**
 
-Returns both a text message and a structured artifact containing an array of `Artifact` objects:
+Returns a `BuildResult` with lightweight `ArtifactSummary` objects:
 
 ```json
 {
   "content": [{
     "type": "text",
-    "text": "Successfully built N artifact(s)"
+    "text": "Successfully built 1 artifact(s)"
   }],
-  "artifact": [
-    {
-      "name": "myapp",
-      "type": "binary",
-      "location": "./build/bin/myapp",
-      "timestamp": "2025-01-15T10:30:00Z",
-      "version": "abc123def"
-    }
-  ]
+  "artifact": {
+    "artifacts": [
+      {
+        "name": "myapp",
+        "type": "binary",
+        "location": "./build/bin/myapp",
+        "timestamp": "2025-01-15T10:30:00Z"
+      }
+    ],
+    "summary": "Successfully built 1 artifact(s)"
+  }
 }
 ```
 
-**Artifact Schema:**
-Each artifact in the array contains:
+**ArtifactSummary Schema:**
 - `name` (string): Artifact name
-- `type` (string): Artifact type (e.g., "binary", "container")
+- `type` (string): Artifact type (e.g., "binary", "container", "generated", "formatted")
 - `location` (string): File path or URL to the artifact
 - `timestamp` (string): Build timestamp (RFC3339 format)
-- `version` (string): Git commit hash or version identifier
 
-Or on error:
-```text
-Build failed: <error details>
-Build completed with errors: <error list>. Successfully built N artifact(s)
-```
+To get full details (version, dependencies), use `build-get` with the artifact name.
 
 **Example (build all):**
 ```json
@@ -107,9 +103,65 @@ Build completed with errors: <error list>. Successfully built N artifact(s)
 
 ---
 
+### `build-get`
+
+Get full details of a built artifact by name, including dependencies and version info.
+
+**Input Schema:**
+```json
+{
+  "name": "string (required)"  // Artifact name
+}
+```
+
+**Output:**
+
+Returns the full `Artifact` object for the most recent build of the given name:
+
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "Successfully retrieved artifact: myapp"
+  }],
+  "artifact": {
+    "name": "myapp",
+    "type": "binary",
+    "location": "./build/bin/myapp",
+    "timestamp": "2025-01-15T10:30:00Z",
+    "version": "abc123def",
+    "dependencies": [
+      {
+        "type": "file",
+        "filePath": "/path/to/go.mod",
+        "timestamp": "2025-01-15T09:00:00Z"
+      },
+      {
+        "type": "externalPackage",
+        "externalPackage": "sigs.k8s.io/yaml",
+        "semver": "v1.6.0"
+      }
+    ],
+    "dependencyDetectorEngine": "go://go-dependency-detector"
+  }
+}
+```
+
+**Artifact Schema:**
+- `name` (string): Artifact name
+- `type` (string): Artifact type
+- `location` (string): File path or URL to the artifact
+- `timestamp` (string): Build timestamp (RFC3339)
+- `version` (string): Git commit hash or version identifier
+- `dependencies` (array): Tracked dependencies (file paths with timestamps, external packages with semver)
+- `dependencyDetectorEngine` (string): Engine URI used for dependency detection
+- `dependencyDetectorSpec` (object): Engine-specific configuration
+
+---
+
 ### `test-create`
 
-Create a test environment for a specific test stage.
+Create a test environment for a specific test stage. Returns the full test environment details.
 
 **Input Schema:**
 ```json
@@ -165,7 +217,7 @@ Returns a structured `TestEnvironment` object with complete environment details:
 
 ### `test-get`
 
-Retrieve details of a specific test environment.
+Get full details of a test environment by ID, including files, metadata, managed resources, and env vars.
 
 **Input Schema:**
 ```json
@@ -184,7 +236,7 @@ Returns the same `TestEnvironment` structure as `test-create`.
 
 ### `test-list`
 
-List all test reports for a specific test stage.
+List test reports for a stage. Returns lightweight summaries. Use `test-run` for full test report details or `test-get` for full test environment details.
 
 **Input Schema:**
 ```json
@@ -196,7 +248,7 @@ List all test reports for a specific test stage.
 
 **Output:**
 
-Returns an array of `TestReport` objects:
+Returns a `TestListResult` with lightweight `TestReportSummary` objects:
 
 ```json
 {
@@ -204,43 +256,40 @@ Returns an array of `TestReport` objects:
     "type": "text",
     "text": "Successfully listed 2 test report(s) for stage: unit"
   }],
-  "artifact": [
-    {
-      "id": "test-report-unit-20251109-abc123",
-      "stage": "unit",
-      "status": "passed",
-      "testStats": {
-        "total": 42,
-        "passed": 42,
-        "failed": 0,
-        "skipped": 0
+  "artifact": {
+    "reports": [
+      {
+        "id": "report-uuid-abc123",
+        "stage": "unit",
+        "status": "passed",
+        "startTime": "2025-01-15T10:30:00Z"
       },
-      "coverage": {
-        "percentage": 85.5
-      },
-      ...
-    },
-    {
-      "id": "test-report-unit-20251109-def456",
-      "stage": "unit",
-      "status": "failed",
-      "testStats": {
-        "total": 42,
-        "passed": 40,
-        "failed": 2,
-        "skipped": 0
-      },
-      ...
-    }
-  ]
+      {
+        "id": "report-uuid-def456",
+        "stage": "unit",
+        "status": "failed",
+        "startTime": "2025-01-14T09:00:00Z"
+      }
+    ],
+    "stage": "unit",
+    "count": 2
+  }
 }
 ```
+
+**TestReportSummary Schema:**
+- `id` (string): Unique test report identifier
+- `stage` (string): Test stage name
+- `status` (string): Test result ("passed" or "failed")
+- `startTime` (string): Test start timestamp (RFC3339)
+
+To get the full test report (stats, coverage, errors), use `test-run`. To get the full test environment, use `test-get` with stage and testID.
 
 ---
 
 ### `test-run`
 
-Run tests for a specific test stage.
+Run tests for a specific test stage. Returns the full test report with stats, coverage, and error details.
 
 **Input Schema:**
 ```json
@@ -333,7 +382,7 @@ Successfully deleted test environment: test-uuid-123
 
 ### `test-all`
 
-Build all artifacts and run all test stages sequentially with fail-fast behavior.
+Build all artifacts and run all test stages sequentially with fail-fast behavior. Returns lightweight summaries. Use `build-get` for artifact details and `test-get` with stage/testID for full test environment details.
 
 **Fail-Fast Behavior:**
 - Execution stops immediately on the first test stage failure
@@ -347,7 +396,7 @@ Build all artifacts and run all test stages sequentially with fail-fast behavior
 
 **Output:**
 
-Returns an aggregated `TestAllResult` object containing all build artifacts and test reports:
+Returns a `TestAllResult` with lightweight summaries for both artifacts and test reports:
 
 **Success Case (all tests pass):**
 ```json
@@ -362,22 +411,21 @@ Returns an aggregated `TestAllResult` object containing all build artifacts and 
         "name": "myapp",
         "type": "binary",
         "location": "./build/bin/myapp",
-        "timestamp": "2025-01-15T10:30:00Z",
-        "version": "abc123def"
+        "timestamp": "2025-01-15T10:30:00Z"
       }
     ],
     "testReports": [
       {
         "id": "report-uuid-1",
-        "stage": "verify-tags",
+        "stage": "lint",
         "status": "passed",
-        ...
+        "startTime": "2025-01-15T10:31:00Z"
       },
       {
         "id": "report-uuid-2",
         "stage": "unit",
         "status": "passed",
-        ...
+        "startTime": "2025-01-15T10:32:00Z"
       }
     ],
     "stoppedEarly": false,
@@ -391,7 +439,7 @@ Returns an aggregated `TestAllResult` object containing all build artifacts and 
 {
   "content": [{
     "type": "text",
-    "text": "Test-all failed: 3 artifact(s) built, 2 test stage(s) run, 1 passed, 1 failed (stopped early)"
+    "text": "Test-all completed with failures: 3 artifact(s) built, 2 of 4 test stage(s) run (stopped early due to failure), 1 passed, 1 failed"
   }],
   "artifact": {
     "buildArtifacts": [
@@ -399,37 +447,36 @@ Returns an aggregated `TestAllResult` object containing all build artifacts and 
         "name": "myapp",
         "type": "binary",
         "location": "./build/bin/myapp",
-        "timestamp": "2025-01-15T10:30:00Z",
-        "version": "abc123def"
+        "timestamp": "2025-01-15T10:30:00Z"
       }
     ],
     "testReports": [
       {
         "id": "report-uuid-1",
-        "stage": "verify-tags",
+        "stage": "lint",
         "status": "passed",
-        ...
+        "startTime": "2025-01-15T10:31:00Z"
       },
       {
         "id": "report-uuid-2",
         "stage": "unit",
         "status": "failed",
-        ...
+        "startTime": "2025-01-15T10:32:00Z"
       }
     ],
     "stoppedEarly": true,
-    "summary": "3 artifact(s) built, 2 test stage(s) run, 1 passed, 1 failed (stopped early)"
+    "summary": "3 artifact(s) built, 2 of 4 test stage(s) run (stopped early due to failure), 1 passed, 1 failed"
   }
 }
 ```
 
 **TestAllResult Schema:**
-- `buildArtifacts` (array): Array of `Artifact` objects (see `build` tool schema)
-- `testReports` (array): Array of `TestReport` objects (see `test-run` tool schema) - contains only completed stages
+- `buildArtifacts` (array): Array of `ArtifactSummary` objects (name, type, location, timestamp). Use `build-get` for full details.
+- `testReports` (array): Array of `TestReportSummary` objects (id, stage, status, startTime) — contains only completed stages. Use `test-run` for full reports.
 - `stoppedEarly` (boolean): `true` if execution stopped due to a failure, `false` if all stages completed
 - `summary` (string): Human-readable summary of results
 
-**Note:** With fail-fast behavior, execution stops on the first test stage failure. Check `stoppedEarly` to determine if partial results were returned. If `isError` is `true` and `stoppedEarly` is `true`, remaining test stages were not executed.
+**Note:** With fail-fast behavior, execution stops on the first test stage failure. Check `stoppedEarly` to determine if partial results were returned.
 
 ---
 
