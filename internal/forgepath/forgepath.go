@@ -141,7 +141,7 @@ func IsForgeRepo(dir string) bool {
 //
 // Behavior:
 //   - If FORGE_RUN_LOCAL_ENABLED=true:
-//     → Use `go run -C {basedir} ./cmd/{packageName}`
+//     → Use `go run {basedir}/cmd/{packageName}` (absolute path preserves caller's CWD)
 //   - Otherwise:
 //     → Use `go run github.com/alexandremahdhaoui/forge/cmd/{packageName}@{forgeVersion}`
 //
@@ -188,9 +188,19 @@ func BuildGoRunCommand(packageName, forgeVersion string) ([]string, error) {
 			return nil, fmt.Errorf("FORGE_RUN_LOCAL_ENABLED=true but cannot find forge repository. Set FORGE_RUN_LOCAL_BASEDIR=/path/to/forge or FORGE_REPO_PATH=/path/to/forge")
 		}
 
-		// Use -C flag to run from forge directory
-		pkgPath := fmt.Sprintf("./cmd/%s", packageName)
-		return []string{"-C", baseDir, "run", pkgPath}, nil
+		// When the CWD is inside a Go module or workspace, use an absolute
+		// filesystem path so the subprocess inherits the caller's working
+		// directory. This is critical for workspace development where forge
+		// operates on a different project than the forge repo itself.
+		//
+		// When the CWD has no module context (e.g. temp directories in tests),
+		// fall back to -C which provides the forge repo's module context but
+		// changes the subprocess CWD to the forge directory.
+		pkgPath := filepath.Join(baseDir, "cmd", packageName)
+		if cwdHasModuleContext() {
+			return []string{"run", pkgPath}, nil
+		}
+		return []string{"-C", baseDir, "run", fmt.Sprintf("./cmd/%s", packageName)}, nil
 	}
 
 	// Production mode: use versioned module syntax
@@ -264,4 +274,26 @@ func BuildExternalGoRunCommand(modulePath, version string) ([]string, error) {
 	version = strings.TrimSuffix(version, "+dirty")
 
 	return []string{"run", fmt.Sprintf("%s@%s", modulePath, version)}, nil
+}
+
+// cwdHasModuleContext checks whether the current working directory is inside
+// a Go module or workspace. It walks up from CWD looking for go.mod or go.work.
+func cwdHasModuleContext() bool {
+	dir, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return true
+		}
+		if _, err := os.Stat(filepath.Join(dir, "go.work")); err == nil {
+			return true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return false
+		}
+		dir = parent
+	}
 }

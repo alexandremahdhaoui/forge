@@ -1075,7 +1075,7 @@ Forge respects several environment variables:
 | `FORGE_REPO_PATH` | Legacy variable for forge repository location | None | `FORGE_REPO_PATH=/path/to/forge forge build` |
 
 **Local Development Mode (FORGE_RUN_LOCAL_ENABLED=true):**
-- Runs engines using `go run -C /path/to/forge ./cmd/<tool>`
+- Runs engines using `go run /path/to/forge/cmd/<tool>`
 - Required for development when forge is built without version ldflags
 - Auto-detects forge repo if running from forge directory
 

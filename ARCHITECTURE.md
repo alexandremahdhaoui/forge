@@ -1246,7 +1246,7 @@ Activated when:
 Executes engines using:
 
 ```bash
-go run -C /path/to/forge ./cmd/<package-name>
+go run /path/to/forge/cmd/<package-name>
 ```
 
 Environment variables:
