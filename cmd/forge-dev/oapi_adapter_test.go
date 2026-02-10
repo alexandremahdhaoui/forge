@@ -345,6 +345,78 @@ func TestConvertSchemaProperty(t *testing.T) {
 		}
 	})
 
+	t.Run("nullable $ref non-required property uses pointer", func(t *testing.T) {
+		schemaRef := &openapi3.SchemaRef{
+			Ref: "#/components/schemas/DHCPSpec",
+			Value: &openapi3.Schema{
+				Type:     &openapi3.Types{"object"},
+				Nullable: true,
+			},
+		}
+
+		prop := ConvertSchemaProperty("dhcp", schemaRef, false)
+
+		if !prop.IsRef {
+			t.Error("IsRef should be true")
+		}
+		if prop.RefType != "DHCPSpec" {
+			t.Errorf("RefType = %q, want %q", prop.RefType, "DHCPSpec")
+		}
+		if !prop.IsPointer {
+			t.Error("IsPointer should be true for nullable non-required $ref")
+		}
+		if !prop.Nullable {
+			t.Error("Nullable should be true")
+		}
+		if prop.GoType != "*DHCPSpec" {
+			t.Errorf("GoType = %q, want %q", prop.GoType, "*DHCPSpec")
+		}
+	})
+
+	t.Run("nullable $ref required property does not use pointer", func(t *testing.T) {
+		schemaRef := &openapi3.SchemaRef{
+			Ref: "#/components/schemas/DHCPSpec",
+			Value: &openapi3.Schema{
+				Type:     &openapi3.Types{"object"},
+				Nullable: true,
+			},
+		}
+
+		prop := ConvertSchemaProperty("dhcp", schemaRef, true)
+
+		if !prop.IsRef {
+			t.Error("IsRef should be true")
+		}
+		if prop.IsPointer {
+			t.Error("IsPointer should be false for nullable required $ref")
+		}
+		if prop.GoType != "DHCPSpec" {
+			t.Errorf("GoType = %q, want %q", prop.GoType, "DHCPSpec")
+		}
+	})
+
+	t.Run("non-nullable $ref property does not use pointer", func(t *testing.T) {
+		schemaRef := &openapi3.SchemaRef{
+			Ref: "#/components/schemas/VMResource",
+			Value: &openapi3.Schema{
+				Type:     &openapi3.Types{"object"},
+				Nullable: false,
+			},
+		}
+
+		prop := ConvertSchemaProperty("vm", schemaRef, false)
+
+		if !prop.IsRef {
+			t.Error("IsRef should be true")
+		}
+		if prop.IsPointer {
+			t.Error("IsPointer should be false for non-nullable $ref")
+		}
+		if prop.GoType != "VMResource" {
+			t.Errorf("GoType = %q, want %q", prop.GoType, "VMResource")
+		}
+	})
+
 	t.Run("nullable non-required property uses pointer", func(t *testing.T) {
 		schema := &openapi3.Schema{
 			Type:     &openapi3.Types{"string"},
@@ -924,6 +996,85 @@ components:
 		}
 		if !parentProp.IsPointer {
 			t.Error("parent property should use pointer")
+		}
+	})
+
+	t.Run("nullable $ref produces pointer type in generated output", func(t *testing.T) {
+		dir := t.TempDir()
+		specContent := `openapi: '3.0.0'
+info:
+  title: Test
+  version: '1.0'
+components:
+  schemas:
+    DHCPSpec:
+      type: object
+      nullable: true
+      properties:
+        enabled:
+          type: boolean
+        rangeStart:
+          type: string
+    NetworkSpec:
+      type: object
+      properties:
+        cidr:
+          type: string
+        dhcp:
+          $ref: '#/components/schemas/DHCPSpec'
+    Spec:
+      type: object
+      properties:
+        network:
+          $ref: '#/components/schemas/NetworkSpec'
+`
+		specPath := filepath.Join(dir, "spec.openapi.yaml")
+		if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
+			t.Fatalf("failed to write spec file: %v", err)
+		}
+
+		spec, err := LoadOpenAPISpec(specPath)
+		if err != nil {
+			t.Fatalf("LoadOpenAPISpec failed: %v", err)
+		}
+
+		types, err := GenerateForgeTypes(spec, "main")
+		if err != nil {
+			t.Fatalf("GenerateForgeTypes failed: %v", err)
+		}
+
+		// Find NetworkSpec type
+		var networkType *ForgeTypeDefinition
+		for i := range types {
+			if types[i].Name == "NetworkSpec" {
+				networkType = &types[i]
+				break
+			}
+		}
+		if networkType == nil {
+			t.Fatal("NetworkSpec type not found")
+		}
+
+		// Find dhcp property
+		var dhcpProp *ForgeProperty
+		for i := range networkType.Properties {
+			if networkType.Properties[i].JsonName == "dhcp" {
+				dhcpProp = &networkType.Properties[i]
+				break
+			}
+		}
+		if dhcpProp == nil {
+			t.Fatal("dhcp property not found")
+		}
+
+		if !dhcpProp.IsRef {
+			t.Error("dhcp.IsRef should be true")
+		}
+		if !dhcpProp.IsPointer {
+			t.Error("dhcp.IsPointer should be true for nullable $ref")
+		}
+		if dhcpProp.GoType != "*DHCPSpec" {
+			t.Errorf("dhcp.GoType = %q, want %q", dhcpProp.GoType, "*DHCPSpec")
 		}
 	})
 

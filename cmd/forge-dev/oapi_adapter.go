@@ -145,6 +145,12 @@ func ConvertSchemaProperty(name string, schemaRef *openapi3.SchemaRef, required 
 		prop.IsRef = true
 		prop.RefType = extractSchemaName(schemaRef.Ref)
 		prop.GoType = prop.RefType
+		// Check if referenced schema is nullable (produces pointer type)
+		if schemaRef.Value != nil && schemaRef.Value.Nullable && !prop.Required {
+			prop.Nullable = true
+			prop.IsPointer = true
+			prop.GoType = "*" + prop.GoType
+		}
 		return prop
 	}
 
