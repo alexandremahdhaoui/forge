@@ -17,8 +17,10 @@
 package templateutil
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"text/template"
 )
 
 func TestExpandTemplates_BasicExpansion(t *testing.T) {
@@ -409,5 +411,73 @@ func TestExpandTemplates_UndefinedVariableInNestedStructure(t *testing.T) {
 	errMsg := err.Error()
 	if !strings.Contains(errMsg, "INVALID_VAR") {
 		t.Errorf("Error message should contain 'INVALID_VAR', got: %s", errMsg)
+	}
+}
+
+func TestExpandTemplates_WithFuncMap(t *testing.T) {
+	fm := template.FuncMap{
+		"double": func(n int) int { return n * 2 },
+	}
+
+	spec := map[string]interface{}{
+		"val": "{{ double 21 }}",
+	}
+
+	env := map[string]string{}
+
+	result, err := ExpandTemplates(spec, env, WithFuncMap(fm))
+	if err != nil {
+		t.Fatalf("ExpandTemplates failed: %v", err)
+	}
+
+	if result["val"] != "42" {
+		t.Errorf("Expected val='42', got '%v'", result["val"])
+	}
+}
+
+func TestExpandTemplates_WithFuncMap_Nil(t *testing.T) {
+	spec := map[string]interface{}{
+		"path": "{{.Env.KUBECONFIG}}",
+	}
+
+	env := map[string]string{
+		"KUBECONFIG": "/tmp/kubeconfig",
+	}
+
+	result, err := ExpandTemplates(spec, env, WithFuncMap(nil))
+	if err != nil {
+		t.Fatalf("ExpandTemplates failed: %v", err)
+	}
+
+	if result["path"] != "/tmp/kubeconfig" {
+		t.Errorf("Expected path='/tmp/kubeconfig', got '%v'", result["path"])
+	}
+}
+
+func TestExpandTemplates_WithFuncMap_CombinedWithEnv(t *testing.T) {
+	fm := template.FuncMap{
+		"greet": func(name string) string { return fmt.Sprintf("Hello, %s!", name) },
+	}
+
+	spec := map[string]interface{}{
+		"greeting": `{{ greet "World" }}`,
+		"path":     "{{.Env.KUBECONFIG}}",
+	}
+
+	env := map[string]string{
+		"KUBECONFIG": "/tmp/kubeconfig",
+	}
+
+	result, err := ExpandTemplates(spec, env, WithFuncMap(fm))
+	if err != nil {
+		t.Fatalf("ExpandTemplates failed: %v", err)
+	}
+
+	if result["greeting"] != "Hello, World!" {
+		t.Errorf("Expected greeting='Hello, World!', got '%v'", result["greeting"])
+	}
+
+	if result["path"] != "/tmp/kubeconfig" {
+		t.Errorf("Expected path='/tmp/kubeconfig', got '%v'", result["path"])
 	}
 }

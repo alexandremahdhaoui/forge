@@ -22,6 +22,27 @@ import (
 	"text/template"
 )
 
+// options holds configuration for template expansion.
+type options struct {
+	funcMap template.FuncMap
+}
+
+// Option configures template expansion behavior.
+type Option func(*options)
+
+// WithFuncMap adds custom template functions to the template engine.
+// The provided FuncMap is merged with any previously registered functions.
+func WithFuncMap(funcMap template.FuncMap) Option {
+	return func(o *options) {
+		if o.funcMap == nil {
+			o.funcMap = make(template.FuncMap)
+		}
+		for k, v := range funcMap {
+			o.funcMap[k] = v
+		}
+	}
+}
+
 // ExpandTemplates recursively walks through a spec map and expands environment variable templates.
 //
 // Template syntax: {{.Env.VARIABLE_NAME}}
@@ -35,6 +56,7 @@ import (
 // Parameters:
 //   - spec: The specification map to expand (may contain nested maps and arrays)
 //   - env: Environment variables available for template expansion
+//   - opts: Optional configuration (e.g., WithFuncMap to add custom template functions)
 //
 // Returns:
 //   - Expanded spec map (new map, does not modify input)
@@ -46,13 +68,18 @@ import (
 //   - Undefined variable name
 //   - List of available environment variables
 //   - Example: "template expansion failed: variable 'UNDEFINED_VAR' not found in environment for template '{{.Env.UNDEFINED_VAR}}'. Available: [KUBECONFIG, TESTENV_LCR_FQDN]"
-func ExpandTemplates(spec map[string]interface{}, env map[string]string) (map[string]interface{}, error) {
+func ExpandTemplates(spec map[string]interface{}, env map[string]string, opts ...Option) (map[string]interface{}, error) {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	// Create a copy of the spec to avoid modifying the input
 	result := make(map[string]interface{})
 
 	// Recursively expand templates in the spec
 	for key, value := range spec {
-		expanded, err := expandValue(value, env)
+		expanded, err := expandValue(value, env, o.funcMap)
 		if err != nil {
 			return nil, err
 		}
@@ -63,17 +90,17 @@ func ExpandTemplates(spec map[string]interface{}, env map[string]string) (map[st
 }
 
 // expandValue recursively expands templates in a value (string, map, array, or other)
-func expandValue(value interface{}, env map[string]string) (interface{}, error) {
+func expandValue(value interface{}, env map[string]string, funcMap template.FuncMap) (interface{}, error) {
 	switch v := value.(type) {
 	case string:
 		// Expand templates in string value
-		return expandString(v, env)
+		return expandString(v, env, funcMap)
 
 	case map[string]interface{}:
 		// Recursively expand nested map
 		result := make(map[string]interface{})
 		for k, val := range v {
-			expanded, err := expandValue(val, env)
+			expanded, err := expandValue(val, env, funcMap)
 			if err != nil {
 				return nil, err
 			}
@@ -85,7 +112,7 @@ func expandValue(value interface{}, env map[string]string) (interface{}, error) 
 		// Recursively expand array elements
 		result := make([]interface{}, len(v))
 		for i, val := range v {
-			expanded, err := expandValue(val, env)
+			expanded, err := expandValue(val, env, funcMap)
 			if err != nil {
 				return nil, err
 			}
@@ -100,14 +127,18 @@ func expandValue(value interface{}, env map[string]string) (interface{}, error) 
 }
 
 // expandString expands templates in a string value using Go text/template
-func expandString(str string, env map[string]string) (string, error) {
+func expandString(str string, env map[string]string, funcMap template.FuncMap) (string, error) {
 	// If no template markers, return unchanged
 	if !strings.Contains(str, "{{") {
 		return str, nil
 	}
 
 	// Create template with custom error handling for missing keys
-	tmpl, err := template.New("spec").Option("missingkey=error").Parse(str)
+	tmpl := template.New("spec").Option("missingkey=error")
+	if funcMap != nil {
+		tmpl = tmpl.Funcs(funcMap)
+	}
+	tmpl, err := tmpl.Parse(str)
 	if err != nil {
 		return "", fmt.Errorf("template parsing failed for '%s': %w", str, err)
 	}

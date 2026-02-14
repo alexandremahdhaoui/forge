@@ -22,9 +22,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
+	"github.com/alexandremahdhaoui/forge/pkg/portalloc"
 	"github.com/alexandremahdhaoui/forge/pkg/templateutil"
 	"github.com/alexandremahdhaoui/forge/pkg/testenvutil"
 )
@@ -229,6 +231,13 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
+	// Create the port allocator for allocateOpenPort template function
+	stateFilePath, err := portAllocStateFilePath()
+	if err != nil {
+		return fmt.Errorf("failed to resolve port allocation state path: %w", err)
+	}
+	allocator := portalloc.New(stateFilePath)
+
 	// Initialize environment accumulation
 	accumulatedMetadata := make(map[string]string)
 	envTracker := testenvutil.NewEnvSourceTracker()
@@ -245,13 +254,72 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 		} else {
 			// Default: expand templates using accumulated environment
 			specToUse = subengine.Spec
+			var portEnvVars map[string]string
 			if len(subengine.Spec) > 0 {
+				portEnvVars = make(map[string]string)
 				accumulatedEnv := envTracker.ToMap()
+
+				// Open allocator (acquires flock, loads state) before template expansion
+				if err := allocator.Open(); err != nil {
+					return fmt.Errorf("failed to open port allocator: %w", err)
+				}
+
+				wrappedAllocate := func(args ...any) (string, error) {
+					if len(args) < 2 {
+						return "", fmt.Errorf("allocateOpenPort requires at least 2 args (addr, id), got %d", len(args))
+					}
+					addr, ok := args[0].(string)
+					if !ok {
+						return "", fmt.Errorf("allocateOpenPort: addr must be a string")
+					}
+					id, ok := args[1].(string)
+					if !ok {
+						return "", fmt.Errorf("allocateOpenPort: id must be a string")
+					}
+
+					var port string
+					var err error
+					if len(args) == 4 {
+						minPort, err2 := toInt(args[2])
+						if err2 != nil {
+							return "", fmt.Errorf("allocateOpenPort: minPort: %w", err2)
+						}
+						maxPort, err2 := toInt(args[3])
+						if err2 != nil {
+							return "", fmt.Errorf("allocateOpenPort: maxPort: %w", err2)
+						}
+						port, err = allocator.AllocateInRange(addr, id, minPort, maxPort)
+					} else {
+						port, err = allocator.Allocate(addr, id)
+					}
+					if err != nil {
+						return "", err
+					}
+					envKey := NormalizePortAllocEnvKey(id)
+					portEnvVars[envKey] = port
+					return port, nil
+				}
+				funcMap := template.FuncMap{
+					"allocateOpenPort": wrappedAllocate,
+				}
+
 				var err error
-				specToUse, err = templateutil.ExpandTemplates(subengine.Spec, accumulatedEnv)
+				specToUse, err = templateutil.ExpandTemplates(subengine.Spec, accumulatedEnv, templateutil.WithFuncMap(funcMap))
+
+				// Close allocator (writes state if dirty, releases flock) after template expansion
+				if closeErr := allocator.Close(); closeErr != nil {
+					if err != nil {
+						return fmt.Errorf("failed to expand templates for %s: %w (also failed to close port allocator: %v)", subengine.Engine, err, closeErr)
+					}
+					return fmt.Errorf("failed to close port allocator: %w", closeErr)
+				}
+
 				if err != nil {
 					return fmt.Errorf("failed to expand templates for %s: %w", subengine.Engine, err)
 				}
+			}
+			if len(portEnvVars) > 0 {
+				envTracker.Merge(portEnvVars, nil, subengineIndex)
 			}
 		}
 
@@ -352,6 +420,21 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 	env.Env = envTracker.ToMap()
 
 	return nil
+}
+
+// portAllocStateFilePath returns the path to the port allocations state file.
+// Uses $XDG_STATE_HOME/forge/port-allocations.json if XDG_STATE_HOME is set,
+// otherwise ~/.local/state/forge/port-allocations.json.
+func portAllocStateFilePath() (string, error) {
+	stateDir := os.Getenv("XDG_STATE_HOME")
+	if stateDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to get home directory: %w", err)
+		}
+		stateDir = filepath.Join(home, ".local", "state")
+	}
+	return filepath.Join(stateDir, "forge", "port-allocations.json"), nil
 }
 
 // extractEnvPropagation converts map[string]interface{} to *EnvPropagation via JSON marshal/unmarshal.
