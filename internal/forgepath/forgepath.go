@@ -264,6 +264,17 @@ func BuildExternalGoRunCommand(modulePath, version string) ([]string, error) {
 		return nil, fmt.Errorf("module path cannot be empty")
 	}
 
+	// When running in local development mode inside a Go workspace,
+	// check if the external module is a workspace member. If so, drop
+	// the @version suffix so `go run` uses the local workspace copy
+	// instead of downloading a published version.
+	localEnabled := os.Getenv("FORGE_RUN_LOCAL_ENABLED")
+	if localEnabled == "true" && cwdHasModuleContext() {
+		if isWorkspaceModule(modulePath) {
+			return []string{"run", modulePath}, nil
+		}
+	}
+
 	// Default version to "latest" for external modules
 	if version == "" {
 		version = "latest"
@@ -296,4 +307,113 @@ func cwdHasModuleContext() bool {
 		}
 		dir = parent
 	}
+}
+
+// isWorkspaceModule checks if modulePath belongs to a module listed in the
+// nearest go.work file. It parses the go.work use directives and reads each
+// member's go.mod to extract module paths.
+func isWorkspaceModule(modulePath string) bool {
+	goWorkDir := findGoWork()
+	if goWorkDir == "" {
+		return false
+	}
+
+	goWorkPath := filepath.Join(goWorkDir, "go.work")
+	content, err := os.ReadFile(goWorkPath)
+	if err != nil {
+		return false
+	}
+
+	// Parse use directives from go.work
+	useDirs := parseGoWorkUseDirs(string(content))
+
+	for _, useDir := range useDirs {
+		var absDir string
+		if filepath.IsAbs(useDir) {
+			absDir = useDir
+		} else {
+			absDir = filepath.Join(goWorkDir, useDir)
+		}
+
+		modPath := readModulePath(filepath.Join(absDir, "go.mod"))
+		if modPath != "" && strings.HasPrefix(modulePath, modPath) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// findGoWork walks up from CWD looking for a go.work file and returns the
+// directory containing it, or "" if not found.
+func findGoWork() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.work")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
+
+// parseGoWorkUseDirs extracts directory paths from go.work use directives.
+// Handles both single-line `use ./foo` and block `use ( ./foo \n ./bar )` syntax.
+func parseGoWorkUseDirs(content string) []string {
+	var dirs []string
+	lines := strings.Split(content, "\n")
+	inUseBlock := false
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		if inUseBlock {
+			if line == ")" {
+				inUseBlock = false
+				continue
+			}
+			// Strip comments
+			if idx := strings.Index(line, "//"); idx >= 0 {
+				line = strings.TrimSpace(line[:idx])
+			}
+			if line != "" {
+				dirs = append(dirs, line)
+			}
+			continue
+		}
+
+		if strings.HasPrefix(line, "use (") {
+			inUseBlock = true
+			continue
+		}
+		if strings.HasPrefix(line, "use ") {
+			dir := strings.TrimSpace(strings.TrimPrefix(line, "use "))
+			if dir != "" {
+				dirs = append(dirs, dir)
+			}
+		}
+	}
+
+	return dirs
+}
+
+// readModulePath reads a go.mod file and returns the module path declared in it.
+func readModulePath(goModPath string) string {
+	content, err := os.ReadFile(goModPath)
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(content), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
+		}
+	}
+	return ""
 }
