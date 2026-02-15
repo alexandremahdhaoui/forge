@@ -27,43 +27,43 @@ import (
 
 // BuildInput represents the input parameters for the build tool.
 type BuildInput struct {
-	Name         string `json:"name,omitempty"`
-	ArtifactName string `json:"artifactName,omitempty"` // Alternative to Name
+	Name         string `json:"name,omitempty" jsonschema:"Build target name from forge.yaml build[].name. Omit to build all targets."`
+	ArtifactName string `json:"artifactName,omitempty" jsonschema:"Alternative to name for specifying the build target"`
 }
 
 // BuildGetInput represents the input parameters for the build-get tool.
 type BuildGetInput struct {
-	Name string `json:"name"`
+	Name string `json:"name" jsonschema:"Artifact name to retrieve details for"`
 }
 
 // TestCreateInput represents the input parameters for the test-create tool.
 type TestCreateInput struct {
-	Stage string `json:"stage"`
+	Stage string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
 }
 
 // TestGetInput represents the input parameters for the test-get tool.
 type TestGetInput struct {
-	Stage  string `json:"stage"`
-	TestID string `json:"testID"`
-	Format string `json:"format,omitempty"` // json, yaml, or table (default)
+	Stage  string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
+	TestID string `json:"testID" jsonschema:"Test environment ID returned by test-create or test-run"`
+	Format string `json:"format,omitempty" jsonschema:"Output format: json, yaml, or table (default: table)"`
 }
 
 // TestDeleteInput represents the input parameters for the test-delete tool.
 type TestDeleteInput struct {
-	Stage  string `json:"stage"`
-	TestID string `json:"testID"`
+	Stage  string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
+	TestID string `json:"testID" jsonschema:"Test environment ID to delete"`
 }
 
 // TestListInput represents the input parameters for the test-list tool.
 type TestListInput struct {
-	Stage  string `json:"stage"`
-	Format string `json:"format,omitempty"` // json, yaml, or table (default)
+	Stage  string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
+	Format string `json:"format,omitempty" jsonschema:"Output format: json, yaml, or table (default: table)"`
 }
 
 // TestRunInput represents the input parameters for the test-run tool.
 type TestRunInput struct {
-	Stage  string `json:"stage"`
-	TestID string `json:"testID,omitempty"` // Optional - auto-creates if not provided
+	Stage  string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
+	TestID string `json:"testID,omitempty" jsonschema:"Existing test environment ID to reuse. If omitted a new environment is created and cleaned up automatically."`
 }
 
 // TestAllInput represents the input parameters for the test-all tool.
@@ -94,14 +94,14 @@ type TestListResult struct {
 
 // ConfigValidateInput represents the input parameters for the config-validate tool.
 type ConfigValidateInput struct {
-	ConfigPath string `json:"configPath,omitempty"` // Defaults to forge.yaml
+	ConfigPath string `json:"configPath,omitempty" jsonschema:"Path to forge.yaml file. Defaults to forge.yaml in the current directory."`
 }
 
 // DocsListInput represents the input parameters for the docs-list tool.
 type DocsListInput struct {
 	// Engine name to list docs for. If empty, lists all engines.
 	// Use "all" to list all docs from all engines.
-	Engine string `json:"engine,omitempty"`
+	Engine string `json:"engine,omitempty" jsonschema:"Engine name to list docs for. Omit to list engines. Use 'all' for all docs across engines."`
 }
 
 // DocsListResult represents the result of listing docs.
@@ -118,12 +118,12 @@ type DocsListResult struct {
 
 // DocsGetInput represents the input parameters for the docs-get tool.
 type DocsGetInput struct {
-	Name string `json:"name"`
+	Name string `json:"name" jsonschema:"Documentation name in format 'engine/docname' or 'docname' for global docs"`
 }
 
 // ListInput represents the input parameters for the list tool.
 type ListInput struct {
-	Category string `json:"category,omitempty"` // "build", "test", or empty (default: list both)
+	Category string `json:"category,omitempty" jsonschema:"Filter results: 'build' for build targets only, 'test' for test stages only. Omit for both."`
 }
 
 // ListResult represents the result of listing targets.
@@ -140,73 +140,73 @@ func runMCPServer() error {
 	// Register build tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "build",
-		Description: "Build artifacts from forge.yaml configuration. Returns lightweight summaries (name, type, location, timestamp). Use build-get for full artifact details including dependencies.",
+		Description: "Build one or all artifacts defined in forge.yaml build[] entries. Without a name parameter, builds all artifacts. Returns lightweight summaries; use build-get for full details including dependencies. Each build[] entry in forge.yaml requires name, src, dest, and engine fields.",
 	}, handleBuildTool)
 
 	// Register build-get tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "build-get",
-		Description: "Get full details of a built artifact by name, including dependencies and version info.",
+		Description: "Get full details of a previously built artifact by name, including dependencies, version, checksum, and timestamps. Use the list tool first to discover available build target names.",
 	}, handleBuildGetTool)
 
 	// Register test-create tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "test-create",
-		Description: "Create a test environment for a specific test stage. Returns the full test environment details.",
+		Description: "Create a persistent test environment for a stage defined in forge.yaml test[]. The stage must have a testenv engine configured. Returns full environment details including files, metadata, and managed resources. Use test-delete to clean up when done.",
 	}, handleTestCreateTool)
 
 	// Register test-get tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "test-get",
-		Description: "Get full details of a test environment by ID, including files, metadata, managed resources, and env vars.",
+		Description: "Get full details of a test environment by stage and testID, including artifact files, metadata, managed resources, and environment variables. Use test-list to find available testIDs for a stage.",
 	}, handleTestGetTool)
 
 	// Register test-delete tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "test-delete",
-		Description: "Delete a test environment by ID",
+		Description: "Delete a test environment by stage and testID. Tears down managed resources (clusters, registries) and cleans up temporary files.",
 	}, handleTestDeleteTool)
 
 	// Register test-list tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "test-list",
-		Description: "List test reports for a stage. Returns lightweight summaries (id, stage, status, startTime). Use test-get for full test environment details.",
+		Description: "List test reports for a specific stage defined in forge.yaml test[]. Returns lightweight summaries with id, status, and timing. Use test-get with the stage and testID for full environment details.",
 	}, handleTestListTool)
 
 	// Register test-run tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "test-run",
-		Description: "Run tests for a specific test stage. Returns the full test report with stats, coverage, and error details.",
+		Description: "Run tests for a stage defined in forge.yaml test[]. Auto-creates a test environment if needed and cleans it up after. Optionally pass a testID to run against an existing environment. Returns a full test report with stats, coverage, and error details.",
 	}, handleTestRunTool)
 
 	// Register test-all tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "test-all",
-		Description: "Build all artifacts and run all test stages sequentially (stops on first failure). Returns lightweight summaries. Use build-get for artifact details and test-get with stage/testID for full test environment details.",
+		Description: "Build all artifacts then run all test stages sequentially as defined in forge.yaml. Stops on first failure (fail-fast). Auto-creates and cleans up test environments. Use build-get and test-get for full details on individual results.",
 	}, handleTestAllTool)
 
 	// Register config-validate tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "config-validate",
-		Description: "Validate forge.yaml configuration",
+		Description: "Validate the forge.yaml configuration file, including all build[], test[], and engine-specific spec sections. Returns structured validation results with per-field error locations.",
 	}, handleConfigValidateTool)
 
 	// Register docs-list tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "docs-list",
-		Description: "List documentation. Without engine parameter: lists engines. With engine='all': lists all docs. With engine='<name>': lists docs for that engine.",
+		Description: "List available documentation from forge engines. Without engine parameter: lists engines that have docs. With engine='all': lists all docs across engines. With a specific engine name: lists docs for that engine. Use docs-get with the returned name to retrieve content.",
 	}, handleDocsListTool)
 
 	// Register docs-get tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "docs-get",
-		Description: "Get a specific documentation by name",
+		Description: "Retrieve documentation content by name. Use the format 'engine/docname' for engine-specific docs, or just 'docname' for global forge docs. Use docs-list first to discover available names.",
 	}, handleDocsGetTool)
 
 	// Register list tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "list",
-		Description: "List available build targets and test stages",
+		Description: "List available build targets and test stages defined in forge.yaml. Optionally filter by category ('build' or 'test'). Use the returned names with build, test-run, and other tools.",
 	}, handleListTool)
 
 	// Run the MCP server

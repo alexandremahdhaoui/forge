@@ -118,13 +118,13 @@ func RegisterBuilderTools(server *mcpserver.Server, config BuilderConfig) error 
 	// Register build tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "build",
-		Description: fmt.Sprintf("Build artifacts using %s", config.Name),
+		Description: fmt.Sprintf("Build a single artifact using %s. Called by forge with parameters from forge.yaml build[] entries.", config.Name),
 	}, makeBuildHandler(config))
 
 	// Register buildBatch tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "buildBatch",
-		Description: fmt.Sprintf("Build multiple artifacts in batch using %s", config.Name),
+		Description: fmt.Sprintf("Build multiple artifacts in a single batch call using %s. Forge uses this when multiple forge.yaml build[] entries share the same engine.", config.Name),
 	}, makeBatchBuildHandler(config))
 
 	return nil

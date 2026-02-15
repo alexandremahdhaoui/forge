@@ -26,29 +26,29 @@ import (
 type ConfigValidateInput struct {
 	// Spec contains engine-specific configuration to validate.
 	// Each engine interprets this according to its own schema.
-	Spec map[string]interface{} `json:"spec,omitempty"`
+	Spec map[string]interface{} `json:"spec,omitempty" jsonschema:"Engine-specific configuration to validate"`
 
 	// ForgeSpec is the complete forge.yaml spec.
 	// Required for orchestrators (testenv) to access referenced sections
 	// like kindenv, localContainerRegistry, etc.
-	ForgeSpec *forge.Spec `json:"forgeSpec,omitempty"`
+	ForgeSpec *forge.Spec `json:"forgeSpec,omitempty" jsonschema:"Complete forge.yaml spec needed by orchestrators to access referenced sections"`
 
 	// ConfigPath is the path to forge.yaml (for error messages).
-	ConfigPath string `json:"configPath,omitempty"`
+	ConfigPath string `json:"configPath,omitempty" jsonschema:"Path to forge.yaml used in error messages"`
 
 	// DirectoryParams contains standardized directory paths.
 	// Passed from forge for engines that need path context.
-	DirectoryParams *DirectoryParams `json:"directoryParams,omitempty"`
+	DirectoryParams *DirectoryParams `json:"directoryParams,omitempty" jsonschema:"Standardized directory paths for engines needing path context"`
 
 	// SpecType indicates which forge.yaml section this spec came from.
 	// Values: "build", "test", "testenv"
 	// Used for error context.
-	SpecType string `json:"specType,omitempty"`
+	SpecType string `json:"specType,omitempty" jsonschema:"Which forge.yaml section this spec came from: build, test, or testenv"`
 
 	// SpecName is the name field from the forge.yaml spec.
 	// e.g., "go-app" for a build spec, "unit" for a test spec.
 	// Used for error context.
-	SpecName string `json:"specName,omitempty"`
+	SpecName string `json:"specName,omitempty" jsonschema:"Name field from the forge.yaml spec entry (e.g. go-app or unit)"`
 }
 
 // ConfigValidateOutput is the output from the config-validate MCP tool.

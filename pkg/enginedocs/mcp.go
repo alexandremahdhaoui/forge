@@ -32,7 +32,7 @@ type DocsListInput struct {
 
 // DocsGetInput represents the input parameters for the docs-get tool.
 type DocsGetInput struct {
-	Name string `json:"name"`
+	Name string `json:"name" jsonschema:"Documentation entry name as returned by docs-list"`
 }
 
 // DocsValidateInput represents the input parameters for the docs-validate tool.
@@ -63,7 +63,7 @@ func RegisterDocsTools(server *mcpserver.Server, cfg Config) error {
 	// Register docs-list tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "docs-list",
-		Description: fmt.Sprintf("List all available documentation for %s", cfg.EngineName),
+		Description: fmt.Sprintf("List all available documentation entries for %s. Returns doc names that can be passed to docs-get.", cfg.EngineName),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input DocsListInput) (*mcp.CallToolResult, any, error) {
 		return handleDocsListTool(ctx, req, input, cfg)
 	})
@@ -71,7 +71,7 @@ func RegisterDocsTools(server *mcpserver.Server, cfg Config) error {
 	// Register docs-get tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "docs-get",
-		Description: fmt.Sprintf("Get a specific documentation by name for %s", cfg.EngineName),
+		Description: fmt.Sprintf("Retrieve the full content of a documentation entry for %s. Use docs-list first to discover available names.", cfg.EngineName),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input DocsGetInput) (*mcp.CallToolResult, any, error) {
 		return handleDocsGetTool(ctx, req, input, cfg)
 	})
@@ -79,7 +79,7 @@ func RegisterDocsTools(server *mcpserver.Server, cfg Config) error {
 	// Register docs-validate tool (NEW functionality)
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "docs-validate",
-		Description: fmt.Sprintf("Validate documentation completeness for %s", cfg.EngineName),
+		Description: fmt.Sprintf("Validate that all required documentation entries exist and are non-empty for %s.", cfg.EngineName),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input DocsValidateInput) (*mcp.CallToolResult, any, error) {
 		return handleDocsValidateTool(ctx, req, input, cfg)
 	})

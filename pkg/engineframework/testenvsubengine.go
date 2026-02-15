@@ -52,14 +52,14 @@ import (
 //	    Env:      map[string]string{"TESTENV_LCR_FQDN": "testenv-lcr.testenv-lcr.svc.cluster.local:31906"},
 //	}
 type CreateInput struct {
-	TestID         string                `json:"testID"`                   // Test environment ID (required)
-	Stage          string                `json:"stage"`                    // Test stage name (required)
-	TmpDir         string                `json:"tmpDir"`                   // Temporary directory for this test environment (required)
-	RootDir        string                `json:"rootDir,omitempty"`        // Project root directory (optional, for path resolution)
-	Metadata       map[string]string     `json:"metadata"`                 // Metadata from previous testenv-subengines (optional)
-	Spec           map[string]any        `json:"spec,omitempty"`           // Optional spec for configuration override
-	Env            map[string]string     `json:"env,omitempty"`            // Accumulated environment variables from previous sub-engines (optional)
-	EnvPropagation *forge.EnvPropagation `json:"envPropagation,omitempty"` // Optional EnvPropagation configuration from spec
+	TestID         string                `json:"testID" jsonschema:"Unique identifier for this test environment instance"`
+	Stage          string                `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
+	TmpDir         string                `json:"tmpDir" jsonschema:"Temporary directory allocated for this test environment"`
+	RootDir        string                `json:"rootDir,omitempty" jsonschema:"Project root directory for path resolution"`
+	Metadata       map[string]string     `json:"metadata" jsonschema:"Metadata from previous testenv subengines in the chain"`
+	Spec           map[string]any        `json:"spec,omitempty" jsonschema:"Engine-specific configuration from forge.yaml testenv[].spec"`
+	Env            map[string]string     `json:"env,omitempty" jsonschema:"Accumulated environment variables from previous subengines in the chain"`
+	EnvPropagation *forge.EnvPropagation `json:"envPropagation,omitempty" jsonschema:"Configuration for filtering environment variable propagation"`
 }
 
 // DeleteInput represents the input for testenv subengine delete operations.
@@ -78,8 +78,8 @@ type CreateInput struct {
 //	    Metadata: map[string]string{"testenv-kind.clusterName": "myapp-test-abc123"},
 //	}
 type DeleteInput struct {
-	TestID   string            `json:"testID"`   // Test environment ID (required)
-	Metadata map[string]string `json:"metadata"` // Metadata from test environment (optional)
+	TestID   string            `json:"testID" jsonschema:"Unique identifier of the test environment instance to delete"`
+	Metadata map[string]string `json:"metadata" jsonschema:"Metadata from the test environment used for resource cleanup"`
 }
 
 // TestEnvArtifact represents the artifact returned by testenv subengine create operations.
@@ -253,13 +253,13 @@ func RegisterTestEnvSubengineTools(server *mcpserver.Server, config TestEnvSuben
 	// Register create tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "create",
-		Description: fmt.Sprintf("Create a test environment resource using %s", config.Name),
+		Description: fmt.Sprintf("Provision a test environment resource using %s. Returns a TestEnvArtifact with files, metadata, and managed resources for downstream consumption.", config.Name),
 	}, makeCreateHandler(config))
 
 	// Register delete tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "delete",
-		Description: fmt.Sprintf("Delete a test environment resource using %s", config.Name),
+		Description: fmt.Sprintf("Tear down a test environment resource using %s. Performs best-effort cleanup of managed resources.", config.Name),
 	}, makeDeleteHandler(config))
 
 	return nil

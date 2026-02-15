@@ -46,7 +46,7 @@ func runMCPServer() error {
 	// Register config-validate tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "config-validate",
-		Description: "Validate forge-dev configuration (forge-dev.yaml and spec.openapi.yaml)",
+		Description: "Validate forge-dev engine scaffolding configuration. Checks forge-dev.yaml structure and spec.openapi.yaml schema definitions for code generation correctness.",
 	}, handleConfigValidate)
 
 	return server.RunDefault()

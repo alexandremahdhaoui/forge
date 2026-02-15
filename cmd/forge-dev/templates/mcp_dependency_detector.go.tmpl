@@ -23,7 +23,7 @@ func SetupMCPServerBase(name string, version string) (*mcpserver.Server, error) 
 	// Register config-validate tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "config-validate",
-		Description: fmt.Sprintf("Validate %s configuration", name),
+		Description: fmt.Sprintf("Validate %s engine-specific spec configuration for dependency detection.", name),
 	}, handleConfigValidate)
 
 	return server, nil

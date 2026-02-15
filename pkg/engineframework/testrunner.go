@@ -122,7 +122,7 @@ func RegisterTestRunnerTools(server *mcpserver.Server, config TestRunnerConfig) 
 	// Register run tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "run",
-		Description: fmt.Sprintf("Run tests using %s", config.Name),
+		Description: fmt.Sprintf("Execute tests using %s and return a TestReport with pass/fail status, stats, and coverage. Called by forge based on forge.yaml test[] configuration.", config.Name),
 	}, makeRunHandler(config))
 
 	return nil
