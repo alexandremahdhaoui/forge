@@ -812,4 +812,4 @@ The forge MCP server acts as an orchestrator, coordinating multiple specialized 
 - [container-build MCP Server](../container-build/MCP.md)
 - [testenv MCP Server](../testenv/MCP.md)
 - [Forge CLI Documentation](../../docs/forge-usage.md)
-- [Forge Architecture](../../ARCHITECTURE.md)
+- [Forge Design Document](../../DESIGN.md)

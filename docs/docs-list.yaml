@@ -6,10 +6,10 @@ baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/
 
 docs:
   # Architecture and Design
-  - name: "architecture"
-    title: "Forge Architecture"
-    description: "Comprehensive overview of forge architecture, design patterns, and components"
-    url: "ARCHITECTURE.md"
+  - name: "design"
+    title: "Forge Design Document"
+    description: "System design, architecture, and component catalog"
+    url: "DESIGN.md"
     tags: ["architecture", "design", "overview"]
 
   - name: "testenv-architecture"

@@ -25,7 +25,7 @@ Forge is both a **command-line interface (CLI)** and an **MCP server**:
 - **As an MCP server:** AI coding agents can invoke forge's capabilities programmatically
 - **Architecture:** All forge components (CLI + engines) are MCP servers, creating a uniform, AI-accessible interface
 
-This guide focuses on CLI usage. For MCP server usage, see [ARCHITECTURE.md](../../ARCHITECTURE.md#mcp-architecture).
+This guide focuses on CLI usage. For MCP server usage, see [DESIGN.md](../../DESIGN.md#mcp-protocol).
 
 ## Quick Start
 
@@ -1541,7 +1541,7 @@ VERSION=v1.0.0 GO_BUILD_LDFLAGS="-X main.Version=$VERSION" forge build
 ## See Also
 
 - [forge.yaml Schema Documentation](./forge-yaml-schema.md) - Complete schema reference
-- [ARCHITECTURE.md - Forge Architecture](../../ARCHITECTURE.md#forge-architecture) - Technical architecture
+- [DESIGN.md - Forge Architecture](../../DESIGN.md#high-level-architecture) - Technical architecture
 - [Model Context Protocol](https://modelcontextprotocol.io) - MCP specification
 
 ## Getting Help

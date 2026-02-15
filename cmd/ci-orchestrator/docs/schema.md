@@ -195,4 +195,4 @@ stages:
 
 - [CI-Orchestrator Usage Guide](usage.md)
 - [testenv Configuration](../../testenv/docs/schema.md) - Orchestration example
-- [Forge Architecture](../../ARCHITECTURE.md)
+- [Forge Design Document](../../DESIGN.md)

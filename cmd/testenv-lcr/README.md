@@ -363,7 +363,7 @@ fi
 
 ## Architecture
 
-See [ARCHITECTURE.md](../../ARCHITECTURE.md#local-container-registry) for detailed architecture documentation.
+See [DESIGN.md](../../DESIGN.md#component-catalog) for detailed architecture documentation.
 
 ## Future Enhancements
 

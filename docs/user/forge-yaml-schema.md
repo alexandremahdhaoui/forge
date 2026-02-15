@@ -1260,5 +1260,5 @@ forge test integration list
 ## References
 
 - [Forge CLI Usage Guide](./forge-cli.md)
-- [ARCHITECTURE.md - Forge Architecture](../../ARCHITECTURE.md#forge-architecture)
+- [DESIGN.md - Forge Architecture](../../DESIGN.md#high-level-architecture)
 - [Model Context Protocol Specification](https://modelcontextprotocol.io)

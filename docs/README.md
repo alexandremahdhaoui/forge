@@ -46,6 +46,6 @@ Documentation for building custom engines and extending forge capabilities.
 Deep dives into forge architecture and design.
 
 - **[Architecture Overview](./architecture/overview.md)** - High-level system design
-- **[Full Architecture](../ARCHITECTURE.md)** - Complete architecture documentation
+- **[Design Document](../DESIGN.md)** - Complete design documentation
 - **[Testenv Architecture](./architecture/testenv-architecture.md)** - Test environment system design
 - **[Built-in Tools](./user/built-in-tools.md)** - Detailed tool documentation

@@ -242,7 +242,7 @@ The tool creates the artifact store automatically if it doesn't exist. If you se
 
 ## Architecture
 
-See [ARCHITECTURE.md](../../ARCHITECTURE.md#container-build) for detailed architecture documentation.
+See [DESIGN.md](../../DESIGN.md#component-catalog) for detailed architecture documentation.
 
 ## Related Tools
 

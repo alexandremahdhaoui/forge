@@ -1,96 +1,21 @@
 # Forge
 
-## Why Forge?
+**AI-native build orchestration that replaces Makefiles with declarative YAML and makes every tool an MCP server.**
 
-Modern software development faces common orchestration challenges:
+## What problem does Forge solve?
 
-- **Verbose build scripts**: Traditional Makefiles and build scripts become complex maintenance burdens
-- **Inconsistent tooling**: Different projects use different conventions, making builds hard to reproduce
-- **Poor AI agent integration**: Existing build tools weren't designed for AI-driven development workflows
-- **No artifact tracking**: Teams lose track of what was built, when, and with what version
-- **Manual environment setup**: Creating reproducible test environments is error-prone and time-consuming
-- **Tool fragmentation**: Build, test, and development tools don't work together cohesively
-
-Forge solves these with a **modern, declarative, AI-native approach** to build and development orchestration:
-
-- **AI-Driven**: Built entirely as MCP servers, making every component directly accessible to AI coding agents like Claude Code. Forge itself is both a CLI tool AND an MCP server, enabling seamless AI-assisted development.
-- **Declarative & Simple**: Single `forge.yaml` configuration—no verbose scripts or complex Make syntax
-- **Extensible**: MCP-based architecture makes adding new capabilities straightforward
-- **Consistent**: Same commands, same configuration format across all projects and languages
-- **Artifact Tracking**: Automatic versioning and tracking of all build and test artifacts
-- **Test-Driven**: First-class support for test-driven development with automated environment management
-- **Language-Agnostic**: While optimized for Go, the architecture supports any language or build system
-
-## How It Works
-
-Forge is built on **Model Context Protocol (MCP)**, the same protocol that powers AI coding agents like Claude Code. **Every component—including the `forge` CLI itself—is implemented as an MCP server**, making the entire toolchain AI-accessible. This architectural choice makes Forge uniquely suited for AI-driven development:
-
-```
-┌──────────────────────────────────────────────┐
-│  AI Agent (e.g., Claude Code) or Developer  │
-└────────────────┬─────────────────────────────┘
-                 │
-         ┌───────▼────────┐
-         │  forge.yaml    │  Declarative configuration
-         │  (your intent) │  What to build, test, deploy
-         └───────┬────────┘
-                 │
-         ┌───────▼────────┐
-         │   forge CLI    │  Orchestrator
-         │  (understands  │  Interprets configuration
-         │   your needs)  │  Manages execution flow
-         └───────┬────────┘
-                 │
-          MCP protocol (stdio)
-                 │
-    ┌────────────┼────────────┐
-    │            │            │
-┌───▼───┐   ┌───▼───┐   ┌───▼────┐
-│ build │   │ test  │   │testenv │  Specialized engines
-│engines│   │runners│   │managers│  Composable via MCP
-└───────┘   └───────┘   └────────┘
-```
-
-**Key Principles:**
-
-1. **Declarative Configuration**: Define *what* you want in `forge.yaml`, not *how* to do it
-2. **MCP-First Architecture**: Every component (forge CLI, build engines, test runners) is an MCP server, making them composable and fully AI-accessible
-3. **Artifact Tracking**: Every build, test, and deployment is tracked with git SHAs and timestamps
-4. **AI-Native Design**: AI agents can read configurations, invoke engines, and interpret results naturally
-5. **Test-Driven Workflow**: Automated environment creation, test execution, and cleanup in a single command
-
-Configure once in `forge.yaml`, then use it from command line, CI/CD pipelines, or AI coding agents—all with the same consistent interface.
-
-> **Why This Makes Forge AI-Driven**: Because every component speaks MCP natively, AI coding agents can:
->
-> - Read your `forge.yaml` configuration
-> - Invoke any build engine or test runner directly
-> - Parse build artifacts and test reports
-> - Orchestrate complex workflows without CLI wrappers
-> - All using the same protocol they use for code understanding and generation
+Teams build Go services with Makefiles, shell scripts, and ad-hoc tooling. These scripts break silently, produce unreproducible builds, and are invisible to AI coding agents that communicate through structured protocols. Test environment setup -- Kind clusters, TLS registries, Helm charts -- requires manual steps that differ per developer machine. Forge replaces this with a single `forge.yaml` configuration file where every component is an MCP server speaking JSON-RPC 2.0 over stdio. AI agents invoke builds, create test environments, and run test suites directly through the MCP protocol.
 
 ## Quick Start
 
-### Installation
-
 ```bash
-# Install from source
-git clone https://github.com/alexandremahdhaoui/forge
-cd forge
-go build -o ~/.local/bin/forge ./cmd/forge
-
-# Or install with go install
 go install github.com/alexandremahdhaoui/forge/cmd/forge@latest
-PATH="$(go env GOPATH)/bin:${PATH}"
 ```
 
-### Basic Usage
-
-```bash
-# Create forge.yaml
-cat > forge.yaml <<EOF
+```yaml
+# forge.yaml
 name: my-project
-artifactStorePath: .forge/artifacts.yaml
+artifactStorePath: .forge/artifact-store.yaml
 
 build:
   - name: my-app
@@ -101,291 +26,172 @@ build:
 test:
   - name: unit
     runner: go://go-test
-EOF
-
-# Build all artifacts
-forge build
-
-# Run all tests (build + all test stages, fail-fast)
-forge test-all
-
-# Or run individual test stage
-forge test unit run
-
-# Get help
-forge --help
 ```
 
-## Core Features
+```bash
+forge build       # Build all artifacts
+forge test-all    # Build + run all test stages (fail-fast)
+```
 
-- **Unified Build System**: One `forge.yaml` for all artifacts (binaries, containers)
-- **MCP-First Architecture**: The forge CLI and all engines are MCP servers, providing native AI agent integration
-- **Lazy Rebuild**: Automatic dependency tracking skips rebuilding unchanged artifacts
-- **Test Environment Management**: Automated Kind clusters with TLS-enabled registries
-- **Artifact Tracking**: Automatic versioning with git commit SHAs
-- **20 CLI Tools**: From code generation to E2E testing
+## How does it work?
 
-## Available Tools
+```
++-------------------+
+| AI Agent / User   |
++---------+---------+
+          |
+     forge.yaml
+          |
++---------+---------+
+|    forge CLI      |  MCP server + orchestrator
+|                   |  Reads config, resolves engines,
+|                   |  tracks artifacts, runs tests
++---------+---------+
+          | MCP over stdio (JSON-RPC 2.0)
+          |
+  +-------+--------+--------------+
+  |                |              |
++-+--------+ +-----+------+ +----+--------+
+| Build    | | Test       | | TestEnv     |
+| Engines  | | Runners    | | Managers    |
+|          | |            | |             |
+| go-build | | go-test    | | testenv     |
+| container| | go-lint    | |  +--kind    |
+| generic  | | generic    | |  +--lcr     |
+| parallel | | parallel   | |  +--helm    |
++----------+ +------------+ +-------------+
+```
 
-All 20 tools categorized by function. Tools marked ⚡ provide MCP servers.
+Forge starts each engine as a child process communicating over stdio. The `parallel-builder` and `parallel-test-runner` engines wrap multiple sub-engines for concurrent execution. Engine URIs (`go://engine-name`, `alias://custom-name`) resolve to MCP servers at runtime. See [DESIGN.md](./DESIGN.md) for the full architecture.
 
-### Build Tools (4)
+## Table of Contents
 
-- ⚡ `go-build` - Go binary builder with git versioning and automatic dependency tracking
-- ⚡ `container-build` - Container image builder using Kaniko
-- ⚡ `go-dependency-detector` - Detect Go code dependencies for lazy rebuild
-- ⚡ `generic-builder` - Execute any command as build step
+- [How do I configure Forge?](#how-do-i-configure-forge)
+- [How do I build and test?](#how-do-i-build-and-test)
+- [What tools are included?](#what-tools-are-included)
+- [How do I extend Forge?](#how-do-i-extend-forge)
+- [FAQ](#faq)
+- [Documentation](#documentation)
 
-### Test Tools (8)
-
-- ⚡ `testenv` - Test environment orchestrator
-- ⚡ `testenv-kind` - Kind cluster manager
-- ⚡ `testenv-lcr` - Local container registry with TLS
-- ⚡ `testenv-helm-install` - Helm chart installer for test environments
-- ⚡ `go-test` - Go test runner with JUnit/coverage
-- ⚡ `go-lint-tags` - Build tag verifier
-- ⚡ `generic-test-runner` - Execute any command as test
-- ⚡ `test-report` - Test report management
-
-### Code Quality (2)
-
-- ⚡ `go-format` - Go code formatter (gofumpt)
-- ⚡ `go-lint` - Go linter (golangci-lint)
-
-### Code Generation (3)
-
-- ⚡ `go-gen-mocks` - Mock generator (mockery)
-- ⚡ `go-gen-openapi` - OpenAPI code generator
-- ⚡ `go-gen-protobuf` - Protocol Buffer compiler for Go (protoc)
-
-### Orchestration (3)
-
-- ⚡ `forge` - Main CLI orchestrator (also an MCP server)
-- ⚡ `forge-e2e` - End-to-end test runner for forge itself
-- `ci-orchestrator` - CI/CD orchestration (planning)
-
-## Configuration: forge.yaml
-
-Central declarative configuration file.
+## How do I configure Forge?
 
 ```yaml
 name: my-project
-artifactStorePath: .forge/artifacts.yaml
+artifactStorePath: .forge/artifact-store.yaml
 
-# Build specifications
 build:
-  - name: my-app
-    src: ./cmd/my-app
-    dest: ./build/bin
-    engine: go://go-build
+  - name: my-app            # Artifact name
+    src: ./cmd/my-app        # Source directory
+    dest: ./build/bin        # Output directory
+    engine: go://go-build    # Engine URI
 
-  - name: my-app-image
-    src: ./containers/my-app/Containerfile
-    engine: go://container-build
-
-# Test specifications
 test:
   - name: unit
-    runner: go://go-test
+    runner: go://go-test     # Test runner engine
 
   - name: integration
     runner: go://go-test
-    testenv: alias://setup-integration
+    testenv: alias://setup-integration  # Testenv chain alias
 
-# Custom engine configurations
 engines:
   - alias: setup-integration
     type: testenv
-    testenv:
-      - engine: go://testenv-kind
+    testenv:                 # Testenv chain: engines run sequentially,
+      - engine: go://testenv-kind      # each propagating env vars to the next
       - engine: go://testenv-lcr
         spec:
           enabled: true
-          autoPushImages: true
+      - engine: go://testenv-helm-install
+        spec:
+          charts:
+            - name: my-chart
+              sourceType: helm-repo
+              url: https://charts.example.com
+              chartName: my-chart
+              namespace: default
 ```
 
-For complete schema documentation, see [docs/user/forge-yaml-schema.md](./docs/user/forge-yaml-schema.md).
+See [forge-yaml-schema.md](./docs/user/forge-yaml-schema.md) for the complete field reference.
 
-## Usage Examples
-
-### Building Artifacts
+## How do I build and test?
 
 ```bash
-# Build all artifacts defined in forge.yaml
-forge build
+# Build
+forge build                          # Build all artifacts
+forge build my-app                   # Build one artifact
+forge build --force                  # Force rebuild (skip lazy rebuild)
 
-# Build specific artifact
-forge build my-app
+# Test
+forge test-all                       # Build + run all test stages
+forge test unit run                  # Run one test stage
+forge test integration run           # Run with auto-created environment
 
-# Force rebuild all (skip lazy rebuild optimization)
-forge build --force
-
-# Artifacts are tracked in artifact store with dependencies
-cat .forge/artifacts.yaml
+# Test environment management
+forge test integration create        # Create environment
+forge test integration list          # List environments
+forge test integration get <id>      # Get environment details
+forge test integration delete <id>   # Delete environment
 ```
 
-**Lazy Rebuild:** Subsequent builds automatically skip unchanged artifacts by tracking file and package dependencies. This significantly speeds up incremental builds.
+See [forge-cli.md](./docs/user/forge-cli.md) for the full command reference.
 
-### Managing Test Environments
+## What tools are included?
 
-```bash
-# Create test environment for integration tests
-forge test integration create
+Forge ships 28 CLI tools, all implemented as MCP servers.
 
-# List all test environments
-forge test integration list
+| Category | Count | Tools | Description |
+|---|---|---|---|
+| Orchestration | 4 | forge, forge-dev, forge-e2e, ci-orchestrator | CLI orchestrator, engine scaffolding, e2e testing, CI (planned) |
+| Build Engines | 4 | go-build, container-build, generic-builder, parallel-builder | Go binaries, container images, arbitrary commands, parallel builds |
+| Dependency Detection | 3 | go-dependency-detector, go-gen-mocks-dep-detector, go-gen-openapi-dep-detector | Track file and package dependencies for lazy rebuild |
+| Test Environment | 5 | testenv, testenv-kind, testenv-lcr, testenv-helm-install, testenv-stub | Orchestrate Kind clusters, TLS registries, Helm charts, stubs |
+| Test Runners | 4 | go-test, go-lint-tags, generic-test-runner, parallel-test-runner | Go tests, build tag verification, arbitrary commands, parallel runs |
+| Test Management | 1 | test-report | Aggregate and query test reports |
+| Code Quality | 3 | go-format, go-lint, go-lint-licenses | Format code, lint, verify license headers |
+| Code Generation | 4 | go-gen-mocks, go-gen-openapi, go-gen-protobuf, go-gen-bpf | Generate mocks, OpenAPI clients, protobuf, BPF code |
 
-# Get test environment details
-forge test integration get <test-id>
+## How do I extend Forge?
 
-# Run tests in the environment
-forge test integration run
+All engines implement JSON-RPC 2.0 over stdio. To create a new engine:
 
-# Cleanup when done
-forge test integration delete <test-id>
-```
+1. Define the engine's MCP tool schema (OpenAPI spec)
+2. Run `forge-dev` to generate the server scaffolding
+3. Implement the tool handler
+4. Reference the engine in `forge.yaml` with a `go://` URI
 
-### Direct Engine Usage
+See [Engine Development](./docs/dev/getting-started.md) and [forge-dev](./docs/dev/forge-dev.md) for step-by-step guides.
 
-All MCP engines can be used standalone:
+## FAQ
 
-```bash
-# Build Go binary directly
-go-build --mcp <<EOF
-{
-  "method": "tools/call",
-  "params": {
-    "name": "build",
-    "arguments": {
-      "name": "my-app",
-      "src": "./cmd/my-app"
-    }
-  }
-}
-EOF
-```
+**Does Forge only work with Go?**
+No. `generic-builder` wraps any shell command as a build step. `generic-test-runner` wraps any command as a test. Native engines exist for Go, but the architecture is language-agnostic.
 
-## Architecture
+**How does lazy rebuild work?**
+`go-dependency-detector` scans Go AST to record file paths, modification timestamps, and `go.mod` package versions. On subsequent builds, Forge compares current state against stored dependencies and skips unchanged artifacts. See [lazy-rebuild.md](./docs/user/lazy-rebuild.md).
 
-Forge uses the Model Context Protocol (MCP) to orchestrate specialized engines. **The `forge` CLI itself is an MCP server**, as is each tool (builder, test runner, environment manager). This uniform MCP server architecture allows all components to be composed declaratively via `forge.yaml` and accessed directly by AI agents.
+**Can AI agents use Forge directly?**
+Yes. Run `forge --mcp` to start Forge as an MCP server. All 28 engines speak MCP natively. AI agents invoke builds, tests, and environment operations through JSON-RPC 2.0 without wrapper scripts.
 
-```
-┌─────────────┐
-│    forge    │ Orchestrator (client)
-└──────┬──────┘
-       │ MCP over stdio
-       ├────────────────┬────────────────┐
-       │                │                │
-┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐
-│  go-build   │  │   testenv   │  │ test-runner │
-│  (server)   │  │  (server)   │  │   (server)  │
-└─────────────┘  └──────┬──────┘  └─────────────┘
-                        │
-                 ┌──────┴──────┐
-                 │             │
-          ┌──────▼──────┐ ┌────▼────────┐
-          │ testenv-kind│ │ testenv-lcr │
-          │  (server)   │ │  (server)   │
-          └─────────────┘ └─────────────┘
-```
+**How do test environments work?**
+Testenv sub-engines compose into sequential chains. Each sub-engine (Kind cluster, TLS registry, Helm charts) propagates environment variables to the next via `envPropagation` config. Template expansion (`{{.Env.KUBECONFIG}}`) enables dynamic configuration. See [testing.md](./docs/user/testing.md).
 
-**Key Architectural Principles:**
+**How do I run Forge from a Go workspace?**
+Use the `--config` flag to point at the target repo's `forge.yaml`. See [workspace-development.md](./docs/user/workspace-development.md).
 
-- **MCP Communication**: All engines use stdio-based MCP protocol
-- **Composability**: Engines can be combined via `forge.yaml` configuration
-- **Extensibility**: Add new engines by implementing MCP server interface
-- **Dogfooding**: Forge builds and tests itself using its own tools
-
-For complete architecture details, design patterns, and component descriptions, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+**What is the test stage execution order?**
+`forge test-all` runs stages in the order defined in `forge.yaml` with fail-fast behavior: lint-tags, lint-license, lint, unit, integration, e2e, e2e-stub. Each stage creates and tears down its own test environment if one is configured.
 
 ## Documentation
 
-### User Documentation
+**User guides:** [getting-started](./docs/user/getting-started.md) | [forge-cli](./docs/user/forge-cli.md) | [forge-yaml-schema](./docs/user/forge-yaml-schema.md) | [testing](./docs/user/testing.md) | [generic-builder](./docs/user/generic-builder.md) | [generic-test-runner](./docs/user/generic-test-runner.md) | [lazy-rebuild](./docs/user/lazy-rebuild.md) | [migrating-from-makefile](./docs/user/migrating-from-makefile.md)
 
-- **[Getting Started](./docs/user/getting-started.md)** - Quick start guide
-- **[Forge CLI](./docs/user/forge-cli.md)** - Complete command reference
-- **[Forge Schema](./docs/user/forge-yaml-schema.md)** - forge.yaml field documentation
-- **[Testing](./docs/user/testing.md)** - Test system usage patterns
-- **[Generic Builder](./docs/user/generic-builder.md)** - Custom build commands
-- **[Generic Test Runner](./docs/user/generic-test-runner.md)** - Custom test commands
+**Engine development:** [getting-started](./docs/dev/getting-started.md) | [forge-dev](./docs/dev/forge-dev.md) | [creating-build-engine](./docs/dev/creating-build-engine.md) | [creating-test-runner](./docs/dev/creating-test-runner.md) | [creating-testenv-subengine](./docs/dev/creating-testenv-subengine.md)
 
-### Engine Development
-
-- **[Getting Started](./docs/dev/getting-started.md)** - Engine development overview
-- **[forge-dev](./docs/dev/forge-dev.md)** - Code generation framework
-- **[Creating Build Engines](./docs/dev/creating-build-engine.md)** - Build engine guide
-- **[Creating Test Runners](./docs/dev/creating-test-runner.md)** - Test runner guide
-
-### Architecture Documentation
-
-- **[Architecture Overview](./ARCHITECTURE.md)** - System architecture and design patterns
-- **[Test Environment Architecture](./docs/architecture/testenv-architecture.md)** - Testenv system design
-
-## Development
-
-### Prerequisites
-
-- Go 1.24.1+
-- Docker or Podman
-- Kind (for test environments)
-
-### Building from Source
-
-```bash
-# Clone repository
-git clone https://github.com/alexandremahdhaoui/forge
-cd forge
-
-# Build all tools using forge
-go run ./cmd/forge build
-
-# Binaries in ./build/bin/
-ls build/bin/
-```
-
-### Go Workspace Development
-
-When developing forge alongside other repos in a Go workspace (`go.work`), use the
-`--config` flag to target any repo from the workspace root:
-
-```bash
-go run ./forge/cmd/forge --config=./my-app/forge.yaml build
-go run ./forge/cmd/forge --config=./my-app/forge.yaml test-all
-```
-
-See [Workspace Development](./docs/user/workspace-development.md) for the full setup guide.
-
-### Running Tests
-
-```bash
-# Run all test stages
-forge test verify-tags run
-forge test unit run
-forge test integration run
-forge test e2e run
-
-# Or run specific tests
-go test ./...
-```
-
-### Project Statistics
-
-- **20 CLI tools** across build, test, and code generation
-- **20 MCP servers** (19 functional + 1 planned)
-- **5 public packages** for reusable functionality
-- **123 Go source files** with comprehensive tests
-- **Go 1.24.1** with modern dependency management
+**Design:** [DESIGN.md](./DESIGN.md) | [testenv-architecture](./docs/architecture/testenv-architecture.md)
 
 ## Contributing
 
-Issues and pull requests welcome at <https://github.com/alexandremahdhaoui/forge>
-
-When contributing:
-
-1. Follow existing code patterns and conventions
-2. Add tests for new functionality
-3. Update documentation for user-facing changes
-4. Ensure `forge test unit run` passes
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for commit conventions, testing workflow, project structure, and development patterns.
 
 ## License
 

@@ -253,5 +253,5 @@ The detector follows the standard forge versioning:
 ## Related Documentation
 
 - [Built-in Tools Reference](../../docs/built-in-tools.md)
-- [Forge Architecture](../../ARCHITECTURE.md) - Lazy Rebuild section
+- [Forge Design Document](../../DESIGN.md) - Lazy Rebuild section
 - [go-gen-mocks](../go-gen-mocks/README.md)

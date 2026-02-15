@@ -82,7 +82,7 @@ The ci-orchestrator is planned to provide:
 ## Development
 
 To implement ci-orchestrator functionality, see:
-- [ARCHITECTURE.md](../../ARCHITECTURE.md) for design patterns
+- [DESIGN.md](../../DESIGN.md) for design patterns
 - [docs/prompts/](../../docs/prompts/) for engine creation guides
 - Existing implementations in `cmd/testenv/` for orchestration patterns
 
@@ -90,4 +90,4 @@ To implement ci-orchestrator functionality, see:
 
 - [forge MCP Server](../forge/MCP.md) - Main orchestrator
 - [testenv MCP Server](../testenv/MCP.md) - Test environment orchestration example
-- [Forge Architecture](../../ARCHITECTURE.md)
+- [Forge Design Document](../../DESIGN.md)

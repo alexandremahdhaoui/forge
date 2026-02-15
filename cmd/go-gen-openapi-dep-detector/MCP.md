@@ -276,6 +276,6 @@ The detector follows the standard forge versioning:
 ## Related Documentation
 
 - [Built-in Tools Reference](../../docs/built-in-tools.md)
-- [Forge Architecture](../../ARCHITECTURE.md) - Lazy Rebuild section
+- [Forge Design Document](../../DESIGN.md) - Lazy Rebuild section
 - [go-gen-openapi](../go-gen-openapi/MCP.md)
 - [OpenAPI Migration Guide](../../docs/migration-go-gen-openapi.md)

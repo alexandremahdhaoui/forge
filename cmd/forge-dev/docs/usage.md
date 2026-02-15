@@ -115,4 +115,4 @@ If sources are unchanged, generation is skipped.
 ## What's next?
 
 - [schema.md](schema.md) - Configuration reference
-- [ARCHITECTURE.md](../../../ARCHITECTURE.md) - System architecture
+- [DESIGN.md](../../../DESIGN.md) - System design
