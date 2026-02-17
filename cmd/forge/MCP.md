@@ -24,6 +24,35 @@ Or configure in your AI agent's MCP settings:
 }
 ```
 
+### Local development
+
+When developing forge from source or using a Go workspace, run forge directly via `go run`:
+
+```bash
+# From the forge repository root
+go run ./cmd/forge --mcp
+
+# From another workspace member (e.g., ../testenv-vm, ../udplb)
+go run ../forge/cmd/forge --mcp
+```
+
+Configure in your AI agent's MCP settings for local development:
+```json
+{
+  "mcpServers": {
+    "forge": {
+      "command": "go",
+      "args": ["run", "../forge/cmd/forge", "--mcp"],
+      "env": {
+        "FORGE_RUN_LOCAL_ENABLED": "true"
+      }
+    }
+  }
+}
+```
+
+Set `FORGE_RUN_LOCAL_ENABLED=true` so forge resolves `go://` engine URIs against the Go workspace (`go.work`) instead of downloading published module versions. When enabled, forge checks if an engine module path matches a workspace member and uses the local copy.
+
 ## Available Tools
 
 ### `build`
