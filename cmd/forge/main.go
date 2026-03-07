@@ -117,7 +117,7 @@ func main() {
 			os.Exit(1)
 		}
 	case "test-all":
-		if err := runTestAll(cmdArgs); err != nil {
+		if err := runTestAll(cmdArgs, false); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -128,6 +128,21 @@ func main() {
 		}
 	case "config":
 		if err := runConfig(cmdArgs); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "cu":
+		if err := runCU(cmdArgs); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "ws", "workspace":
+		if err := runWS(cmdArgs); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "ui":
+		if err := runUI(cmdArgs); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -211,6 +226,9 @@ Commands:
   list [build|test]                  List available build targets and test stages
   docs <list|get> [name]             Fetch project documentation
   config <subcommand>                Configuration management
+  cu <subcommand>                    Composition-unit operations (status, commit, checkout, go-get)
+  ws <subcommand>                    Workspace lifecycle (list, create, delete, suspend, resume)
+  ui                                 Launch the forge TUI dashboard
   version                            Show version information
 
 Build:
@@ -238,6 +256,24 @@ Docs:
 
 Config:
   config validate [path]             Validate forge.yaml configuration
+
+Composition Unit:
+  cu status                          Show pending dependency changes
+  cu commit --message <msg>          Commit pending changes
+  cu checkout --branch <name>        Check out a branch
+  cu list-branches                   List branches
+  cu go-get --package <pkg>          Run go get and commit changes
+
+Workspace:
+  ws list                            List workspaces
+  ws create [flags]                  Create a workspace (--image, --namespace)
+  ws get --name <name>               Get workspace details
+  ws delete --name <name>            Delete a workspace
+  ws suspend --name <name>           Suspend a workspace
+  ws resume --name <name>            Resume a workspace
+
+UI:
+  ui                                 Launch the forge TUI dashboard
 
 Other:
   version                            Show version information

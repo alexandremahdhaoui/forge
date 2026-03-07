@@ -278,18 +278,31 @@ func TestBuildEngineTools(t *testing.T, engine Engine) {
 		t.Fatalf("Failed to read initialize response: %v", scanner.Err())
 	}
 
+	// Send initialized notification (required by MCP protocol before other requests)
+	initializedNotification := `{"jsonrpc":"2.0","method":"notifications/initialized"}` + "\n"
+	if _, err := stdin.Write([]byte(initializedNotification)); err != nil {
+		t.Fatalf("Failed to send initialized notification: %v", err)
+	}
+
 	// Send tools/list request
 	toolsListRequest := `{"jsonrpc":"2.0","id":2,"method":"tools/list"}` + "\n"
 	if _, err := stdin.Write([]byte(toolsListRequest)); err != nil {
 		t.Fatalf("Failed to send tools/list request: %v", err)
 	}
 
-	// Read tools/list response
-	if !scanner.Scan() {
+	// Read tools/list response (skip any notifications)
+	var response string
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Skip notifications (no "id" field with our expected id)
+		if strings.Contains(line, `"id":2`) {
+			response = line
+			break
+		}
+	}
+	if response == "" {
 		t.Fatalf("Failed to read tools/list response: %v", scanner.Err())
 	}
-
-	response := scanner.Text()
 
 	// Parse JSON-RPC response
 	var jsonRPCResponse struct {

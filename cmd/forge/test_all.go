@@ -28,10 +28,10 @@ import (
 // 5. Returns error immediately on first failure
 //
 // Usage: forge test-all
-func runTestAll(args []string) error {
+func runTestAll(args []string, forceRebuild bool) error {
 	// Step 1: Build all artifacts
 	fmt.Println("🔨 Building all artifacts...")
-	if err := runBuild([]string{}, false); err != nil {
+	if err := runBuild([]string{}, forceRebuild); err != nil {
 		fmt.Printf("❌ Build failed: %v\n", err)
 		return fmt.Errorf("build failed: %w", err)
 	}

@@ -47,6 +47,8 @@ func TestLazyRebuildOpenAPI(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
+	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
+
 	// Change to repository root (same pattern as build_lazy_integration_test.go)
 	repoRoot := "../.."
 	originalDir, err := os.Getwd()

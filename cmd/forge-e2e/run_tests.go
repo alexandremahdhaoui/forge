@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -1429,9 +1430,6 @@ func testMalformedForgeYamlError(ts *TestSuite) error {
 
 func testMCPRunToolCall(ts *TestSuite) error {
 	// Test calling the MCP run tool directly
-	// This would require setting up an MCP client, which is complex
-	// For now, we'll do a basic test of the tool interface
-
 	// Start MCP server
 	cmd := exec.Command("./build/bin/forge-e2e", "--mcp")
 	stdin, err := cmd.StdinPipe()
@@ -1453,17 +1451,24 @@ func testMCPRunToolCall(ts *TestSuite) error {
 		_ = cmd.Wait()
 	}()
 
-	time.Sleep(100 * time.Millisecond)
+	scanner := bufio.NewScanner(stdout)
 
 	// Send initialize
-	initRequest := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"0.1.0","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}` + "\n"
+	initRequest := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}` + "\n"
 	if _, err := stdin.Write([]byte(initRequest)); err != nil {
 		return fmt.Errorf("failed to write initialize: %w", err)
 	}
 
 	// Read initialize response
-	buf := make([]byte, 4096)
-	_, _ = stdout.Read(buf)
+	if !scanner.Scan() {
+		return fmt.Errorf("failed to read initialize response: %v", scanner.Err())
+	}
+
+	// Send initialized notification (required by MCP protocol before other requests)
+	initializedNotification := `{"jsonrpc":"2.0","method":"notifications/initialized"}` + "\n"
+	if _, err := stdin.Write([]byte(initializedNotification)); err != nil {
+		return fmt.Errorf("failed to write initialized notification: %w", err)
+	}
 
 	// Send tools/list request to verify run tool exists
 	listRequest := `{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}` + "\n"
@@ -1471,22 +1476,22 @@ func testMCPRunToolCall(ts *TestSuite) error {
 		return fmt.Errorf("failed to write tools/list: %w", err)
 	}
 
-	// Read tools/list response
-	responseChan := make(chan []byte, 1)
-	go func() {
-		buf := make([]byte, 4096)
-		n, _ := stdout.Read(buf)
-		responseChan <- buf[:n]
-	}()
-
-	select {
-	case response := <-responseChan:
-		// Verify response contains "run" tool
-		if !strings.Contains(string(response), "run") {
-			return fmt.Errorf("run tool not found in tools/list response: %s", response)
+	// Read tools/list response (skip any notifications)
+	var response string
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, `"id":2`) {
+			response = line
+			break
 		}
-	case <-time.After(2 * time.Second):
-		return fmt.Errorf("timeout waiting for tools/list response")
+	}
+	if response == "" {
+		return fmt.Errorf("failed to read tools/list response: %v", scanner.Err())
+	}
+
+	// Verify response contains "run" tool
+	if !strings.Contains(response, "run") {
+		return fmt.Errorf("run tool not found in tools/list response: %s", response)
 	}
 
 	return nil
@@ -1515,17 +1520,24 @@ func testMCPErrorPropagation(ts *TestSuite) error {
 		_ = cmd.Wait()
 	}()
 
-	time.Sleep(100 * time.Millisecond)
+	scanner := bufio.NewScanner(stdout)
 
 	// Send initialize
-	initRequest := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"0.1.0","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}` + "\n"
+	initRequest := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}` + "\n"
 	if _, err := stdin.Write([]byte(initRequest)); err != nil {
 		return fmt.Errorf("failed to write initialize: %w", err)
 	}
 
 	// Read initialize response
-	buf := make([]byte, 4096)
-	_, _ = stdout.Read(buf)
+	if !scanner.Scan() {
+		return fmt.Errorf("failed to read initialize response: %v", scanner.Err())
+	}
+
+	// Send initialized notification (required by MCP protocol before other requests)
+	initializedNotification := `{"jsonrpc":"2.0","method":"notifications/initialized"}` + "\n"
+	if _, err := stdin.Write([]byte(initializedNotification)); err != nil {
+		return fmt.Errorf("failed to write initialized notification: %w", err)
+	}
 
 	// Send a tool call that will fail (invalid parameters)
 	toolCallRequest := `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"run","arguments":{"stage":"invalid","name":""}}}` + "\n"
@@ -1533,22 +1545,22 @@ func testMCPErrorPropagation(ts *TestSuite) error {
 		return fmt.Errorf("failed to write tool call: %w", err)
 	}
 
-	// Read response
-	responseChan := make(chan []byte, 1)
-	go func() {
-		buf := make([]byte, 4096)
-		n, _ := stdout.Read(buf)
-		responseChan <- buf[:n]
-	}()
-
-	select {
-	case response := <-responseChan:
-		// Verify response indicates an error
-		if !strings.Contains(string(response), "error") && !strings.Contains(string(response), "isError") {
-			return fmt.Errorf("expected error in response, got: %s", response)
+	// Read response (skip any notifications, find our response with id:2)
+	var response string
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, `"id":2`) {
+			response = line
+			break
 		}
-	case <-time.After(2 * time.Second):
-		return fmt.Errorf("timeout waiting for error response")
+	}
+	if response == "" {
+		return fmt.Errorf("failed to read tool call response: %v", scanner.Err())
+	}
+
+	// Verify response indicates an error
+	if !strings.Contains(response, "error") && !strings.Contains(response, "isError") {
+		return fmt.Errorf("expected error in response, got: %s", response)
 	}
 
 	return nil

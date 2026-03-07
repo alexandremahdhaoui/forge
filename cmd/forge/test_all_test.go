@@ -114,7 +114,8 @@ func TestExample(t *testing.T) {
 		t.Skip("go-test binary not found, run 'forge build' first")
 	}
 
-	// Set FORGE_REPO_PATH so forge can find its engines
+	// Set FORGE_RUN_LOCAL_ENABLED and FORGE_REPO_PATH so forge can find its engines
+	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
 	t.Setenv("FORGE_REPO_PATH", forgeRoot)
 
 	// Change to temp directory
@@ -235,7 +236,8 @@ func TestExample(t *testing.T) {
 		t.Skip("go-test binary not found, run 'forge build' first")
 	}
 
-	// Set FORGE_REPO_PATH so forge can find its engines
+	// Set FORGE_RUN_LOCAL_ENABLED and FORGE_REPO_PATH so forge can find its engines
+	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
 	t.Setenv("FORGE_REPO_PATH", forgeRoot)
 
 	// Change to temp directory
@@ -252,7 +254,7 @@ func TestExample(t *testing.T) {
 	// Run forge test-all (with no build specs)
 	t.Logf("Running forge test-all in %s", tmpDir)
 	cmd := exec.Command(forgeBin, "test-all")
-	cmd.Env = append(os.Environ(), fmt.Sprintf("FORGE_REPO_PATH=%s", forgeRoot))
+	cmd.Env = append(os.Environ(), "FORGE_RUN_LOCAL_ENABLED=true", fmt.Sprintf("FORGE_REPO_PATH=%s", forgeRoot))
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
 
@@ -287,7 +289,8 @@ func TestTestAll_FailFast(t *testing.T) {
 		t.Fatalf("Failed to find forge repository root: %v", err)
 	}
 
-	// Set FORGE_REPO_PATH so forge can find engines
+	// Set FORGE_RUN_LOCAL_ENABLED and FORGE_REPO_PATH so forge can find engines
+	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
 	t.Setenv("FORGE_REPO_PATH", forgeRoot)
 
 	// Create forge.yaml with 3 stages: pass, fail, should-not-run

@@ -72,7 +72,7 @@ test:
 	t.Run("VersionCommand", func(t *testing.T) {
 		cmd := exec.Command(forgeBinary, "--version")
 		cmd.Dir = tmpDir
-		cmd.Env = append(os.Environ(), fmt.Sprintf("FORGE_REPO_PATH=%s", forgeRepo))
+		cmd.Env = append(os.Environ(), "FORGE_RUN_LOCAL_ENABLED=true", fmt.Sprintf("FORGE_REPO_PATH=%s", forgeRepo))
 
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -89,7 +89,7 @@ test:
 		// We expect it to fail (no test infrastructure) but it should not crash with path errors
 		cmd := exec.Command(forgeBinary, "test", "unit", "list")
 		cmd.Dir = tmpDir
-		cmd.Env = append(os.Environ(), fmt.Sprintf("FORGE_REPO_PATH=%s", forgeRepo))
+		cmd.Env = append(os.Environ(), "FORGE_RUN_LOCAL_ENABLED=true", fmt.Sprintf("FORGE_REPO_PATH=%s", forgeRepo))
 
 		output, _ := cmd.CombinedOutput()
 		outputStr := string(output)
@@ -112,7 +112,7 @@ test:
 		// We'll test with test-report which is a simple MCP server
 		cmd := exec.Command("go", "run", "github.com/alexandremahdhaoui/forge/cmd/test-report", "--version")
 		cmd.Dir = tmpDir
-		cmd.Env = append(os.Environ(), fmt.Sprintf("FORGE_REPO_PATH=%s", forgeRepo))
+		cmd.Env = append(os.Environ(), "FORGE_RUN_LOCAL_ENABLED=true", fmt.Sprintf("FORGE_REPO_PATH=%s", forgeRepo))
 
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -188,7 +188,7 @@ build:
 	// Run forge build
 	cmd := exec.Command(forgeBinary, "build")
 	cmd.Dir = tmpDir
-	cmd.Env = append(os.Environ(), fmt.Sprintf("FORGE_REPO_PATH=%s", forgeRepo))
+	cmd.Env = append(os.Environ(), "FORGE_RUN_LOCAL_ENABLED=true", fmt.Sprintf("FORGE_REPO_PATH=%s", forgeRepo))
 
 	// Capture output
 	output, err := cmd.CombinedOutput()

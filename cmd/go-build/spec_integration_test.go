@@ -107,7 +107,7 @@ build:
 	// Run forge build
 	forgeExe := filepath.Join(forgeRepoRoot, "build/bin/forge")
 	cmd := exec.Command(forgeExe, "build")
-	cmd.Env = append(os.Environ(), "FORGE_REPO_PATH="+forgeRepoRoot)
+	cmd.Env = append(os.Environ(), "FORGE_RUN_LOCAL_ENABLED=true", "FORGE_REPO_PATH="+forgeRepoRoot)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("forge build failed: %v\nOutput: %s", err, string(output))
@@ -219,7 +219,7 @@ build:
 	// Run forge build
 	forgeExe := filepath.Join(forgeRepoRoot, "build/bin/forge")
 	cmd := exec.Command(forgeExe, "build")
-	cmd.Env = append(os.Environ(), "FORGE_REPO_PATH="+forgeRepoRoot)
+	cmd.Env = append(os.Environ(), "FORGE_RUN_LOCAL_ENABLED=true", "FORGE_REPO_PATH="+forgeRepoRoot)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("forge build failed: %v\nOutput: %s", err, string(output))
