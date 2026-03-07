@@ -17,9 +17,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
-	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,6 +35,7 @@ import (
 )
 
 var (
+	errHTTPSHealthCheck       = errors.New("HTTPS health check failed")
 	errLoggingInToRegistry    = errors.New("logging in to registry")
 	errPushingSingleImage     = errors.New("pushing image")
 	errReadingCredentials     = errors.New("reading credentials")
@@ -40,29 +43,55 @@ var (
 	errTearingDownDockerCerts = errors.New("tearing down docker certificates")
 )
 
-// waitForRegistryConnection waits for the registry to be accessible via the port-forward.
-// This is necessary because the port-forward may need time to stabilize after containerd restart.
-func waitForRegistryConnection(ctx context.Context, port int32) error {
+// httpsHealthCheck waits for the registry to respond to HTTPS requests on /v2/.
+// Any HTTP response (200, 401, etc.) indicates the TLS listener is ready.
+// serverName is the registry FQDN used for TLS hostname verification (the cert SAN
+// matches the FQDN, not 127.0.0.1 which is the port-forward address).
+func httpsHealthCheck(ctx context.Context, port int32, caCrtPath, serverName string) error {
+	_, _ = fmt.Fprintf(os.Stdout, "Waiting for registry HTTPS at 127.0.0.1:%d\n", port)
+
+	caCertPEM, err := os.ReadFile(caCrtPath)
+	if err != nil {
+		return fmt.Errorf("reading CA certificate: %w", err)
+	}
+
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(caCertPEM) {
+		return errors.New("failed to parse CA certificate")
+	}
+
+	httpClient := &http.Client{ //nolint:exhaustruct
+		Transport: &http.Transport{ //nolint:exhaustruct
+			TLSClientConfig: &tls.Config{ //nolint:exhaustruct
+				RootCAs:    pool,
+				ServerName: serverName,
+				MinVersion: tls.VersionTLS12,
+			},
+		},
+		Timeout: 2 * time.Second,
+	}
+
 	timeout := time.After(30 * time.Second)
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	_, _ = fmt.Fprintf(os.Stdout, "⏳ Waiting for registry connection at %s\n", addr)
+	url := fmt.Sprintf("https://127.0.0.1:%d/v2/", port)
 
 	for {
 		select {
 		case <-timeout:
-			return errors.New("timeout waiting for registry connection")
+			return fmt.Errorf("timeout waiting for HTTPS health check at %s: %w", url, errHTTPSHealthCheck)
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("context cancelled waiting for HTTPS health check: %w", ctx.Err())
 		case <-ticker.C:
-			conn, err := net.DialTimeout("tcp", addr, 500*time.Millisecond)
-			if err == nil {
-				_ = conn.Close()
-				_, _ = fmt.Fprintf(os.Stdout, "✅ Registry connection verified\n")
-				return nil
+			resp, err := httpClient.Get(url) //nolint:noctx
+			if err != nil {
+				continue
 			}
+			_, _ = fmt.Fprintf(os.Stdout, "HTTPS health check passed (status %d)\n", resp.StatusCode)
+			_ = resp.Body.Close()
+
+			return nil
 		}
 	}
 }
@@ -277,17 +306,27 @@ func withRegistryAccess(
 		}()
 	}
 
-	// IV. Wait for registry to be accessible before logging in
-	// The port-forward may need time to stabilize after containerd restart
-	if err := waitForRegistryConnection(ctx, dynamicPort); err != nil {
-		return flaterrors.Join(err, errors.New("waiting for registry connection"))
+	// IV. Wait for registry HTTPS to be accessible before logging in
+	if err := httpsHealthCheck(ctx, dynamicPort, config.LocalContainerRegistry.CaCrtPath, containerRegistry.FQDN()); err != nil {
+		return flaterrors.Join(err, errHTTPSHealthCheck)
 	}
 
-	// V. Login to registry using FQDN:PORT (Docker stores credentials per registry hostname)
-	if err := loginToRegistry(envs.ContainerEngineExecutable, registryFQDNWithPort, config.LocalContainerRegistry.CredentialPath); err != nil {
-		return flaterrors.Join(err, errLoggingInToRegistry)
+	// V. Login to registry with retry (transient TLS errors may occur)
+	var loginErr error
+	for attempt := 1; attempt <= 3; attempt++ {
+		loginErr = loginToRegistry(envs.ContainerEngineExecutable, registryFQDNWithPort, config.LocalContainerRegistry.CredentialPath)
+		if loginErr == nil {
+			break
+		}
+		if attempt < 3 {
+			_, _ = fmt.Fprintf(os.Stdout, "Login attempt %d/3 failed, retrying in 2s: %v\n", attempt, loginErr)
+			time.Sleep(2 * time.Second)
+		}
+	}
+	if loginErr != nil {
+		return flaterrors.Join(loginErr, errLoggingInToRegistry)
 	}
 
-	// V. Execute the provided function
+	// VI. Execute the provided function
 	return fn(registryFQDNWithPort)
 }

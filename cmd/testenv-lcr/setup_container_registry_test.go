@@ -23,8 +23,10 @@ import (
 	"testing"
 	"text/template"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -354,5 +356,105 @@ func TestService_PortNameIsHttps(t *testing.T) {
 
 	if svc.Spec.Ports[0].Name != "https" {
 		t.Errorf("Service port name = %q, want %q", svc.Spec.Ports[0].Name, "https")
+	}
+}
+
+func TestCreateDeployment_ReadinessProbe(t *testing.T) {
+	tests := []struct {
+		name        string
+		dynamicPort int32
+		wantPort    int32
+	}{
+		{
+			name:        "dynamic port 30123",
+			dynamicPort: 30123,
+			wantPort:    30123,
+		},
+		{
+			name:        "default port when dynamicPort is 0",
+			dynamicPort: 0,
+			wantPort:    containerRegistryPort, // 5000
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			_ = corev1.AddToScheme(scheme)
+			_ = appsv1.AddToScheme(scheme)
+
+			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+			ec := NewEventualConfig()
+			go func() {
+				_ = ec.SetValue(CredentialSecretName, "test-cred-secret")
+				_ = ec.SetValue(TLSSecretName, "test-tls-secret")
+				_ = ec.SetValue(CredentialMount, Mount{Dir: "/auth", Filename: "htpasswd"})
+				_ = ec.SetValue(TLSKey, Mount{Dir: "/certs", Filename: "tls.key"})
+			}()
+
+			r := &ContainerRegistry{ //nolint:exhaustruct
+				client:    cl,
+				namespace: "test-ns",
+				ec:        ec,
+			}
+			if tt.dynamicPort != 0 {
+				r.SetDynamicPort(tt.dynamicPort)
+			}
+
+			labels := map[string]string{"app": Name}
+			ctx := context.Background()
+
+			err := r.createDeployment(ctx, labels)
+			if err != nil {
+				t.Fatalf("createDeployment() error = %v", err)
+			}
+
+			// Retrieve the created deployment
+			deploy := &appsv1.Deployment{} //nolint:exhaustruct
+			err = cl.Get(ctx, client.ObjectKey{Namespace: "test-ns", Name: Name}, deploy)
+			if err != nil {
+				t.Fatalf("Failed to get created deployment: %v", err)
+			}
+
+			if len(deploy.Spec.Template.Spec.Containers) < 1 {
+				t.Fatalf("Expected at least 1 container, got %d", len(deploy.Spec.Template.Spec.Containers))
+			}
+
+			probe := deploy.Spec.Template.Spec.Containers[0].ReadinessProbe
+
+			if probe == nil {
+				t.Fatal("ReadinessProbe is nil")
+			}
+
+			if probe.ProbeHandler.TCPSocket == nil {
+				t.Fatal("ReadinessProbe.ProbeHandler.TCPSocket is nil")
+			}
+
+			wantPort := intstr.FromInt32(tt.wantPort)
+			if probe.ProbeHandler.TCPSocket.Port != wantPort {
+				t.Errorf("TCPSocket.Port = %v, want %v", probe.ProbeHandler.TCPSocket.Port, wantPort)
+			}
+
+			if probe.InitialDelaySeconds != 3 {
+				t.Errorf("InitialDelaySeconds = %d, want 3", probe.InitialDelaySeconds)
+			}
+
+			if probe.PeriodSeconds != 2 {
+				t.Errorf("PeriodSeconds = %d, want 2", probe.PeriodSeconds)
+			}
+
+			if probe.FailureThreshold != 5 {
+				t.Errorf("FailureThreshold = %d, want 5", probe.FailureThreshold)
+			}
+
+			if probe.SuccessThreshold != 1 {
+				t.Errorf("SuccessThreshold = %d, want 1", probe.SuccessThreshold)
+			}
+
+			if probe.TimeoutSeconds != 1 {
+				t.Errorf("TimeoutSeconds = %d, want 1", probe.TimeoutSeconds)
+			}
+		})
 	}
 }

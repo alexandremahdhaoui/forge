@@ -171,6 +171,19 @@ func (r *ContainerRegistry) createDeployment(ctx context.Context, labels map[str
 						ContainerPort: r.Port(),
 						Protocol:      corev1.ProtocolTCP,
 					}},
+
+					ReadinessProbe: &corev1.Probe{ //nolint:exhaustruct
+						ProbeHandler: corev1.ProbeHandler{ //nolint:exhaustruct
+							TCPSocket: &corev1.TCPSocketAction{
+								Port: intstr.FromInt32(r.Port()),
+							},
+						},
+						InitialDelaySeconds: 3,
+						PeriodSeconds:       2,
+						FailureThreshold:    5,
+						SuccessThreshold:    1,
+						TimeoutSeconds:      1,
+					},
 				}},
 
 				Volumes: []corev1.Volume{{
