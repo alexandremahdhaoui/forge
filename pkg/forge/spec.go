@@ -55,7 +55,7 @@ type Spec struct {
 	// Engines holds custom engine configurations with aliases
 	Engines []EngineConfig `json:"engines,omitempty"`
 
-	// CU holds composition-unit configuration for forge-cu.
+	// CU holds continuous-update configuration for forge-cu.
 	CU *CUConfig `json:"cu,omitempty"`
 }
 

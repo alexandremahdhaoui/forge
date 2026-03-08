@@ -31,7 +31,13 @@ func New(name, version string) *Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    name,
 		Version: version,
-	}, nil)
+	}, &mcp.ServerOptions{
+		Capabilities: &mcp.ServerCapabilities{
+			Tools: &mcp.ToolCapabilities{
+				ListChanged: false,
+			},
+		},
+	})
 
 	return &Server{
 		server: server,

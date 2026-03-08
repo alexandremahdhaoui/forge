@@ -221,12 +221,12 @@ Global Flags:
 
 Commands:
   build [artifact-name]              Build all artifacts
-  test <stage> <operation>           Manage test environments
+  test <subcommand> <stage> [args...]  Test operations (run, list, manage environments)
   test-all                           Build all artifacts and run all test stages
   list [build|test]                  List available build targets and test stages
   docs <list|get> [name]             Fetch project documentation
   config <subcommand>                Configuration management
-  cu <subcommand>                    Composition-unit operations (status, commit, checkout, go-get)
+  cu <subcommand>                    Continuous-update operations (status, commit, checkout, go-get)
   ws <subcommand>                    Workspace lifecycle (list, create, delete, suspend, resume)
   ui                                 Launch the forge TUI dashboard
   version                            Show version information
@@ -236,11 +236,14 @@ Build:
   build [-f|--force] <artifact-name> Build specific artifact (force rebuild all)
 
 Test:
-  test <stage> create                Create test environment for stage
-  test <stage> get <id>              Get test environment details
-  test <stage> delete <id>           Delete test environment
-  test <stage> list                  List test environments for stage
-  test <stage> run [test-id]         Run tests for stage
+  test run <stage> [env-id]          Run tests for stage (optionally reuse environment)
+  test list <stage>                  List test reports for stage
+  test get <stage> <test-id>         Get test report details
+  test delete <stage> <test-id>      Delete test report
+  test list-env <stage>              List test environments for stage
+  test get-env <stage> <env-id>      Get test environment details
+  test create-env <stage>            Create test environment for stage
+  test delete-env <stage> <env-id>   Delete test environment
 
 Test All:
   test-all                           Build all artifacts and run all test stages sequentially
@@ -257,7 +260,7 @@ Docs:
 Config:
   config validate [path]             Validate forge.yaml configuration
 
-Composition Unit:
+Continuous Update:
   cu status                          Show pending dependency changes
   cu commit --message <msg>          Commit pending changes
   cu checkout --branch <name>        Check out a branch

@@ -14,7 +14,7 @@
 
 package forge
 
-// CUConfig holds composition-unit configuration for forge-cu integration.
+// CUConfig holds continuous-update configuration for forge-cu integration.
 type CUConfig struct {
 	// CompoURL is the composition repository URL.
 	CompoURL string `json:"compoURL,omitempty"`
