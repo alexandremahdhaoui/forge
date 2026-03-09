@@ -80,6 +80,58 @@ Forge solves this with an MCP-first architecture. Every component speaks JSON-RP
                   +--------+  +---------+
 ```
 
+### Build Context Resolution
+
+The `context` field in `BuildSpec` specifies where source files live. Forge resolves context before dispatching to engines:
+
+```
+forge.yaml                           go.work
+  |                                    |
+  | build[].context                    | use directives
+  | (git URL, path, or empty)         | (./forge, ./forge-workspace, ...)
+  |                                    |
+  v                                    v
++------------------------------------------------------------------+
+|                     forge CLI (cmd/forge/build.go)                |
+|                                                                   |
+|  resolveContextDir(context) -> (absDir, cleanup, err)            |
+|                                                                   |
+|  1. Empty or "." -> CWD                                          |
+|  2. Absolute path -> use as-is                                   |
+|  3. Relative path -> filepath.Abs                                |
+|  4. Git URL -> parse module path -> check go.work -> local dir   |
+|                                     or clone to temp dir         |
+|                                                                   |
+|  Then: resolve src relative to context dir                       |
+|  Then: pass absolute paths to engine via MCP                     |
++------------------------------------------------------------------+
+        |
+        | params["context"] = "/abs/path/to/resolved/dir"
+        | params["src"]     = "/abs/path/to/resolved/dir/file"
+        v
+   MCP Engine (receives absolute paths, no URL parsing)
+```
+
+**Git URL formats supported:**
+
+| Format | Example | Module Path |
+|--------|---------|-------------|
+| SSH | `git@github.com:user/repo.git` | `github.com/user/repo` |
+| HTTPS | `https://github.com/user/repo` | `github.com/user/repo` |
+| SSH protocol | `ssh://git@github.com/user/repo.git` | `github.com/user/repo` |
+
+**Workspace-first resolution:** When context is a git URL, Forge parses the module path, then checks `go.work` use directives. If a workspace member's `go.mod` module path matches, Forge resolves to the local directory. This avoids cloning repos that already exist locally in the workspace. If no match, Forge clones to a temp directory and cleans up after the build.
+
+**forge.yaml example:**
+
+```yaml
+build:
+  - name: forge-ws-controller-image
+    src: ./containers/forge-ws-controller/Containerfile
+    context: git@github.com:alexandremahdhaoui/forge-workspace.git
+    engine: go://container-build
+```
+
 ### Engine Resolution
 
 Forge resolves engine URIs to executable MCP server processes:
@@ -151,11 +203,12 @@ Key types from `pkg/forge/`:
 ```go
 // BuildSpec represents a single artifact to build
 type BuildSpec struct {
-    Name   string                 `json:"name"`
-    Src    string                 `json:"src"`
-    Dest   string                 `json:"dest,omitempty"`
-    Engine string                 `json:"engine"`
-    Spec   map[string]interface{} `json:"spec,omitempty"`
+    Name    string                 `json:"name"`
+    Src     string                 `json:"src"`
+    Dest    string                 `json:"dest,omitempty"`
+    Context string                 `json:"context,omitempty"`
+    Engine  string                 `json:"engine"`
+    Spec    map[string]interface{} `json:"spec,omitempty"`
 }
 
 // TestSpec defines a test stage configuration
@@ -232,6 +285,7 @@ All engines communicate via JSON-RPC 2.0 over stdio. Forge spawns each engine as
       "name": "forge",
       "src": "./cmd/forge",
       "dest": "./build/bin",
+      "context": "/abs/path/to/project",
       "engine": "go://go-build"
     }
   }
@@ -473,5 +527,10 @@ build:
     engine: go://go-build
     spec:
       ldflags: "-X main.Version={{.GitVersion}}"
+  # Cross-repo container build with context
+  - name: forge-ws-controller-image
+    src: ./containers/forge-ws-controller/Containerfile
+    context: git@github.com:alexandremahdhaoui/forge-workspace.git
+    engine: go://container-build
   # ... 23 more build targets
 ```

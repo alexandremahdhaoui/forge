@@ -83,11 +83,12 @@ type RunInput struct {
 // BuildInput represents the standard input parameters for build engine tools.
 // This is used across all build engines (go-build, container-build, generic-builder, etc.).
 type BuildInput struct {
-	Name   string `json:"name" jsonschema:"Artifact name as defined in forge.yaml build[].name"`
-	Src    string `json:"src,omitempty" jsonschema:"Source path relative to project root (e.g. ./cmd/myapp)"`
-	Dest   string `json:"dest,omitempty" jsonschema:"Destination path for build output (e.g. ./build/bin)"`
-	Engine string `json:"engine" jsonschema:"Engine URI that performs the build (e.g. go://go-build)"`
-	Force  bool   `json:"force,omitempty" jsonschema:"Force rebuild and skip dependency-based caching"`
+	Name    string `json:"name" jsonschema:"Artifact name as defined in forge.yaml build[].name"`
+	Src     string `json:"src,omitempty" jsonschema:"Source path relative to project root (e.g. ./cmd/myapp)"`
+	Dest    string `json:"dest,omitempty" jsonschema:"Destination path for build output (e.g. ./build/bin)"`
+	Context string `json:"context,omitempty" jsonschema:"Resolved absolute path to build context directory"`
+	Engine  string `json:"engine" jsonschema:"Engine URI that performs the build (e.g. go://go-build)"`
+	Force   bool   `json:"force,omitempty" jsonschema:"Force rebuild and skip dependency-based caching"`
 
 	// Generic engine specific fields (optional)
 	Command string            `json:"command,omitempty" jsonschema:"Command to execute (generic-builder engine only)"`

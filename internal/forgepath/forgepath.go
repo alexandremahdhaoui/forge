@@ -403,6 +403,23 @@ func parseGoWorkUseDirs(content string) []string {
 	return dirs
 }
 
+// FindGoWork walks up from CWD looking for a go.work file and returns the
+// directory containing it, or "" if not found.
+func FindGoWork() string {
+	return findGoWork()
+}
+
+// ParseGoWorkUseDirs extracts directory paths from go.work use directives.
+// Handles both single-line `use ./foo` and block `use ( ./foo \n ./bar )` syntax.
+func ParseGoWorkUseDirs(content string) []string {
+	return parseGoWorkUseDirs(content)
+}
+
+// ReadModulePath reads a go.mod file and returns the module path declared in it.
+func ReadModulePath(goModPath string) string {
+	return readModulePath(goModPath)
+}
+
 // readModulePath reads a go.mod file and returns the module path declared in it.
 func readModulePath(goModPath string) string {
 	content, err := os.ReadFile(goModPath)

@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -158,6 +159,16 @@ func runBuild(args []string, forceRebuild bool) error {
 	engineSpecs := make(map[string][]map[string]any)
 	skippedCount := 0
 
+	// Track cleanup functions for git-cloned context directories.
+	// Temp dirs must persist until all engine builds complete because specs
+	// are grouped by engine and sent as a batch -- cleanup after all builds.
+	var cleanups []func()
+	defer func() {
+		for _, fn := range cleanups {
+			fn()
+		}
+	}()
+
 	for _, spec := range config.Build {
 		// Filter by artifact name if provided
 		if artifactName != "" && spec.Name != artifactName {
@@ -195,11 +206,27 @@ func runBuild(args []string, forceRebuild bool) error {
 
 		// Use the normalized engine
 		engine := normalizedEngine
+
+		// Resolve build context
+		contextDir, cleanup, err := resolveContextDir(spec.Context)
+		if err != nil {
+			return fmt.Errorf("failed to resolve context for %s: %w", spec.Name, err)
+		}
+		cleanups = append(cleanups, cleanup)
+
+		// Resolve src relative to context directory.
+		// Only join if spec.Src is relative AND context is explicitly set.
+		resolvedSrc := spec.Src
+		if spec.Context != "" && spec.Context != "." && !filepath.IsAbs(spec.Src) {
+			resolvedSrc = filepath.Join(contextDir, spec.Src)
+		}
+
 		params := map[string]any{
-			"name":   spec.Name,
-			"src":    spec.Src,
-			"dest":   spec.Dest,
-			"engine": engine,
+			"name":    spec.Name,
+			"src":     resolvedSrc,
+			"dest":    spec.Dest,
+			"context": contextDir,
+			"engine":  engine,
 		}
 
 		// Pass engine-specific configuration if provided

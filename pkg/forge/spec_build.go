@@ -31,6 +31,8 @@ type BuildSpec struct {
 	// - "./build/bin/<NAME>"
 	// - can be left empty for container images
 	Dest string `json:"dest,omitempty"`
+	// Context is the build context directory or git URL. Empty defaults to "."
+	Context string `json:"context,omitempty"`
 	// Engine that will build this artifact, e.g.:
 	// - go://container-build (go://github.com/alexandremahdhaoui/forge/cmd/container-build)
 	// - go://go-build        (go://github.com/alexandremahdhaoui/forge/cmd/go-build)

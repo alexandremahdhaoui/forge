@@ -72,6 +72,17 @@ func Build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.A
 		return nil, err
 	}
 
+	// Resolve build context directory
+	// Prefer input.Context (set by forge CLI), fall back to CWD for backward compat
+	buildContextDir := input.Context
+	if buildContextDir == "" {
+		var err error
+		buildContextDir, err = os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get working directory: %w", err)
+		}
+	}
+
 	// Create BuildSpec from input (include Spec for dependsOn support)
 	buildSpec := forge.BuildSpec{
 		Name:   input.Name,
@@ -89,7 +100,7 @@ func Build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.A
 
 	// Build the container (isMCPMode=true)
 	var store forge.ArtifactStore
-	if err := buildContainer(envs, buildSpec, version, "", &store, true); err != nil {
+	if err := buildContainer(envs, buildSpec, version, "", &store, true, buildContextDir); err != nil {
 		return nil, err
 	}
 
@@ -141,15 +152,16 @@ func buildContainer(
 	version, timestamp string,
 	store *forge.ArtifactStore,
 	isMCPMode bool,
+	contextDir string,
 ) error {
 	// Dispatch based on container engine
 	switch envs.BuildEngine {
 	case "docker":
-		return buildContainerDocker(envs, spec, version, timestamp, store, isMCPMode)
+		return buildContainerDocker(envs, spec, version, timestamp, store, isMCPMode, contextDir)
 	case "kaniko":
-		return buildContainerKaniko(envs, spec, version, timestamp, store, isMCPMode)
+		return buildContainerKaniko(envs, spec, version, timestamp, store, isMCPMode, contextDir)
 	case "podman":
-		return buildContainerPodman(envs, spec, version, timestamp, store, isMCPMode)
+		return buildContainerPodman(envs, spec, version, timestamp, store, isMCPMode, contextDir)
 	default:
 		// Should be unreachable due to validation, but defensive programming
 		return flaterrors.Join(
@@ -166,6 +178,7 @@ func buildContainerDocker(
 	version, timestamp string,
 	store *forge.ArtifactStore,
 	isMCPMode bool,
+	contextDir string,
 ) error {
 	out := os.Stdout
 	if isMCPMode {
@@ -174,10 +187,7 @@ func buildContainerDocker(
 
 	printBuildStart(out, spec.Name)
 
-	wd, err := os.Getwd()
-	if err != nil {
-		return flaterrors.Join(err, errBuildingContainer)
-	}
+	wd := contextDir
 
 	// Build image tags
 	imageWithVersion := fmt.Sprintf("%s:%s", spec.Name, version)
@@ -234,6 +244,7 @@ func buildContainerPodman(
 	version, timestamp string,
 	store *forge.ArtifactStore,
 	isMCPMode bool,
+	contextDir string,
 ) error {
 	out := os.Stdout
 	if isMCPMode {
@@ -242,10 +253,7 @@ func buildContainerPodman(
 
 	printBuildStart(out, spec.Name)
 
-	wd, err := os.Getwd()
-	if err != nil {
-		return flaterrors.Join(err, errBuildingContainer)
-	}
+	wd := contextDir
 
 	// Build image tags
 	imageWithVersion := fmt.Sprintf("%s:%s", spec.Name, version)
@@ -302,6 +310,7 @@ func buildContainerKaniko(
 	version, timestamp string,
 	store *forge.ArtifactStore,
 	isMCPMode bool,
+	contextDir string,
 ) error {
 	// In MCP mode, write to stderr; in normal mode, write to stdout
 	out := os.Stdout
@@ -311,10 +320,7 @@ func buildContainerKaniko(
 
 	printBuildStart(out, spec.Name)
 
-	wd, err := os.Getwd()
-	if err != nil {
-		return flaterrors.Join(err, errBuildingContainer)
-	}
+	wd := contextDir
 
 	// Expand cache directory path (handle ~ for home directory)
 	cacheDir := expandPath(envs.KanikoCacheDir)

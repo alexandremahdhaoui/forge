@@ -80,7 +80,7 @@ func TestBuildContainerDocker(t *testing.T) {
 	// Call buildContainerDocker
 	// Note: This will actually try to build, which may fail without docker
 	// In a real test environment, you'd want to mock exec.Command
-	err = buildContainerDocker(envs, spec, version, timestamp, &store, false)
+	err = buildContainerDocker(envs, spec, version, timestamp, &store, false, tmpDir)
 
 	// We expect this to fail without docker, but we're testing the function structure
 	// The real test is that it doesn't panic and returns an error when docker isn't available
@@ -172,7 +172,7 @@ func TestBuildContainerKaniko(t *testing.T) {
 	}
 
 	// Call buildContainerKaniko
-	err = buildContainerKaniko(envs, spec, version, timestamp, &store, false)
+	err = buildContainerKaniko(envs, spec, version, timestamp, &store, false, tmpDir)
 
 	// We expect this to fail without docker daemon, but we're testing the function structure
 	if err != nil {
@@ -265,7 +265,7 @@ func TestBuildContainerPodman(t *testing.T) {
 	}
 
 	// Call buildContainerPodman
-	err = buildContainerPodman(envs, spec, version, timestamp, &store, false)
+	err = buildContainerPodman(envs, spec, version, timestamp, &store, false, tmpDir)
 
 	// We expect this to fail without podman, but we're testing the function structure
 	if err != nil {
@@ -368,7 +368,7 @@ func TestBuildContainerDispatcher(t *testing.T) {
 				Artifacts: []forge.Artifact{},
 			}
 
-			err := buildContainer(envs, spec, version, timestamp, &testStore, false)
+			err := buildContainer(envs, spec, version, timestamp, &testStore, false, tmpDir)
 
 			if tt.shouldError {
 				if err == nil {

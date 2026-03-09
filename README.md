@@ -85,6 +85,11 @@ build:
     dest: ./build/bin        # Output directory
     engine: go://go-build    # Engine URI
 
+  - name: ws-controller-image
+    src: ./containers/ws-controller/Containerfile
+    context: git@github.com:user/other-repo.git  # Build from sibling repo
+    engine: go://container-build
+
 test:
   - name: unit
     runner: go://go-test     # Test runner engine
@@ -174,6 +179,17 @@ Yes. Run `forge --mcp` to start Forge as an MCP server. All 28 engines speak MCP
 
 **How do test environments work?**
 Testenv sub-engines compose into sequential chains. Each sub-engine (Kind cluster, TLS registry, Helm charts) propagates environment variables to the next via `envPropagation` config. Template expansion (`{{.Env.KUBECONFIG}}`) enables dynamic configuration. See [testing.md](./docs/user/testing.md).
+
+**How do I build from a different repository?**
+Set the `context` field in `forge.yaml` to a git URL. Forge parses the module path, checks `go.work` for a local match, and resolves to the local directory if found. Otherwise, it clones to a temp directory. The `src` path resolves relative to the context directory.
+
+```yaml
+build:
+  - name: controller-image
+    src: ./containers/controller/Containerfile
+    context: git@github.com:user/other-repo.git
+    engine: go://container-build
+```
 
 **How do I run Forge from a Go workspace?**
 Use the `--config` flag to point at the target repo's `forge.yaml`. See [workspace-development.md](./docs/user/workspace-development.md).

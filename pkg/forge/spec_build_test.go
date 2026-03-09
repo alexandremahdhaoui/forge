@@ -264,3 +264,30 @@ func equalMaps(a, b map[string]interface{}) bool {
 
 	return true
 }
+
+// TestBuildSpec_Validate_WithContext verifies Validate() passes when Context is set to a git URL
+func TestBuildSpec_Validate_WithContext(t *testing.T) {
+	spec := BuildSpec{
+		Name:    "test-artifact",
+		Src:     "./cmd/test",
+		Engine:  "go://go-build",
+		Context: "git@github.com:user/repo.git",
+	}
+	err := spec.Validate()
+	if err != nil {
+		t.Errorf("Validate() returned error for valid spec with context: %v", err)
+	}
+}
+
+// TestBuildSpec_Validate_EmptyContext verifies Validate() passes when Context is empty
+func TestBuildSpec_Validate_EmptyContext(t *testing.T) {
+	spec := BuildSpec{
+		Name:   "test-artifact",
+		Src:    "./cmd/test",
+		Engine: "go://go-build",
+	}
+	err := spec.Validate()
+	if err != nil {
+		t.Errorf("Validate() returned error for spec without context: %v", err)
+	}
+}
