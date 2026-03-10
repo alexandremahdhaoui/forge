@@ -34,7 +34,7 @@ forge test run security
 | `args` | Command arguments as array |
 | `env` | Environment variables as key-value pairs |
 | `envFile` | Path to env file to load |
-| `workDir` | Working directory for command execution |
+| `context` | Context directory for command execution |
 
 ## How is pass/fail determined?
 
@@ -74,7 +74,7 @@ test:
     runner: go://generic-test-runner
     spec:
       command: compliance-checker
-      workDir: ./compliance
+      context: ./compliance
 ```
 
 ## What output does it produce?

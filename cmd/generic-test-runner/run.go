@@ -34,7 +34,7 @@ type ExecuteInput struct {
 	Args    []string          // Command arguments
 	Env     map[string]string // Environment variables
 	EnvFile string            // Path to environment file (optional)
-	WorkDir string            // Working directory (optional)
+	Context string            // Context directory for command execution (optional)
 }
 
 // ExecuteOutput contains the result of command execution
@@ -69,10 +69,7 @@ func Run(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestR
 		envFile = input.EnvFile
 	}
 
-	workDir := spec.WorkDir
-	if workDir == "" {
-		workDir = input.WorkDir
-	}
+	ctxDir := spec.Context
 
 	log.Printf("Running tests: stage=%s name=%s command=%s", input.Stage, input.Name, command)
 
@@ -87,7 +84,7 @@ func Run(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestR
 		Args:    args,
 		Env:     env,
 		EnvFile: envFile,
-		WorkDir: workDir,
+		Context: ctxDir,
 	}
 
 	output := executeCommand(execInput)
@@ -185,8 +182,8 @@ func loadEnvFile(path string) (map[string]string, error) {
 func executeCommand(input ExecuteInput) ExecuteOutput {
 	cmd := exec.Command(input.Command, input.Args...)
 
-	if input.WorkDir != "" {
-		cmd.Dir = input.WorkDir
+	if input.Context != "" {
+		cmd.Dir = input.Context
 	}
 
 	env := os.Environ()

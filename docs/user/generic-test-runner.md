@@ -37,7 +37,7 @@ Run with: `forge test lint run`
 | `args` | No | Array of command arguments |
 | `env` | No | Environment variables as key-value map |
 | `envFile` | No | Path to .envrc file with environment variables |
-| `workDir` | No | Working directory for execution |
+| `context` | No | Context directory for command execution |
 
 **Exit code interpretation:**
 - Exit 0 = test passed
@@ -96,7 +96,7 @@ engines:
         spec:
           command: "pytest"
           args: ["--verbose", "tests/"]
-          workDir: "./python-service"
+          context: "./python-service"
 
 test:
   - name: python-tests

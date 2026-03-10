@@ -28,8 +28,8 @@ You don't invoke it directly. It's called automatically by `go-gen-mocks` after 
 
 The detector searches for mockery configuration in order:
 1. `MOCKERY_CONFIG_PATH` environment variable
-2. `.mockery.yaml` / `.mockery.yml` in workDir
-3. `mockery.yaml` / `mockery.yml` in workDir
+2. `.mockery.yaml` / `.mockery.yml` in rootDir
+3. `mockery.yaml` / `mockery.yml` in rootDir
 
 ## What are the limitations?
 

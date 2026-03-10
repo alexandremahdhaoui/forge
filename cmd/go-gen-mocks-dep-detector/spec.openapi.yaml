@@ -9,7 +9,3 @@ components:
     Spec:
       type: object
       description: Configuration for go-gen-mocks-dep-detector
-      properties:
-        workDir:
-          type: string
-          description: Working directory for mock detection (optional)

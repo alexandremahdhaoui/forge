@@ -38,7 +38,7 @@ Run with: `forge build generate-proto`
 | `args` | No | Array of command arguments |
 | `env` | No | Environment variables as key-value map |
 | `envFile` | No | Path to .envrc file with environment variables |
-| `workDir` | No | Working directory for execution |
+| `context` | No | Context directory for command execution |
 
 **Environment precedence** (highest to lowest): `env` > `envFile` > system environment
 
@@ -63,7 +63,7 @@ engines:
         spec:
           command: "prettier"
           args: ["--write", "src/**/*.ts"]
-          workDir: "./frontend"
+          context: "./frontend"
 
 build:
   - name: format-frontend

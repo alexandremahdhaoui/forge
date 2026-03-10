@@ -35,7 +35,6 @@ type RunInput struct {
 	Args    []string          `json:"args,omitempty" jsonschema:"Command arguments (generic-test-runner only)"`
 	Env     map[string]string `json:"env,omitempty" jsonschema:"Environment variables as key-value pairs"`
 	EnvFile string            `json:"envFile,omitempty" jsonschema:"Path to file containing environment variables"`
-	WorkDir string            `json:"workDir,omitempty" jsonschema:"Working directory for test execution"`
 
 	// Artifact files from testenv (e.g., kubeconfig, registry credentials)
 	ArtifactFiles map[string]string `json:"artifactFiles,omitempty" jsonschema:"Map of artifact file keys to relative paths from testenv tmpDir"`
@@ -95,7 +94,6 @@ type BuildInput struct {
 	Args    []string          `json:"args,omitempty" jsonschema:"Command arguments (generic-builder engine only)"`
 	Env     map[string]string `json:"env,omitempty" jsonschema:"Environment variables as key-value pairs"`
 	EnvFile string            `json:"envFile,omitempty" jsonschema:"Path to file containing environment variables"`
-	WorkDir string            `json:"workDir,omitempty" jsonschema:"Working directory for command execution"`
 
 	// Format-go specific fields (optional)
 	Path string `json:"path,omitempty" jsonschema:"Path to format (go-format engine only)"`
@@ -145,7 +143,7 @@ type DetectDependenciesInput struct {
 
 // DetectMockDependenciesInput is the input for go-gen-mocks-dep-detector.
 type DetectMockDependenciesInput struct {
-	WorkDir string `json:"workDir"` // Directory to search for .mockery.yaml
+	RootDir string `json:"rootDir"` // Directory to search for .mockery.yaml
 }
 
 // DetectOpenAPIDependenciesInput is the input for go-gen-openapi-dep-detector.

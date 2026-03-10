@@ -49,12 +49,12 @@ func Build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.A
 		envFile = input.EnvFile
 	}
 
-	workDir := spec.WorkDir
-	if workDir == "" {
-		workDir = input.WorkDir
+	ctxDir := spec.Context
+	if ctxDir == "" {
+		ctxDir = input.Context
 	}
 
-	log.Printf("Executing command: %s %v (workDir: %s)", command, args, workDir)
+	log.Printf("Executing command: %s %v (context: %s)", command, args, ctxDir)
 
 	if command == "" {
 		return nil, fmt.Errorf("command is required")
@@ -70,7 +70,7 @@ func Build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.A
 		Args:    processedArgs,
 		Env:     env,
 		EnvFile: envFile,
-		WorkDir: workDir,
+		Context: ctxDir,
 	}
 
 	output := cmdutil.ExecuteCommand(execInput)
@@ -93,7 +93,7 @@ func Build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.A
 		log.Printf("Stderr: %s", output.Stderr)
 	}
 
-	location := workDir
+	location := ctxDir
 	if location == "" {
 		location = input.Src
 	}

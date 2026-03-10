@@ -83,8 +83,8 @@ func (o *TestRunnerOrchestrator) Orchestrate(
 		if runnerSpec.Spec.EnvFile != "" {
 			specMap["envFile"] = runnerSpec.Spec.EnvFile
 		}
-		if runnerSpec.Spec.WorkDir != "" {
-			specMap["workDir"] = runnerSpec.Spec.WorkDir
+		if runnerSpec.Spec.Context != "" {
+			specMap["context"] = runnerSpec.Spec.Context
 		}
 		if len(specMap) > 0 {
 			runnerParams["spec"] = specMap

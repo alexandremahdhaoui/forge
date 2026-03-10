@@ -34,8 +34,8 @@ func ExecuteCommand(input ExecuteInput) ExecuteOutput {
 	cmd := exec.Command(input.Command, input.Args...)
 
 	// Set working directory if specified
-	if input.WorkDir != "" {
-		cmd.Dir = input.WorkDir
+	if input.Context != "" {
+		cmd.Dir = input.Context
 	}
 
 	// Merge environment variables

@@ -157,7 +157,7 @@ func DetectMockDependencies(input mcptypes.DetectMockDependenciesInput) (mcptype
 	var deps []mcptypes.Dependency
 
 	// 1. Find mockery config
-	configPath, err := findMockeryConfig(input.WorkDir)
+	configPath, err := findMockeryConfig(input.RootDir)
 	if err != nil {
 		return mcptypes.DetectDependenciesOutput{}, err
 	}
@@ -170,7 +170,7 @@ func DetectMockDependencies(input mcptypes.DetectMockDependenciesInput) (mcptype
 	deps = append(deps, configDep)
 
 	// 3. Find and add go.mod
-	goModPath, err := findGoMod(input.WorkDir)
+	goModPath, err := findGoMod(input.RootDir)
 	if err == nil {
 		goModDep, err := createFileDependency(goModPath)
 		if err == nil {
@@ -186,7 +186,7 @@ func DetectMockDependencies(input mcptypes.DetectMockDependenciesInput) (mcptype
 
 	// 5. Resolve each package to files
 	for pkgPath := range config.Packages {
-		files, err := resolvePackageToFiles(pkgPath, input.WorkDir)
+		files, err := resolvePackageToFiles(pkgPath, input.RootDir)
 		if err != nil {
 			// Log warning but continue - external packages or missing packages don't fail the build
 			log.Printf("Warning: skipping package %s: %v", pkgPath, err)

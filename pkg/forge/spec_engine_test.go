@@ -39,7 +39,7 @@ engines:
             GOFMT_STYLE: "google"
             DEBUG: "true"
           envFile: ".envrc"
-          workDir: "/tmp/test"
+          context: "/tmp/test"
 
   - alias: my-linter
     type: test-runner
@@ -107,8 +107,8 @@ engines:
 	if formatter.Builder[0].Spec.EnvFile != ".envrc" {
 		t.Errorf("Expected envFile '.envrc', got '%s'", formatter.Builder[0].Spec.EnvFile)
 	}
-	if formatter.Builder[0].Spec.WorkDir != "/tmp/test" {
-		t.Errorf("Expected workDir '/tmp/test', got '%s'", formatter.Builder[0].Spec.WorkDir)
+	if formatter.Builder[0].Spec.Context != "/tmp/test" {
+		t.Errorf("Expected context '/tmp/test', got '%s'", formatter.Builder[0].Spec.Context)
 	}
 
 	// Verify second engine (my-linter) - test-runner type
@@ -224,7 +224,7 @@ engines:
             VAR2: "value2"
             VAR3: "value3"
           envFile: ".env.test"
-          workDir: "/custom/dir"
+          context: "/custom/dir"
 `,
 			validate: func(t *testing.T, spec Spec) {
 				if len(spec.Engines) != 1 {
@@ -246,8 +246,8 @@ engines:
 				if eng.Builder[0].Spec.EnvFile != ".env.test" {
 					t.Errorf("Expected envFile '.env.test', got '%s'", eng.Builder[0].Spec.EnvFile)
 				}
-				if eng.Builder[0].Spec.WorkDir != "/custom/dir" {
-					t.Errorf("Expected workDir '/custom/dir', got '%s'", eng.Builder[0].Spec.WorkDir)
+				if eng.Builder[0].Spec.Context != "/custom/dir" {
+					t.Errorf("Expected context '/custom/dir', got '%s'", eng.Builder[0].Spec.Context)
 				}
 			},
 		},

@@ -78,8 +78,8 @@ type EngineSpec struct {
 	// The file should contain KEY=VALUE pairs, one per line
 	EnvFile string `json:"envFile,omitempty"`
 
-	// WorkDir is the working directory for command execution (optional)
-	WorkDir string `json:"workDir,omitempty"`
+	// Context is the context directory for command execution (optional)
+	Context string `json:"context,omitempty"`
 }
 
 // BuilderEngineSpec defines specification for builder-type engines

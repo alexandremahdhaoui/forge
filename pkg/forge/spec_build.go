@@ -38,7 +38,7 @@ type BuildSpec struct {
 	// - go://go-build        (go://github.com/alexandremahdhaoui/forge/cmd/go-build)
 	Engine string `json:"engine"`
 	// Spec contains engine-specific configuration (free-form)
-	// Supports fields like: command, args, env, envFile, workDir
+	// Supports fields like: command, args, env, envFile, context
 	// For container-build engine, also supports:
 	//   - dependsOn: []DependsOnSpec - list of dependency detectors to run
 	// The exact fields supported depend on the engine being used

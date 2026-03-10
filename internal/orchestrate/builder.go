@@ -94,8 +94,8 @@ func (o *BuilderOrchestrator) Orchestrate(
 			if builderSpec.Spec.EnvFile != "" {
 				specMap["envFile"] = builderSpec.Spec.EnvFile
 			}
-			if builderSpec.Spec.WorkDir != "" {
-				specMap["workDir"] = builderSpec.Spec.WorkDir
+			if builderSpec.Spec.Context != "" {
+				specMap["context"] = builderSpec.Spec.Context
 			}
 			if len(specMap) > 0 {
 				clonedSpec["spec"] = specMap

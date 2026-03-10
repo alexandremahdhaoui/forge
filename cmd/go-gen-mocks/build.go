@@ -79,7 +79,7 @@ func detectMockDependencies(ctx context.Context, rootDir string) ([]forge.Artifa
 	}
 
 	input := map[string]any{
-		"workDir": workDir,
+		"rootDir": workDir,
 	}
 
 	return engineframework.CallDetector(ctx, cmd, args, "detectDependencies", input)

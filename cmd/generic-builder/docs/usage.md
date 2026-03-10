@@ -35,7 +35,7 @@ forge build
 | `args` | No | Command arguments (supports templates) |
 | `env` | No | Environment variables |
 | `envFile` | No | Path to env file |
-| `workDir` | No | Working directory |
+| `context` | No | Context directory for command execution |
 | `src` | No | Source path (available as template) |
 | `dest` | No | Destination path (available as template) |
 

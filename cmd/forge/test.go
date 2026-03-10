@@ -821,8 +821,8 @@ func runWithSingleTestRunner(
 			if engineSpec.EnvFile != "" {
 				specMap["envFile"] = engineSpec.EnvFile
 			}
-			if engineSpec.WorkDir != "" {
-				specMap["workDir"] = engineSpec.WorkDir
+			if engineSpec.Context != "" {
+				specMap["context"] = engineSpec.Context
 			}
 		}
 	}

@@ -31,7 +31,7 @@ Execute a shell command and return structured output.
   "args": ["string"],                // Command arguments (supports templates)
   "env": {"key": "value"},           // Environment variables
   "envFile": "string",               // Path to env file
-  "workDir": "string",               // Working directory
+  "context": "string",               // Context directory for command execution
   "src": "string",                   // Source directory (for templates)
   "dest": "string",                  // Destination (for templates)
   "version": "string"                // Version (for templates)
@@ -51,7 +51,7 @@ Arguments support Go template syntax with these fields:
 {
   "name": "string",
   "type": "command-output",
-  "location": "string",              // workDir or src or "."
+  "location": "string",              // context or src or "."
   "timestamp": "string",
   "version": "string"                // "{command}-exit{code}"
 }
@@ -103,7 +103,7 @@ build:
     - name: format-code
       command: gofumpt
       args: ["-w", "./..."]
-      workDir: .
+      context: .
       builder: go://generic-builder
 
     - name: generate-mocks

@@ -30,7 +30,7 @@ func TestConfigValidate_ValidSpec(t *testing.T) {
 		"env": map[string]interface{}{
 			"FOO": "bar",
 		},
-		"workDir": "/tmp",
+		"context": "/tmp",
 		"envFile": ".env",
 	}
 
@@ -94,10 +94,10 @@ func TestConfigValidate_InvalidEnvType(t *testing.T) {
 	assert.Contains(t, output.Errors[0].Message, "expected map[string]string")
 }
 
-func TestConfigValidate_InvalidWorkDirType(t *testing.T) {
+func TestConfigValidate_InvalidContextType(t *testing.T) {
 	spec := map[string]interface{}{
 		"command": "echo",
-		"workDir": 123,
+		"context": 123,
 	}
 
 	output := ValidateMap(spec)
@@ -193,7 +193,7 @@ func TestFromMap_Valid(t *testing.T) {
 		"env": map[string]interface{}{
 			"FOO": "bar",
 		},
-		"workDir": "/tmp",
+		"context": "/tmp",
 		"envFile": ".env",
 	}
 
@@ -203,7 +203,7 @@ func TestFromMap_Valid(t *testing.T) {
 	assert.Equal(t, "echo", s.Command)
 	assert.Equal(t, []string{"hello", "world"}, s.Args)
 	assert.Equal(t, map[string]string{"FOO": "bar"}, s.Env)
-	assert.Equal(t, "/tmp", s.WorkDir)
+	assert.Equal(t, "/tmp", s.Context)
 	assert.Equal(t, ".env", s.EnvFile)
 }
 
@@ -213,7 +213,7 @@ func TestToMap(t *testing.T) {
 		Command: "echo",
 		Args:    []string{"hello"},
 		Env:     map[string]string{"FOO": "bar"},
-		WorkDir: "/tmp",
+		Context: "/tmp",
 		EnvFile: ".env",
 	}
 
@@ -222,6 +222,6 @@ func TestToMap(t *testing.T) {
 	assert.Equal(t, "echo", m["command"])
 	assert.Equal(t, []string{"hello"}, m["args"])
 	assert.Equal(t, map[string]string{"FOO": "bar"}, m["env"])
-	assert.Equal(t, "/tmp", m["workDir"])
+	assert.Equal(t, "/tmp", m["context"])
 	assert.Equal(t, ".env", m["envFile"])
 }

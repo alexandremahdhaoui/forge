@@ -24,9 +24,9 @@ components:
           additionalProperties:
             type: string
           description: Environment variables (optional)
-        workDir:
+        context:
           type: string
-          description: Working directory (optional)
+          description: Context directory for command execution (optional)
         envFile:
           type: string
           description: Path to environment file (optional)

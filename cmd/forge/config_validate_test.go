@@ -645,7 +645,7 @@ func TestAggregateResults_MultipleErrorsFromSingleEngine(t *testing.T) {
 				Errors: []mcptypes.ValidationError{
 					{Field: "spec.args", Message: "must be an array"},
 					{Field: "spec.env", Message: "must be a map"},
-					{Field: "spec.workDir", Message: "must be a string"},
+					{Field: "spec.context", Message: "must be a string"},
 				},
 			},
 		},

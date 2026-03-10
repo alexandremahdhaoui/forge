@@ -32,7 +32,7 @@ type TestSpec struct {
 	Runner string `json:"runner"`
 
 	// Spec contains runner-specific configuration (free-form)
-	// Supports fields like: command, args, env, envFile, workDir
+	// Supports fields like: command, args, env, envFile, context
 	// The exact fields supported depend on the runner being used
 	Spec map[string]interface{} `json:"spec,omitempty"`
 

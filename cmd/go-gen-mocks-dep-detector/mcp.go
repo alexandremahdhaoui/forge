@@ -44,11 +44,11 @@ func handleDetectDependencies(
 	req *mcp.CallToolRequest,
 	input mcptypes.DetectMockDependenciesInput,
 ) (*mcp.CallToolResult, any, error) {
-	log.Printf("Detecting mock dependencies: workDir=%s", input.WorkDir)
+	log.Printf("Detecting mock dependencies: rootDir=%s", input.RootDir)
 
 	// Validate required inputs
 	if result := mcputil.ValidateRequiredWithPrefix("Mock dependency detection failed", map[string]string{
-		"workDir": input.WorkDir,
+		"rootDir": input.RootDir,
 	}); result != nil {
 		return result, nil, nil
 	}
@@ -62,7 +62,7 @@ func handleDetectDependencies(
 	// Return success with the dependencies
 	result, artifact := mcputil.SuccessResultWithArtifact(
 		fmt.Sprintf("Detected %d dependencies for mock generation in %s",
-			len(output.Dependencies), input.WorkDir),
+			len(output.Dependencies), input.RootDir),
 		output,
 	)
 	return result, artifact, nil

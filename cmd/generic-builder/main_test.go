@@ -58,13 +58,13 @@ func TestExecuteCommandWithEnv(t *testing.T) {
 	}
 }
 
-func TestExecuteCommandWithWorkDir(t *testing.T) {
+func TestExecuteCommandWithContext(t *testing.T) {
 	// Create temp directory
 	tmpDir := t.TempDir()
 
 	output := cmdutil.ExecuteCommand(cmdutil.ExecuteInput{
 		Command: "pwd",
-		WorkDir: tmpDir,
+		Context: tmpDir,
 	})
 
 	if output.ExitCode != 0 {

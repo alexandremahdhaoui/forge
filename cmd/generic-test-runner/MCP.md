@@ -32,7 +32,7 @@ Execute command as test and generate TestReport.
   "args": ["string"],                // Command arguments
   "env": {"key": "value"},           // Environment variables
   "envFile": "string",               // Path to env file
-  "workDir": "string",               // Working directory
+  "context": "string",               // Context directory for command execution
   "tmpDir": "string",                // Temporary directory
   "buildDir": "string",              // Build directory
   "rootDir": "string"                // Root directory

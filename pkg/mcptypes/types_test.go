@@ -100,7 +100,6 @@ func TestRunInputJSONMarshaling(t *testing.T) {
 					"GO_ENV": "test",
 				},
 				EnvFile: ".env.test",
-				WorkDir: "/workspace",
 				DirectoryParams: DirectoryParams{
 					TmpDir:   "/tmp/test",
 					BuildDir: "/build",
@@ -115,7 +114,6 @@ func TestRunInputJSONMarshaling(t *testing.T) {
 				Name:    "test-3",
 				Command: "npm test",
 				Args:    []string{"--coverage"},
-				WorkDir: "/app",
 			},
 		},
 	}
@@ -145,9 +143,6 @@ func TestRunInputJSONMarshaling(t *testing.T) {
 			// Compare optional fields if they were set
 			if tt.input.Command != "" && unmarshaled.Command != tt.input.Command {
 				t.Errorf("Command mismatch: got %s, want %s", unmarshaled.Command, tt.input.Command)
-			}
-			if tt.input.WorkDir != "" && unmarshaled.WorkDir != tt.input.WorkDir {
-				t.Errorf("WorkDir mismatch: got %s, want %s", unmarshaled.WorkDir, tt.input.WorkDir)
 			}
 
 			// Compare directory params
@@ -199,7 +194,6 @@ func TestBuildInputJSONMarshaling(t *testing.T) {
 					"GOOS":   "linux",
 					"GOARCH": "amd64",
 				},
-				WorkDir: "/app",
 			},
 		},
 		{

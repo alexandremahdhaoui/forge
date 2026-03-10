@@ -6,9 +6,3 @@ Dependency detector for mockery mock generation
 
 ## Fields
 
-### `workDir`
-
-- **Type:** `string`
-- **Required:** No
-- **Description:** Working directory for mock detection (optional)
-

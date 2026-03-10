@@ -20,7 +20,7 @@ type ExecuteInput struct {
 	Args    []string          // Command arguments
 	Env     map[string]string // Environment variables
 	EnvFile string            // Path to environment file (optional)
-	WorkDir string            // Working directory (optional)
+	Context string            // Working directory for command execution (optional)
 }
 
 // ExecuteOutput contains the result of command execution.

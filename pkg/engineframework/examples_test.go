@@ -89,13 +89,7 @@ func Example_testRunner() {
 			Name:    "example-test-runner",
 			Version: "1.0.0",
 			RunTestFunc: func(ctx context.Context, input mcptypes.RunInput) (*forge.TestReport, error) {
-				// RunInput doesn't have Spec field, using WorkDir as example
-				workDir := input.WorkDir
-				if workDir == "" {
-					workDir = "."
-				}
-
-				fmt.Printf("Running tests for stage %s in %s\n", input.Stage, workDir)
+				fmt.Printf("Running tests for stage %s\n", input.Stage)
 
 				// Create test report
 				// CRITICAL: Return report even if tests fail

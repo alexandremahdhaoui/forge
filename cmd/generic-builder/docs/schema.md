@@ -18,6 +18,12 @@ Execute any command as a build step
 - **Required:** Yes
 - **Description:** Command to execute (required)
 
+### `context`
+
+- **Type:** `string`
+- **Required:** No
+- **Description:** Context directory for command execution (optional)
+
 ### `env`
 
 - **Type:** `map[string]string`
@@ -29,10 +35,4 @@ Execute any command as a build step
 - **Type:** `string`
 - **Required:** No
 - **Description:** Path to environment file (optional)
-
-### `workDir`
-
-- **Type:** `string`
-- **Required:** No
-- **Description:** Working directory (optional)
 

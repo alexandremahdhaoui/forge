@@ -264,7 +264,7 @@ func TestDetectMockDependencies_FullFlow(t *testing.T) {
 	t.Setenv("MOCKERY_CONFIG_PATH", "")
 
 	input := mcptypes.DetectMockDependenciesInput{
-		WorkDir: absTestDir,
+		RootDir: absTestDir,
 	}
 
 	output, err := DetectMockDependencies(input)
@@ -336,7 +336,7 @@ func TestDetectMockDependencies_ExternalPackage_LogsWarningButSucceeds(t *testin
 	t.Setenv("MOCKERY_CONFIG_PATH", "")
 
 	input := mcptypes.DetectMockDependenciesInput{
-		WorkDir: tmpDir,
+		RootDir: tmpDir,
 	}
 
 	// Should succeed (not fail) even with external package
@@ -358,7 +358,7 @@ func TestDetectMockDependencies_ConfigNotFound(t *testing.T) {
 	t.Setenv("MOCKERY_CONFIG_PATH", "")
 
 	input := mcptypes.DetectMockDependenciesInput{
-		WorkDir: tmpDir,
+		RootDir: tmpDir,
 	}
 
 	_, err := DetectMockDependencies(input)

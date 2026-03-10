@@ -88,7 +88,7 @@ func TestExecuteCommand_InvalidCommand(t *testing.T) {
 	}
 }
 
-func TestExecuteCommand_WithWorkDir(t *testing.T) {
+func TestExecuteCommand_WithContext(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	var cmd string
@@ -105,7 +105,7 @@ func TestExecuteCommand_WithWorkDir(t *testing.T) {
 	output := ExecuteCommand(ExecuteInput{
 		Command: cmd,
 		Args:    args,
-		WorkDir: tmpDir,
+		Context: tmpDir,
 	})
 
 	if output.ExitCode != 0 {

@@ -24,12 +24,12 @@ Detects all dependencies for mockery mock generation by:
 {
   "type": "object",
   "properties": {
-    "workDir": {
+    "rootDir": {
       "type": "string",
       "description": "Directory to search for .mockery.yaml (typically project root)"
     }
   },
-  "required": ["workDir"]
+  "required": ["rootDir"]
 }
 ```
 
@@ -37,7 +37,7 @@ Detects all dependencies for mockery mock generation by:
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `workDir` | string | Yes | The working directory where the mockery config is located. This is typically the project root directory. |
+| `rootDir` | string | Yes | The root directory where the mockery config is located. This is typically the project root directory. |
 
 ## Output Schema
 
@@ -90,7 +90,7 @@ The detector returns the following types of dependencies:
   "params": {
     "name": "detectDependencies",
     "arguments": {
-      "workDir": "/path/to/project"
+      "rootDir": "/path/to/project"
     }
   }
 }
@@ -146,7 +146,7 @@ The detector returns the following types of dependencies:
 
 ```bash
 # Start MCP server and send request via stdin
-echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"detectDependencies","arguments":{"workDir":"/path/to/project"}},"id":1}' | ./go-gen-mocks-dep-detector --mcp
+echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"detectDependencies","arguments":{"rootDir":"/path/to/project"}},"id":1}' | ./go-gen-mocks-dep-detector --mcp
 ```
 
 ## Mockery Config Discovery
@@ -154,10 +154,10 @@ echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"detectDependencie
 The detector searches for mockery configuration in the following order:
 
 1. `MOCKERY_CONFIG_PATH` environment variable (if set and file exists)
-2. `.mockery.yaml` in workDir
-3. `.mockery.yml` in workDir
-4. `mockery.yaml` in workDir
-5. `mockery.yml` in workDir
+2. `.mockery.yaml` in rootDir
+3. `.mockery.yml` in rootDir
+4. `mockery.yaml` in rootDir
+5. `mockery.yml` in rootDir
 
 If no configuration file is found, the tool returns an error.
 
@@ -167,8 +167,8 @@ If no configuration file is found, the tool returns an error.
 
 | Error | Description | Resolution |
 |-------|-------------|------------|
-| `no mockery config found` | No mockery configuration file found in workDir | Create a `.mockery.yaml` file or set `MOCKERY_CONFIG_PATH` |
-| `go.mod not found` | Cannot find go.mod in workDir or parent directories | Ensure the workDir is within a Go module |
+| `no mockery config found` | No mockery configuration file found in rootDir | Create a `.mockery.yaml` file or set `MOCKERY_CONFIG_PATH` |
+| `go.mod not found` | Cannot find go.mod in rootDir or parent directories | Ensure the rootDir is within a Go module |
 | `failed to parse mockery config` | Invalid YAML syntax in mockery config | Fix the YAML syntax in your mockery config file |
 | `package X is external, not tracked in v1` | Package is from an external module | This is a warning, not a failure. Use `--force` flag for rebuilds when external deps change |
 
