@@ -28,13 +28,13 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// projectDirMu serializes handlers that use setupProjectDir with a non-empty projectDir.
+// cwdMu serializes handlers that use setupCWD with a non-empty cwd.
 // os.Chdir and configPath are process-wide global state, so concurrent handlers that
 // change the working directory must be serialized.
-var projectDirMu sync.Mutex
+var cwdMu sync.Mutex
 
 // originalCWD captures the process working directory at startup, before any handler
-// changes it. Relative projectDir values are resolved against this path.
+// changes it. Relative cwd values are resolved against this path.
 var originalCWD string
 
 func init() {
@@ -45,38 +45,38 @@ func init() {
 	}
 }
 
-// setupProjectDir changes the working directory to projectDir and resets configPath
+// setupCWD changes the working directory to cwd and resets configPath
 // so that loadConfig reads forge.yaml from the new directory. It returns a cleanup
 // function that restores the previous CWD and configPath and unlocks the mutex.
 //
-// If projectDir is empty, it returns a no-op cleanup function without acquiring the mutex.
-func setupProjectDir(projectDir string) (func(), error) {
-	if projectDir == "" {
+// If cwd is empty, it returns a no-op cleanup function without acquiring the mutex.
+func setupCWD(cwd string) (func(), error) {
+	if cwd == "" {
 		return func() {}, nil
 	}
 
 	// Resolve relative paths against the original CWD
-	if !filepath.IsAbs(projectDir) {
-		projectDir = filepath.Join(originalCWD, projectDir)
+	if !filepath.IsAbs(cwd) {
+		cwd = filepath.Join(originalCWD, cwd)
 	}
 
 	// Validate directory exists
-	if _, err := os.Stat(projectDir); err != nil {
-		return nil, fmt.Errorf("projectDir does not exist: %s", projectDir)
+	if _, err := os.Stat(cwd); err != nil {
+		return nil, fmt.Errorf("cwd does not exist: %s", cwd)
 	}
 
-	projectDirMu.Lock()
+	cwdMu.Lock()
 
 	savedCWD, err := os.Getwd()
 	if err != nil {
-		projectDirMu.Unlock()
+		cwdMu.Unlock()
 		return nil, fmt.Errorf("failed to get current working directory: %v", err)
 	}
 	savedConfigPath := configPath
 
-	if err := os.Chdir(projectDir); err != nil {
-		projectDirMu.Unlock()
-		return nil, fmt.Errorf("failed to change to project directory %s: %v", projectDir, err)
+	if err := os.Chdir(cwd); err != nil {
+		cwdMu.Unlock()
+		return nil, fmt.Errorf("failed to change to project directory %s: %v", cwd, err)
 	}
 
 	// Reset configPath so loadConfig reads forge.yaml from the new CWD
@@ -85,7 +85,7 @@ func setupProjectDir(projectDir string) (func(), error) {
 	cleanup := func() {
 		_ = os.Chdir(savedCWD)
 		configPath = savedConfigPath
-		projectDirMu.Unlock()
+		cwdMu.Unlock()
 	}
 
 	return cleanup, nil
@@ -96,54 +96,54 @@ type BuildInput struct {
 	Name         string `json:"name,omitempty" jsonschema:"Build target name from forge.yaml build[].name. Omit to build all targets."`
 	ArtifactName string `json:"artifactName,omitempty" jsonschema:"Alternative to name for specifying the build target"`
 	Force        bool   `json:"force,omitempty" jsonschema:"Force rebuild even if artifacts are up to date. Passed to engine as force=true."`
-	ProjectDir   string `json:"projectDir,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
+	CWD          string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
 // BuildGetInput represents the input parameters for the build-get tool.
 type BuildGetInput struct {
-	Name       string `json:"name" jsonschema:"Artifact name to retrieve details for"`
-	ProjectDir string `json:"projectDir,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
+	Name string `json:"name" jsonschema:"Artifact name to retrieve details for"`
+	CWD  string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
 // TestCreateInput represents the input parameters for the test-create tool.
 type TestCreateInput struct {
-	Stage      string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
-	ProjectDir string `json:"projectDir,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
+	Stage string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
+	CWD   string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
 // TestGetInput represents the input parameters for the test-get tool.
 type TestGetInput struct {
-	Stage      string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
-	TestID     string `json:"testID" jsonschema:"Test environment ID returned by test-create or test-run"`
-	Format     string `json:"format,omitempty" jsonschema:"Output format: json, yaml, or table (default: table)"`
-	ProjectDir string `json:"projectDir,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
+	Stage  string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
+	TestID string `json:"testID" jsonschema:"Test environment ID returned by test-create or test-run"`
+	Format string `json:"format,omitempty" jsonschema:"Output format: json, yaml, or table (default: table)"`
+	CWD    string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
 // TestDeleteInput represents the input parameters for the test-delete tool.
 type TestDeleteInput struct {
-	Stage      string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
-	TestID     string `json:"testID" jsonschema:"Test environment ID to delete"`
-	ProjectDir string `json:"projectDir,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
+	Stage  string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
+	TestID string `json:"testID" jsonschema:"Test environment ID to delete"`
+	CWD    string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
 // TestListInput represents the input parameters for the test-list tool.
 type TestListInput struct {
-	Stage      string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
-	Format     string `json:"format,omitempty" jsonschema:"Output format: json, yaml, or table (default: table)"`
-	ProjectDir string `json:"projectDir,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
+	Stage  string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
+	Format string `json:"format,omitempty" jsonschema:"Output format: json, yaml, or table (default: table)"`
+	CWD    string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
 // TestRunInput represents the input parameters for the test-run tool.
 type TestRunInput struct {
-	Stage      string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
-	TestID     string `json:"testID,omitempty" jsonschema:"Existing test environment ID to reuse. If omitted a new environment is created and cleaned up automatically."`
-	ProjectDir string `json:"projectDir,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
+	Stage  string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
+	TestID string `json:"testID,omitempty" jsonschema:"Existing test environment ID to reuse. If omitted a new environment is created and cleaned up automatically."`
+	CWD    string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
 // TestAllInput represents the input parameters for the test-all tool.
 type TestAllInput struct {
-	Force      bool   `json:"force,omitempty" jsonschema:"Force rebuild of all artifacts before running tests."`
-	ProjectDir string `json:"projectDir,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
+	Force bool   `json:"force,omitempty" jsonschema:"Force rebuild of all artifacts before running tests."`
+	CWD   string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
 // TestAllResult represents the aggregated results from test-all command.
@@ -170,15 +170,15 @@ type TestListResult struct {
 // ConfigValidateInput represents the input parameters for the config-validate tool.
 type ConfigValidateInput struct {
 	ConfigPath string `json:"configPath,omitempty" jsonschema:"Path to forge.yaml file. Defaults to forge.yaml in the current directory."`
-	ProjectDir string `json:"projectDir,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
+	CWD        string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
 // DocsListInput represents the input parameters for the docs-list tool.
 type DocsListInput struct {
 	// Engine name to list docs for. If empty, lists all engines.
 	// Use "all" to list all docs from all engines.
-	Engine     string `json:"engine,omitempty" jsonschema:"Engine name to list docs for. Omit to list engines. Use 'all' for all docs across engines."`
-	ProjectDir string `json:"projectDir,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
+	Engine string `json:"engine,omitempty" jsonschema:"Engine name to list docs for. Omit to list engines. Use 'all' for all docs across engines."`
+	CWD    string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
 // DocsListResult represents the result of listing docs.
@@ -195,14 +195,14 @@ type DocsListResult struct {
 
 // DocsGetInput represents the input parameters for the docs-get tool.
 type DocsGetInput struct {
-	Name       string `json:"name" jsonschema:"Documentation name in format 'engine/docname' or 'docname' for global docs"`
-	ProjectDir string `json:"projectDir,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
+	Name string `json:"name" jsonschema:"Documentation name in format 'engine/docname' or 'docname' for global docs"`
+	CWD  string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
 // ListInput represents the input parameters for the list tool.
 type ListInput struct {
-	Category   string `json:"category,omitempty" jsonschema:"Filter results: 'build' for build targets only, 'test' for test stages only. Omit for both."`
-	ProjectDir string `json:"projectDir,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
+	Category string `json:"category,omitempty" jsonschema:"Filter results: 'build' for build targets only, 'test' for test stages only. Omit for both."`
+	CWD      string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
 // ListResult represents the result of listing targets.
@@ -298,7 +298,7 @@ func handleBuildTool(
 	req *mcp.CallToolRequest,
 	input BuildInput,
 ) (*mcp.CallToolResult, any, error) {
-	cleanup, err := setupProjectDir(input.ProjectDir)
+	cleanup, err := setupCWD(input.CWD)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -309,141 +309,62 @@ func handleBuildTool(
 	}
 	defer cleanup()
 
-	artifactName := input.Name
-	if artifactName == "" {
-		artifactName = input.ArtifactName
+	// Resolve workspace (soft error -- warning only)
+	if wsErr := resolveWorkspace(); wsErr != nil {
+		log.Printf("Warning: workspace resolution failed: %v", wsErr)
 	}
 
-	log.Printf("Building artifact: %s", artifactName)
+	// Handle legacy ArtifactName field
+	name := input.Name
+	if name == "" {
+		name = input.ArtifactName
+	}
 
-	// Load forge.yaml configuration
-	config, err := loadConfig()
-	if err != nil {
+	log.Printf("Building artifact: %s", name)
+
+	// Call shared build logic
+	buildAllResult, err := buildAll(name, input.Force)
+
+	// Convert BuildAllResult to MCP response format
+	return formatBuildMCPResult(buildAllResult, err)
+}
+
+// formatBuildMCPResult converts a BuildAllResult into an MCP response.
+func formatBuildMCPResult(buildAllResult *BuildAllResult, buildErr error) (*mcp.CallToolResult, any, error) {
+	if buildErr != nil && buildAllResult == nil {
+		// Fatal error before any builds started
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("Build failed: could not load forge.yaml: %v", err)},
+				&mcp.TextContent{Text: fmt.Sprintf("Build failed: %v", buildErr)},
 			},
 			IsError: true,
 		}, nil, nil
 	}
 
-	// Read artifact store
-	store, err := forge.ReadArtifactStore(config.ArtifactStorePath)
-	if err != nil {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("Build failed: could not read artifact store: %v", err)},
-			},
-			IsError: true,
-		}, nil, nil
+	// Convert artifacts to lightweight summaries
+	var artifactSummaries []forge.ArtifactSummary
+	if buildAllResult != nil {
+		artifactSummaries = make([]forge.ArtifactSummary, 0, len(buildAllResult.Artifacts))
+		for _, a := range buildAllResult.Artifacts {
+			artifactSummaries = append(artifactSummaries, a.Summary())
+		}
 	}
 
-	// Group specs by engine
-	engineSpecs := make(map[string][]map[string]any)
-
-	for _, spec := range config.Build {
-		// Filter by artifact name if provided
-		if artifactName != "" && spec.Name != artifactName {
-			continue
-		}
-
-		params := map[string]any{
-			"name":   spec.Name,
-			"src":    spec.Src,
-			"dest":   spec.Dest,
-			"engine": spec.Engine,
-		}
-
-		// Pass engine-specific configuration if provided
-		if len(spec.Spec) > 0 {
-			params["spec"] = spec.Spec
-		}
-
-		// Inject force flag for engine consumption
-		params["force"] = input.Force
-
-		engineSpecs[spec.Engine] = append(engineSpecs[spec.Engine], params)
-	}
-
-	if len(engineSpecs) == 0 {
-		msg := "No artifacts to build"
-		if artifactName != "" {
-			msg = fmt.Sprintf("No artifact found with name: %s", artifactName)
-		}
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: msg},
-			},
-			IsError: true,
-		}, nil, nil
-	}
-
-	// Build each group using the appropriate engine
 	totalBuilt := 0
-	var buildErrors []string
-	var allArtifacts []forge.Artifact
-
-	for engineURI, specs := range engineSpecs {
-		// Parse engine URI
-		_, command, args, err := parseEngine(engineURI, getVersion())
-		if err != nil {
-			buildErrors = append(buildErrors, fmt.Sprintf("Failed to parse engine %s: %v", engineURI, err))
-			continue
-		}
-
-		// Use buildBatch if multiple specs, otherwise use build
-		var result interface{}
-		if len(specs) == 1 {
-			result, err = callMCPEngine(command, args, "build", specs[0])
-		} else {
-			params := map[string]any{
-				"specs": specs,
-			}
-			result, err = callMCPEngine(command, args, "buildBatch", params)
-		}
-
-		if err != nil {
-			buildErrors = append(buildErrors, fmt.Sprintf("Build failed for %s: %v", engineURI, err))
-			continue
-		}
-
-		// Parse artifacts from result
-		artifacts, err := parseArtifacts(result)
-		if err == nil {
-			// Update artifact store and collect artifacts
-			for _, artifact := range artifacts {
-				forge.AddOrUpdateArtifact(&store, artifact)
-				allArtifacts = append(allArtifacts, artifact)
-				totalBuilt++
-			}
-		}
+	if buildAllResult != nil {
+		totalBuilt = buildAllResult.TotalBuilt
 	}
 
-	// Write updated artifact store
-	if err := forge.WriteArtifactStore(config.ArtifactStorePath, store); err != nil {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("Warning: could not write artifact store: %v", err)},
-			},
-			IsError: false,
-		}, nil, nil
-	}
-
-	// Convert to lightweight summaries
-	artifactSummaries := make([]forge.ArtifactSummary, 0, len(allArtifacts))
-	for _, a := range allArtifacts {
-		artifactSummaries = append(artifactSummaries, a.Summary())
-	}
-
-	// Create BuildResult wrapper
+	// Create BuildResult wrapper for MCP response
 	buildResult := BuildResult{
 		Artifacts: artifactSummaries,
 		Summary:   fmt.Sprintf("Successfully built %d artifact(s)", totalBuilt),
 	}
 
-	if len(buildErrors) > 0 {
-		// Return with error but include artifacts that were successfully built
-		buildResult.Summary = fmt.Sprintf("Build completed with errors: %v. Successfully built %d artifact(s)", buildErrors, totalBuilt)
+	if buildErr != nil {
+		// Partial error: some builds succeeded, some failed
+		buildResult.Summary = fmt.Sprintf("Build completed with errors: %v. Successfully built %d artifact(s)",
+			buildAllResult.BuildErrors, totalBuilt)
 		result, artifact := mcputil.ErrorResultWithArtifact(buildResult.Summary, buildResult)
 		return result, artifact, nil
 	}
@@ -459,7 +380,7 @@ func handleBuildGetTool(
 	req *mcp.CallToolRequest,
 	input BuildGetInput,
 ) (*mcp.CallToolResult, any, error) {
-	cleanup, err := setupProjectDir(input.ProjectDir)
+	cleanup, err := setupCWD(input.CWD)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -515,7 +436,7 @@ func handleTestCreateTool(
 	req *mcp.CallToolRequest,
 	input TestCreateInput,
 ) (*mcp.CallToolResult, any, error) {
-	cleanup, err := setupProjectDir(input.ProjectDir)
+	cleanup, err := setupCWD(input.CWD)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -647,7 +568,7 @@ func handleTestGetTool(
 	req *mcp.CallToolRequest,
 	input TestGetInput,
 ) (*mcp.CallToolResult, any, error) {
-	cleanup, err := setupProjectDir(input.ProjectDir)
+	cleanup, err := setupCWD(input.CWD)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -728,7 +649,7 @@ func handleTestDeleteTool(
 	req *mcp.CallToolRequest,
 	input TestDeleteInput,
 ) (*mcp.CallToolResult, any, error) {
-	cleanup, err := setupProjectDir(input.ProjectDir)
+	cleanup, err := setupCWD(input.CWD)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -787,7 +708,7 @@ func handleTestListTool(
 	req *mcp.CallToolRequest,
 	input TestListInput,
 ) (*mcp.CallToolResult, any, error) {
-	cleanup, err := setupProjectDir(input.ProjectDir)
+	cleanup, err := setupCWD(input.CWD)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -875,7 +796,7 @@ func handleTestRunTool(
 	req *mcp.CallToolRequest,
 	input TestRunInput,
 ) (*mcp.CallToolResult, any, error) {
-	cleanup, err := setupProjectDir(input.ProjectDir)
+	cleanup, err := setupCWD(input.CWD)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -1017,7 +938,7 @@ func handleTestAllTool(
 	req *mcp.CallToolRequest,
 	input TestAllInput,
 ) (*mcp.CallToolResult, any, error) {
-	cleanup, err := setupProjectDir(input.ProjectDir)
+	cleanup, err := setupCWD(input.CWD)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -1027,6 +948,11 @@ func handleTestAllTool(
 		}, nil, nil
 	}
 	defer cleanup()
+
+	// Resolve workspace (soft error -- warning only)
+	if wsErr := resolveWorkspace(); wsErr != nil {
+		log.Printf("Warning: workspace resolution failed: %v", wsErr)
+	}
 
 	log.Printf("Running test-all: build all + run all test stages")
 
@@ -1165,7 +1091,7 @@ func handleConfigValidateTool(
 	req *mcp.CallToolRequest,
 	input ConfigValidateInput,
 ) (*mcp.CallToolResult, any, error) {
-	cleanup, err := setupProjectDir(input.ProjectDir)
+	cleanup, err := setupCWD(input.CWD)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -1217,7 +1143,7 @@ func handleDocsListTool(
 	req *mcp.CallToolRequest,
 	input DocsListInput,
 ) (*mcp.CallToolResult, any, error) {
-	cleanup, err := setupProjectDir(input.ProjectDir)
+	cleanup, err := setupCWD(input.CWD)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -1289,7 +1215,7 @@ func handleDocsGetTool(
 	req *mcp.CallToolRequest,
 	input DocsGetInput,
 ) (*mcp.CallToolResult, any, error) {
-	cleanup, err := setupProjectDir(input.ProjectDir)
+	cleanup, err := setupCWD(input.CWD)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -1328,7 +1254,7 @@ func handleListTool(
 	req *mcp.CallToolRequest,
 	input ListInput,
 ) (*mcp.CallToolResult, any, error) {
-	cleanup, err := setupProjectDir(input.ProjectDir)
+	cleanup, err := setupCWD(input.CWD)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{

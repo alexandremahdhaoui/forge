@@ -38,6 +38,13 @@ var versionInfo *engineversion.Info
 // configPath is the path to the forge.yaml file
 var configPath string
 
+// cwdOverride is set by --cwd flag to change working directory before command execution
+var cwdOverride string
+
+// skipWorkspaceResolution is set by --skip-workspace-resolution flag to disable
+// automatic Go workspace detection
+var skipWorkspaceResolution bool
+
 func init() {
 	versionInfo = engineversion.New("forge")
 	versionInfo.Version = Version
@@ -64,6 +71,25 @@ func main() {
 	if len(args) < 1 {
 		printUsage()
 		os.Exit(1)
+	}
+
+	// Apply --cwd override before workspace resolution and config-based directory change
+	if cwdOverride != "" {
+		absPath, err := filepath.Abs(cwdOverride)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: cannot resolve --cwd path %q: %v\n", cwdOverride, err)
+			os.Exit(1)
+		}
+		if err := os.Chdir(absPath); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: cannot change to --cwd directory %q: %v\n", absPath, err)
+			os.Exit(1)
+		}
+	}
+
+	// Resolve Go workspace if present
+	if err := resolveWorkspace(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: workspace resolution failed: %v\n", err)
+		// Non-fatal: continue without workspace resolution
 	}
 
 	// Change to the directory containing forge.yaml if --config specifies a path with directory components.
@@ -117,7 +143,17 @@ func main() {
 			os.Exit(1)
 		}
 	case "test-all":
-		if err := runTestAll(cmdArgs, false); err != nil {
+		// Parse force flag
+		forceRebuild := false
+		filteredArgs := make([]string, 0, len(cmdArgs))
+		for _, arg := range cmdArgs {
+			if arg == "-f" || arg == "--force" {
+				forceRebuild = true
+			} else {
+				filteredArgs = append(filteredArgs, arg)
+			}
+		}
+		if err := runTestAll(filteredArgs, forceRebuild); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -202,6 +238,21 @@ func parseGlobalFlags(args []string) []string {
 				fmt.Fprintf(os.Stderr, "Error: --config requires a path argument\n")
 				os.Exit(1)
 			}
+		} else if arg == "--cwd" {
+			if i+1 >= len(args) {
+				fmt.Fprintf(os.Stderr, "Error: --cwd requires a path argument\n")
+				os.Exit(1)
+			}
+			cwdOverride = args[i+1]
+			i++ // Skip the next argument (the path)
+		} else if val, ok := strings.CutPrefix(arg, "--cwd="); ok {
+			cwdOverride = val
+			if cwdOverride == "" {
+				fmt.Fprintf(os.Stderr, "Error: --cwd requires a path argument\n")
+				os.Exit(1)
+			}
+		} else if arg == "--skip-workspace-resolution" {
+			skipWorkspaceResolution = true
 		} else {
 			result = append(result, arg)
 		}
@@ -214,10 +265,12 @@ func printUsage() {
 	fmt.Println(`forge - A build orchestration tool
 
 Usage:
-  forge [--config <path>] <command> [args...]
+  forge [global flags] <command> [args...]
 
 Global Flags:
   --config <path>                    Use custom forge.yaml path (default: forge.yaml)
+  --cwd <path>                       Change working directory before running command
+  --skip-workspace-resolution        Disable automatic Go workspace detection
 
 Commands:
   build [artifact-name]              Build all artifacts
@@ -246,7 +299,7 @@ Test:
   test delete-env <stage> <env-id>   Delete test environment
 
 Test All:
-  test-all                           Build all artifacts and run all test stages sequentially
+  test-all [-f|--force]              Build all artifacts and run all test stages sequentially
 
 List:
   list                               List all build targets and test stages

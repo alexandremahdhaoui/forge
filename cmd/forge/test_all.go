@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
@@ -27,15 +28,20 @@ import (
 // 4. Stops execution immediately if a stage fails (fail-fast)
 // 5. Returns error immediately on first failure
 //
+// This function MUST NOT write to stdout. Stdout is the JSON-RPC transport
+// in MCP mode. All progress output goes to stderr.
+//
 // Usage: forge test-all
-func runTestAll(args []string, forceRebuild bool) error {
-	// Step 1: Build all artifacts
-	fmt.Println("🔨 Building all artifacts...")
-	if err := runBuild([]string{}, forceRebuild); err != nil {
-		fmt.Printf("❌ Build failed: %v\n", err)
+func runTestAll(_ []string, forceRebuild bool) error {
+	// Step 1: Build all artifacts using shared logic
+	fmt.Fprintln(os.Stderr, "🔨 Building all artifacts...")
+	buildResult, err := buildAll("", forceRebuild)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "❌ Build failed: %v\n", err)
 		return fmt.Errorf("build failed: %w", err)
 	}
-	fmt.Println("✅ Build completed successfully")
+	printBuildResult(buildResult, "")
+	fmt.Fprintln(os.Stderr, "✅ Build completed successfully")
 
 	// Step 2: Load configuration and discover test stages
 	config, err := loadConfig()
@@ -45,34 +51,34 @@ func runTestAll(args []string, forceRebuild bool) error {
 
 	// Check if there are any test stages
 	if len(config.Test) == 0 {
-		fmt.Println("\n⚠️  No test stages defined in forge.yaml")
+		fmt.Fprintln(os.Stderr, "\n⚠️  No test stages defined in forge.yaml")
 		return nil
 	}
 
 	// Print test stage summary
-	fmt.Printf("\n🧪 Running %d test stage(s)...\n", len(config.Test))
+	fmt.Fprintf(os.Stderr, "\n🧪 Running %d test stage(s)...\n", len(config.Test))
 
 	// Step 3: Execute test stages with fail-fast
 	for i := range config.Test {
 		testSpec := &config.Test[i]
-		fmt.Printf("\n--- Running test stage: %s ---\n", testSpec.Name)
+		fmt.Fprintf(os.Stderr, "\n--- Running test stage: %s ---\n", testSpec.Name)
 
 		// Execute the test stage - testRun returns the testID of the created environment
 		testID, err := testRun(&config, testSpec, []string{})
 
 		// Print stage result
 		if err == nil {
-			fmt.Printf("✅ Stage '%s' passed\n", testSpec.Name)
+			fmt.Fprintf(os.Stderr, "✅ Stage '%s' passed\n", testSpec.Name)
 		} else {
-			fmt.Printf("❌ Stage '%s' failed: %v\n", testSpec.Name, err)
+			fmt.Fprintf(os.Stderr, "❌ Stage '%s' failed: %v\n", testSpec.Name, err)
 
 			// Auto-delete test environment before returning (best-effort)
 			// Use the specific testID returned by testRun to avoid mismatch
 			if testID != "" {
 				if cleanupErr := cleanupTestEnvironmentByID(testSpec, testID); cleanupErr != nil {
-					fmt.Printf("⚠️  Warning: Failed to cleanup test environment for stage '%s': %v\n", testSpec.Name, cleanupErr)
+					fmt.Fprintf(os.Stderr, "⚠️  Warning: Failed to cleanup test environment for stage '%s': %v\n", testSpec.Name, cleanupErr)
 				} else {
-					fmt.Printf("🧹 Cleaned up test environment for stage '%s'\n", testSpec.Name)
+					fmt.Fprintf(os.Stderr, "🧹 Cleaned up test environment for stage '%s'\n", testSpec.Name)
 				}
 			}
 
@@ -85,15 +91,15 @@ func runTestAll(args []string, forceRebuild bool) error {
 		if testID != "" {
 			if cleanupErr := cleanupTestEnvironmentByID(testSpec, testID); cleanupErr != nil {
 				// Log but don't fail - cleanup is best effort
-				fmt.Printf("⚠️  Warning: Failed to cleanup test environment for stage '%s': %v\n", testSpec.Name, cleanupErr)
+				fmt.Fprintf(os.Stderr, "⚠️  Warning: Failed to cleanup test environment for stage '%s': %v\n", testSpec.Name, cleanupErr)
 			} else {
-				fmt.Printf("🧹 Cleaned up test environment for stage '%s'\n", testSpec.Name)
+				fmt.Fprintf(os.Stderr, "🧹 Cleaned up test environment for stage '%s'\n", testSpec.Name)
 			}
 		}
 	}
 
 	// All stages passed
-	fmt.Println("\n✅ All test stages passed!")
+	fmt.Fprintln(os.Stderr, "\n✅ All test stages passed!")
 	return nil
 }
 
