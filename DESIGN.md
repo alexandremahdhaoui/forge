@@ -54,9 +54,10 @@ Forge solves this with an MCP-first architecture. Every component speaks JSON-RP
      forge.yaml
           |
 +---------+---------+
-|    forge CLI      |  MCP server + orchestrator
-|                   |
-| +---------------+ |
+|    forge CLI/MCP  |  Presentation layer (thin)
+|                   |  CLI: flags, stdout formatting
+| +---------------+ |  MCP: JSON-RPC 2.0 handlers
+| | Shared Logic  | |  buildAll(), runTestAll()
 | | Config Parser | |  Reads forge.yaml
 | | Engine Mgr    | |  Resolves go:// and alias:// URIs
 | | Artifact Store| |  Tracks builds in .forge/artifact-store.yaml
@@ -81,6 +82,11 @@ Forge solves this with an MCP-first architecture. Every component speaks JSON-RP
 ```
 
 ### Build Context Resolution
+
+Forge uses two distinct directory concepts:
+
+- **CWD (process-level).** Set by `--cwd` flag (CLI) or `cwd` field (MCP). Applied once at startup. Affects config discovery and all relative paths.
+- **Context (per-target).** Set by `build[].context` in `forge.yaml` or `EngineSpec.Context`. Resolved per build target via `resolveContextDir()`. Engines receive an absolute path.
 
 The `context` field in `BuildSpec` specifies where source files live. Forge resolves context before dispatching to engines:
 
@@ -132,6 +138,35 @@ build:
     engine: go://container-build
 ```
 
+### Workspace Resolution
+
+When forge detects a `go.work` file in the directory tree above CWD, it enables workspace mode and may adjust CWD:
+
+```
+resolveWorkspace():
+
+  1. Walk up from CWD looking for go.work
+  2. If not found: return (no-op)
+  3. Parse use directives (e.g., ./forge, ./forge-workspace)
+  4. If CWD is inside a use directory:
+     - Set FORGE_RUN_LOCAL_ENABLED=true
+     - Set FORGE_RUN_LOCAL_BASEDIR to forge repo directory
+     - Return (CWD already correct, workspace mode enabled)
+  5. If CWD is workspace root: find forge repo member, chdir to it
+  6. Otherwise (CWD in workspace tree but not in a member):
+     find forge repo member, chdir to it
+  7. Set FORGE_RUN_LOCAL_ENABLED=true
+  8. Set FORGE_RUN_LOCAL_BASEDIR to forge repo directory
+```
+
+In all cases where `go.work` is found, workspace mode env vars are set. This covers three scenarios: CWD is the workspace root, CWD is inside a member repo listed in `use` directives, or CWD is elsewhere in the workspace tree. The `--skip-workspace-resolution` flag disables this behavior. Both CLI and MCP call the same `resolveWorkspace()` function.
+
+**CLI startup sequence:**
+
+```
+parseGlobalFlags -> apply --cwd -> resolveWorkspace -> changeToProjectDir -> source envFile -> dispatch
+```
+
 ### Engine Resolution
 
 Forge resolves engine URIs to executable MCP server processes:
@@ -168,7 +203,7 @@ Sub-engines run sequentially. Each propagates environment variables to the next 
 ### Lazy Rebuild
 
 ```
-forge build <name>
+forge build <name>  /  forge test-all
   |
   v
 shouldRebuild(artifact)?
@@ -185,6 +220,8 @@ After build:
   Records file paths + mtimes, package versions
   Stores in artifact-store.yaml
 ```
+
+The `--force` / `-f` flag applies to both `forge build` and `forge test-all`. It bypasses all dependency checks and rebuilds every artifact.
 
 ### Parallel Execution
 
@@ -268,9 +305,36 @@ type ArtifactStore struct {
 }
 ```
 
+Key types from `pkg/forge/` (engine configuration):
+
+```go
+// EngineSpec defines per-engine runtime configuration in alias definitions
+type EngineSpec struct {
+    Command string            `json:"command,omitempty"`
+    Args    []string          `json:"args,omitempty"`
+    Env     map[string]string `json:"env,omitempty"`
+    EnvFile string            `json:"envFile,omitempty"`
+    Context string            `json:"context,omitempty"` // Per-engine working directory
+}
+```
+
+Key types from `pkg/mcptypes/`:
+
+```go
+// BuildInput and RunInput use CWD (process-level) set by forge before dispatch.
+// They do not carry a WorkDir field. Engines inherit the process CWD.
+//
+// DetectMockDependenciesInput uses RootDir for project root discovery.
+type DetectMockDependenciesInput struct {
+    RootDir string `json:"rootDir"` // Project root for .mockery.yaml discovery
+}
+```
+
 ### MCP Protocol
 
 All engines communicate via JSON-RPC 2.0 over stdio. Forge spawns each engine as a child process with `--mcp` flag, then sends tool calls over stdin and reads responses from stdout.
+
+All 12 MCP tool inputs accept an optional `cwd` field (JSON tag `"cwd"`) that overrides the server's working directory for the duration of that request. The MCP handler acquires a mutex, calls `os.Chdir(cwd)`, and restores the original directory on completion.
 
 **Request:**
 

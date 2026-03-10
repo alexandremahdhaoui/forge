@@ -128,8 +128,14 @@ forge build --force                  # Force rebuild (skip lazy rebuild)
 
 # Test
 forge test-all                       # Build + run all test stages
+forge test-all --force               # Force rebuild all artifacts, then test
+forge test-all -f                    # Short form of --force
 forge test unit run                  # Run one test stage
 forge test integration run           # Run with auto-created environment
+
+# Working directory override
+forge --cwd /path/to/project build   # Run from a different directory
+forge --cwd ./subproject test-all    # Relative paths allowed
 
 # Test environment management
 forge test integration create        # Create environment
@@ -192,7 +198,10 @@ build:
 ```
 
 **How do I run Forge from a Go workspace?**
-Use the `--config` flag to point at the target repo's `forge.yaml`. See [workspace-development.md](./docs/user/workspace-development.md).
+Forge auto-detects Go workspaces. When forge detects a `go.work` file in the directory tree above CWD, it enables workspace mode by setting `FORGE_RUN_LOCAL_ENABLED=true` so engine resolution uses local source. If CWD is the workspace root or not inside a `use` directive member, forge also changes to the forge repo member directory. If CWD is already inside a member repo, forge keeps CWD unchanged but still enables workspace mode. Use `--skip-workspace-resolution` to disable auto-detection. See [workspace-development.md](./docs/user/workspace-development.md).
+
+**How do MCP clients set the working directory?**
+All 12 MCP tool inputs accept a `cwd` field (JSON key `"cwd"`) that overrides the server's working directory for the request. This replaces the previous `projectDir` field.
 
 **What is the test stage execution order?**
 `forge test-all` runs stages in the order defined in `forge.yaml` with fail-fast behavior: lint-tags, lint-license, lint, unit, integration, e2e, e2e-stub. Each stage creates and tears down its own test environment if one is configured.

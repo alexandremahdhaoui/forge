@@ -63,6 +63,7 @@ Forge defines 7 test stages in `forge.yaml`, executed in order with fail-fast be
 
 ```bash
 go run ./cmd/forge test-all                  # Run all stages (build + test)
+go run ./cmd/forge test-all --force          # Force rebuild all artifacts, then test
 
 # Individual stages
 go run ./cmd/forge test lint-tags run        # Verify build tags on test files
