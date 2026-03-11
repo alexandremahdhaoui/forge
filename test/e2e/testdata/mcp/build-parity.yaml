@@ -1,0 +1,16 @@
+# MCP build tool parity test.
+# Validates that the build tool works via MCP from the project root.
+# The MCP executor sets cmd.Dir to data.CWD (project root), so forge
+# finds forge.yaml and builds the target.
+testCases:
+  - name: "mcp-build"
+    description: "Call build tool via MCP with name forge"
+    steps:
+      - id: build
+        mode: mcp
+        tool: build
+        input:
+          name: "forge"
+        expected:
+          text:
+            contains: ["Successfully built"]

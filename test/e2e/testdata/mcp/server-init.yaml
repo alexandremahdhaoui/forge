@@ -1,0 +1,18 @@
+# MCP server initialization and config-validate tool test.
+# Validates that the MCP server starts, handles initialize, and
+# processes a config-validate tools/call request.
+testCases:
+  - name: "mcp-config-validate"
+    description: "Call config-validate via MCP with a valid forge.yaml"
+    setup:
+      - command: write-forge-yaml
+        input:
+          name: "test-project"
+          artifactStorePath: ".forge/artifact-store.yaml"
+    steps:
+      - id: validate
+        mode: mcp
+        tool: config-validate
+        expected:
+          text:
+            contains: ["Configuration is valid"]
