@@ -86,7 +86,7 @@ func executeStep(data *TemplateData, step Step) (map[string]interface{}, error) 
 	case "cli":
 		return ExecuteCLIStep(data.Binary, step, data)
 	case "mcp":
-		return nil, fmt.Errorf("mcp mode not yet implemented")
+		return ExecuteMCPStep(data.Binary, step, data)
 	default:
 		return nil, fmt.Errorf("unknown step mode %q", step.Mode)
 	}
