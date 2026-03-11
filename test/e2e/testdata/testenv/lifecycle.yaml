@@ -1,4 +1,4 @@
-# Testenv lifecycle e2e test: create, list, delete, verify deletion.
+# Testenv lifecycle e2e test: create, list, get, get-json, delete, verify deletion.
 # Uses the e2e-stub stage which requires no external resources.
 testCases:
   - name: "testenv-create-and-delete"
@@ -25,6 +25,28 @@ testCases:
           exitCode: 0
           stdout:
             contains: ["ID", "NAME", "STATUS"]
+
+      - id: get-yaml
+        mode: cli
+        command: test
+        input:
+          _args: ["get-env", "e2e-stub", '{{ index .Steps "create" "output" }}']
+        expected:
+          exitCode: 0
+          stdout:
+            contains: ["id:", "name:", "status:", "tmpDir:", "files:", "metadata:"]
+
+      - id: get-json
+        mode: cli
+        command: test
+        input:
+          _args: ["get-env", "e2e-stub", '{{ index .Steps "create" "output" }}', "-o", "json"]
+        expected:
+          exitCode: 0
+          id:
+            notEmpty: true
+          name: "e2e-stub"
+          status: "created"
 
       - id: delete
         mode: cli

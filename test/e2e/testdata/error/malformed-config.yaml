@@ -14,4 +14,4 @@ testCases:
         expected:
           exitCode: 1
           stderr:
-            contains: ["error"]
+            contains: ["failed to load"]
