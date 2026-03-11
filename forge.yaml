@@ -193,6 +193,19 @@ test:
   - name: e2e
     runner: "go://forge-e2e"
 
+  # -- e2e-decl - declarative YAML-based e2e tests (test/e2e/testdata/)
+  - name: e2e-decl
+    runner: "go://go-test"
+    spec:
+      tags:
+        - e2e
+      packages:
+        - ./test/e2e/...
+      timeout: "20m"
+      args:
+        - "-run"
+        - "TestE2EDeclarative"
+
   # -- e2e-stub - lightweight testenv for fast e2e testing of create/list/get/delete workflow
   - name: e2e-stub
     runner: "go://go-test"

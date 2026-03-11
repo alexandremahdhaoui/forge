@@ -499,7 +499,10 @@ All 12 MCP tool inputs accept an optional `cwd` field (JSON tag `"cwd"`) that ov
 | unit | go-test | Fast Go tests, no external dependencies |
 | integration | go-test + testenv | Kind cluster + TLS registry + Helm charts |
 | e2e | forge-e2e | Full system validation |
+| e2e-decl | go-test | Declarative YAML-based e2e tests for CLI and MCP tools |
 | e2e-stub | go-test + testenv-stub | Lightweight testenv create/list/get/delete workflow |
+
+The e2e-decl stage runs declarative tests defined as YAML files in `test/e2e/testdata/`. The `test/e2e/testrunner` package provides CLI, MCP, and harness executors with an assertion engine and template system for cross-step data flow. Adding a test means adding a YAML file — no Go code changes required.
 
 ## FAQ
 
@@ -564,6 +567,17 @@ test:
     testenv: "alias://setup-integration"
   - name: e2e
     runner: "go://forge-e2e"
+  - name: e2e-decl
+    runner: "go://go-test"
+    spec:
+      tags:
+        - e2e
+      packages:
+        - ./test/e2e/...
+      timeout: "20m"
+      args:
+        - "-run"
+        - "TestE2EDeclarative"
   - name: e2e-stub
     runner: "go://go-test"
     testenv: "alias://setup-e2e-stub"
