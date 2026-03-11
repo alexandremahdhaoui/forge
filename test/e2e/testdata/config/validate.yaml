@@ -1,0 +1,61 @@
+# Config validation e2e tests for forge config validate command.
+# Each test case sets up a forge.yaml in a temp workspace and validates it.
+testCases:
+  - name: "valid-config"
+    description: "A valid forge.yaml passes config validation"
+    setup:
+      - command: write-forge-yaml
+        input:
+          name: "test-project"
+          artifactStorePath: ".forge/artifact-store.yaml"
+    steps:
+      - id: validate
+        mode: cli
+        command: config
+        input:
+          _args: ["validate"]
+        expected:
+          exitCode: 0
+          stdout:
+            contains: ["Configuration is valid"]
+
+  - name: "missing-name"
+    description: "A forge.yaml without a name field fails validation"
+    setup:
+      - command: write-forge-yaml
+        input:
+          _raw: "artifactStorePath: .forge/artifact-store.yaml"
+    steps:
+      - id: validate
+        mode: cli
+        command: config
+        input:
+          _args: ["validate"]
+        expected:
+          exitCode: 1
+          stderr:
+            contains: ["name is required"]
+
+  - name: "invalid-engine-uri"
+    description: "A forge.yaml with an invalid engine URI fails validation"
+    setup:
+      - command: write-forge-yaml
+        input:
+          _raw: |
+            name: test-project
+            artifactStorePath: .forge/artifact-store.yaml
+            engines:
+              - alias: bad-engine
+                type: testenv
+                testenv:
+                  - engine: "not-a-valid-uri"
+    steps:
+      - id: validate
+        mode: cli
+        command: config
+        input:
+          _args: ["validate"]
+        expected:
+          exitCode: 1
+          stderr:
+            contains: ["must contain protocol separator"]
