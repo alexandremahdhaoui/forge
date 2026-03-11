@@ -1,0 +1,11 @@
+testCases:
+  - name: "forge-version"
+    description: "Verify forge version command outputs version info"
+    steps:
+      - id: version
+        mode: cli
+        command: version
+        expected:
+          exitCode: 0
+          stdout:
+            notEmpty: true
