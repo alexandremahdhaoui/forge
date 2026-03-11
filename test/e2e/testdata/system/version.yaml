@@ -8,4 +8,4 @@ testCases:
         expected:
           exitCode: 0
           stdout:
-            notEmpty: true
+            contains: ["forge version", "commit:", "go:"]
