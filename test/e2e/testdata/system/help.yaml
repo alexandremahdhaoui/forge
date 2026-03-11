@@ -1,0 +1,23 @@
+# System command e2e tests for help and no-args behavior.
+testCases:
+  - name: "forge-help"
+    description: "Verify forge help command outputs usage information"
+    steps:
+      - id: help
+        mode: cli
+        command: help
+        expected:
+          exitCode: 0
+          stdout:
+            contains: ["Usage:", "build", "test", "version"]
+
+  - name: "forge-no-args"
+    description: "Verify forge with no arguments shows usage and exits non-zero"
+    steps:
+      - id: no-args
+        mode: cli
+        command: ""
+        expected:
+          exitCode: 1
+          stdout:
+            contains: ["Usage:", "build", "test", "version"]

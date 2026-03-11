@@ -1,0 +1,17 @@
+# Error handling e2e tests for malformed forge.yaml.
+# Uses write-forge-yaml with _raw to create an intentionally invalid config.
+testCases:
+  - name: "malformed-forge-yaml"
+    description: "Building with a malformed forge.yaml fails gracefully"
+    setup:
+      - command: write-forge-yaml
+        input:
+          _raw: "invalid: [yaml: content"
+    steps:
+      - id: build
+        mode: cli
+        command: build
+        expected:
+          exitCode: 1
+          stderr:
+            contains: ["error"]

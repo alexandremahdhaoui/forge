@@ -1,0 +1,48 @@
+# Build system e2e tests.
+# These tests run against the actual forge project (the forge repo itself).
+# Build output goes to stderr, not stdout.
+testCases:
+  - name: "forge-build-all"
+    description: "Build the forge binary and verify it exists"
+    steps:
+      - id: build
+        mode: cli
+        command: build
+        input:
+          _args: ["forge"]
+        expected:
+          exitCode: 0
+          stderr:
+            matches: "(Successfully built|is up to date)"
+      - command: check-file-exists
+        input:
+          path: "{{.CWD}}/build/bin/forge"
+
+  - name: "forge-build-specific"
+    description: "Build a specific target (go-build) and verify it exists"
+    steps:
+      - id: build
+        mode: cli
+        command: build
+        input:
+          _args: ["go-build"]
+        expected:
+          exitCode: 0
+          stderr:
+            matches: "(Successfully built|is up to date)"
+      - command: check-file-exists
+        input:
+          path: "{{.CWD}}/build/bin/go-build"
+
+  - name: "forge-build-format"
+    description: "Run the format-code build target"
+    steps:
+      - id: build
+        mode: cli
+        command: build
+        input:
+          _args: ["format-code"]
+        expected:
+          exitCode: 0
+          stderr:
+            matches: "(Successfully built|is up to date)"

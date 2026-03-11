@@ -1,0 +1,27 @@
+# Incremental build e2e test.
+# Builds forge twice, then verifies the binary is still functional.
+testCases:
+  - name: "incremental-build"
+    description: "Build forge twice and verify binary still works after rebuild"
+    steps:
+      - id: first-build
+        mode: cli
+        command: build
+        input:
+          _args: ["forge"]
+        expected:
+          exitCode: 0
+      - id: second-build
+        mode: cli
+        command: build
+        input:
+          _args: ["forge"]
+        expected:
+          exitCode: 0
+      - id: verify
+        mode: cli
+        command: version
+        expected:
+          exitCode: 0
+          stdout:
+            contains: ["forge version"]

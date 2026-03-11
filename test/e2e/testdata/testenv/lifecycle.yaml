@@ -1,0 +1,54 @@
+# Testenv lifecycle e2e test: create, list, delete, verify deletion.
+# Uses the e2e-stub stage which requires no external resources.
+testCases:
+  - name: "testenv-create-and-delete"
+    description: "Create a test environment, list it, then delete it"
+    steps:
+      - id: create
+        mode: cli
+        command: test
+        input:
+          _args: ["create-env", "e2e-stub"]
+        expected:
+          exitCode: 0
+          stdout:
+            matches: "^test-e2e-stub-"
+        capture:
+          output: stdout
+
+      - id: list
+        mode: cli
+        command: test
+        input:
+          _args: ["list-env", "e2e-stub"]
+        expected:
+          exitCode: 0
+          stdout:
+            contains: ["ID", "NAME", "STATUS"]
+
+      - id: delete
+        mode: cli
+        command: test
+        input:
+          _args: ["delete-env", "e2e-stub", '{{ index .Steps "create" "output" }}']
+        expected:
+          exitCode: 0
+          stdout:
+            contains: ["Deleted:"]
+
+      - id: verify-deleted
+        mode: cli
+        command: test
+        input:
+          _args: ["get-env", "e2e-stub", '{{ index .Steps "create" "output" }}']
+        expected:
+          exitCode: 1
+          stderr:
+            contains: ["not found"]
+
+    # Teardown ensures cleanup even if test steps fail.
+    teardown:
+      - mode: cli
+        command: test
+        input:
+          _args: ["delete-env", "e2e-stub", '{{ index .Steps "create" "output" }}']

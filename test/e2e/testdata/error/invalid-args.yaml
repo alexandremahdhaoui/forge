@@ -1,0 +1,28 @@
+# Error handling e2e tests for invalid arguments.
+# These verify forge fails gracefully with useful error messages.
+testCases:
+  - name: "invalid-testid-get"
+    description: "Getting a test env with invalid ID returns an error"
+    steps:
+      - id: get-invalid
+        mode: cli
+        command: test
+        input:
+          _args: ["get-env", "e2e-stub", "invalid-test-id-12345"]
+        expected:
+          exitCode: 1
+          stderr:
+            contains: ["not found"]
+
+  - name: "delete-nonexistent"
+    description: "Deleting a nonexistent test env returns an error"
+    steps:
+      - id: delete-missing
+        mode: cli
+        command: test
+        input:
+          _args: ["delete-env", "e2e-stub", "test-e2e-stub-20990101-deadbeef"]
+        expected:
+          exitCode: 1
+          stderr:
+            contains: ["not found"]

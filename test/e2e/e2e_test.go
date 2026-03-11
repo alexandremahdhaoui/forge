@@ -70,6 +70,7 @@ func TestE2EDeclarative(t *testing.T) {
 					data := &testrunner.TemplateData{
 						Binary:    forgeBinary,
 						Workspace: t.TempDir(),
+						CWD:       root,
 						Env:       make(map[string]string),
 						Steps:     make(map[string]map[string]interface{}),
 					}
