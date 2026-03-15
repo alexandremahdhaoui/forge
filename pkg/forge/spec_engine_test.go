@@ -305,6 +305,7 @@ func TestEngineConfigDependencyDetectorType(t *testing.T) {
 			yaml: `
 name: test-project
 artifactStorePath: .test.yaml
+envFile: .envrc
 engines:
   - alias: my-dep-detector
     type: dependency-detector
@@ -341,6 +342,7 @@ engines:
 			yaml: `
 name: test-project
 artifactStorePath: .test.yaml
+envFile: .envrc
 engines:
   - alias: my-dep-detector
     type: dependency-detector
@@ -362,6 +364,7 @@ engines:
 			yaml: `
 name: test-project
 artifactStorePath: .test.yaml
+envFile: .envrc
 engines:
   - alias: my-dep-detector
     type: dependency-detector
@@ -386,6 +389,7 @@ engines:
 			yaml: `
 name: test-project
 artifactStorePath: .test.yaml
+envFile: .envrc
 engines:
   - alias: my-dep-detector
     type: dependency-detector
@@ -410,6 +414,7 @@ engines:
 			yaml: `
 name: test-project
 artifactStorePath: .test.yaml
+envFile: .envrc
 engines:
   - alias: my-dep-detector
     type: dependency-detector
@@ -434,6 +439,7 @@ engines:
 			yaml: `
 name: test-project
 artifactStorePath: .test.yaml
+envFile: .envrc
 engines:
   - alias: my-dep-detector
     type: dependency-detector

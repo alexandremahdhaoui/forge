@@ -35,7 +35,7 @@ type Spec struct {
 	Name string `json:"name"`
 
 	// EnvFile is the path to a global environment file to source before any operations
-	EnvFile string `json:"envFile,omitempty"`
+	EnvFile string `json:"envFile"`
 
 	// Path to the artifact store. The artifact store is a yaml data structures that
 	// tracks the name, timestamp etc of all built artifacts
@@ -68,6 +68,9 @@ func (s *Spec) Validate() error {
 		errs.Add(err)
 	}
 	if err := ValidateRequired(s.ArtifactStorePath, "artifactStorePath", "Spec"); err != nil {
+		errs.Add(err)
+	}
+	if err := ValidateRequired(s.EnvFile, "envFile", "Spec"); err != nil {
 		errs.Add(err)
 	}
 
@@ -140,6 +143,11 @@ func ReadSpecFromPath(path string) (Spec, error) {
 	// Apply defaults to LocalContainerRegistry
 	if out.LocalContainerRegistry.Namespace == "" {
 		out.LocalContainerRegistry.Namespace = "testenv-lcr"
+	}
+
+	// Apply default to EnvFile
+	if out.EnvFile == "" {
+		out.EnvFile = ".envrc"
 	}
 
 	// Validate the spec

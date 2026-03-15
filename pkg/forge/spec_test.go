@@ -189,6 +189,100 @@ localContainerRegistry:
 	}
 }
 
+// TestReadSpec_EnvFileDefault tests that the envFile field
+// defaults to ".envrc" when not specified in forge.yaml
+func TestReadSpec_EnvFileDefault(t *testing.T) {
+	tests := []struct {
+		name            string
+		yamlContent     string
+		expectedEnvFile string
+		description     string
+	}{
+		{
+			name: "missing_envFile_field",
+			yamlContent: `
+name: test-project
+artifactStorePath: .forge/artifact-store.yaml
+`,
+			expectedEnvFile: ".envrc",
+			description:     "Should default to .envrc when envFile field is missing",
+		},
+		{
+			name: "empty_envFile_value",
+			yamlContent: `
+name: test-project
+artifactStorePath: .forge/artifact-store.yaml
+envFile: ""
+`,
+			expectedEnvFile: ".envrc",
+			description:     "Should default to .envrc when envFile is explicitly set to empty string",
+		},
+		{
+			name: "explicit_envFile_value",
+			yamlContent: `
+name: test-project
+artifactStorePath: .forge/artifact-store.yaml
+envFile: "custom.env"
+`,
+			expectedEnvFile: "custom.env",
+			description:     "Should preserve explicit envFile value",
+		},
+		{
+			name: "envrc_explicit",
+			yamlContent: `
+name: test-project
+artifactStorePath: .forge/artifact-store.yaml
+envFile: ".envrc"
+`,
+			expectedEnvFile: ".envrc",
+			description:     "Should preserve explicit .envrc value",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary directory
+			tmpDir := t.TempDir()
+			yamlPath := filepath.Join(tmpDir, "forge.yaml")
+
+			// Write test YAML
+			if err := os.WriteFile(yamlPath, []byte(tt.yamlContent), 0o644); err != nil {
+				t.Fatalf("Failed to write test YAML: %v", err)
+			}
+
+			// Change to temp directory
+			originalDir, err := os.Getwd()
+			if err != nil {
+				t.Fatalf("Failed to get working directory: %v", err)
+			}
+			defer func() {
+				if err := os.Chdir(originalDir); err != nil {
+					t.Errorf("Failed to restore working directory: %v", err)
+				}
+			}()
+
+			if err := os.Chdir(tmpDir); err != nil {
+				t.Fatalf("Failed to change to temp directory: %v", err)
+			}
+
+			// Read spec
+			spec, err := ReadSpec()
+			if err != nil {
+				t.Fatalf("ReadSpec() error = %v, want nil", err)
+			}
+
+			// Verify envFile
+			if spec.EnvFile != tt.expectedEnvFile {
+				t.Errorf("%s: envFile = %q, want %q",
+					tt.description,
+					spec.EnvFile,
+					tt.expectedEnvFile,
+				)
+			}
+		})
+	}
+}
+
 // TestReadSpec_GenerateOpenAPIDeprecatedError tests that using the deprecated
 // generateOpenAPI field returns a clear error message
 func TestReadSpec_GenerateOpenAPIDeprecatedError(t *testing.T) {

@@ -67,6 +67,11 @@ func TestForgeTestCommand(t *testing.T) {
 		t.Fatalf("Failed to build go-test binary: %v", err)
 	}
 
+	// Create empty .envrc (required by forge default)
+	if err := os.WriteFile(filepath.Join(tmpDir, ".envrc"), []byte(""), 0o644); err != nil {
+		t.Fatalf("Failed to create .envrc: %v", err)
+	}
+
 	// Setup test forge.yaml
 	artifactStorePath := filepath.Join(tmpDir, "artifacts.yaml")
 	forgeYAML := `name: e2e-test-project
@@ -242,6 +247,11 @@ func TestForgeTestCommand_AutoCreateEnvironment(t *testing.T) {
 		t.Fatalf("Failed to build go-test binary: %v", err)
 	}
 
+	// Create empty .envrc (required by forge default)
+	if err := os.WriteFile(filepath.Join(tmpDir, ".envrc"), []byte(""), 0o644); err != nil {
+		t.Fatalf("Failed to create .envrc: %v", err)
+	}
+
 	// Setup test forge.yaml
 	artifactStorePath := filepath.Join(tmpDir, "artifacts.yaml")
 	forgeYAML := `name: e2e-test-project
@@ -289,6 +299,11 @@ func TestForgeTestCommand_ErrorCases(t *testing.T) {
 	buildCmd := exec.Command("go", "build", "-o", forgeBinary, "../../cmd/forge")
 	if err := buildCmd.Run(); err != nil {
 		t.Fatalf("Failed to build forge binary: %v", err)
+	}
+
+	// Create empty .envrc (required by forge default)
+	if err := os.WriteFile(filepath.Join(tmpDir, ".envrc"), []byte(""), 0o644); err != nil {
+		t.Fatalf("Failed to create .envrc: %v", err)
 	}
 
 	// Setup minimal forge.yaml

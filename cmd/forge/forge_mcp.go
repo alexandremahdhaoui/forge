@@ -20,6 +20,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
@@ -1023,12 +1024,16 @@ func handleTestAllTool(
 	}
 
 	// Collect test reports ONLY for completed stages (fail-fast behavior)
-	// With fail-fast, not all config.Test stages will have run
+	// With fail-fast, not all config.Test stages will have run.
+	// Sort reports by StartTime descending to pick the most recent for each stage,
+	// avoiding stale reports from previous runs.
 	var reportSummaries []forge.TestReportSummary
 	for _, testSpec := range config.Test {
 		reports := forge.ListTestReports(&store, testSpec.Name)
-		// Get the most recent report for each stage, if it exists
 		if len(reports) > 0 {
+			sort.Slice(reports, func(i, j int) bool {
+				return reports[i].StartTime.After(reports[j].StartTime)
+			})
 			reportSummaries = append(reportSummaries, reports[0].Summary())
 		}
 		// If no report exists for this stage, it means execution stopped before this stage
@@ -1068,10 +1073,25 @@ func handleTestAllTool(
 		StoppedEarly:   stoppedEarly,
 	}
 
-	// Determine if we should return error or success
-	if testAllErr != nil || failedStages > 0 {
+	// Determine if we should return error or success.
+	//
+	// Three cases:
+	// 1. failedStages > 0: test stages actually failed — report failures with summary.
+	// 2. testAllErr != nil but failedStages == 0: build or infra error occurred but
+	//    test reports in the artifact store are stale (from a previous run). Surface
+	//    the actual error instead of the misleading "0 failed" summary.
+	// 3. Both nil/zero: success.
+	if failedStages > 0 {
 		result, artifact := mcputil.ErrorResultWithArtifact(
 			fmt.Sprintf("Test-all completed with failures: %s", summary),
+			testAllResult,
+		)
+		return result, artifact, nil
+	}
+
+	if testAllErr != nil {
+		result, artifact := mcputil.ErrorResultWithArtifact(
+			fmt.Sprintf("Test-all failed: %v", testAllErr),
 			testAllResult,
 		)
 		return result, artifact, nil

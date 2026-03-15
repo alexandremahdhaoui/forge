@@ -64,6 +64,11 @@ components:
 		t.Fatalf("Failed to write OpenAPI spec: %v", err)
 	}
 
+	// Create empty .envrc (required by forge default)
+	if err := os.WriteFile(filepath.Join(tmpDir, ".envrc"), []byte(""), 0o644); err != nil {
+		t.Fatalf("Failed to create .envrc: %v", err)
+	}
+
 	// Create forge.yaml
 	forgeYaml := `name: test-openapi
 artifactStorePath: .ignore.artifact-store.yaml

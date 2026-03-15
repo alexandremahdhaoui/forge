@@ -36,6 +36,14 @@ import (
 func writeForgeYAML(data *TemplateData, input map[string]interface{}) error {
 	forgeYAMLPath := filepath.Join(data.Workspace, "forge.yaml")
 
+	// Ensure .envrc exists in the workspace (forge defaults envFile to .envrc).
+	envrcPath := filepath.Join(data.Workspace, ".envrc")
+	if _, err := os.Stat(envrcPath); os.IsNotExist(err) {
+		if err := os.WriteFile(envrcPath, []byte(""), 0o644); err != nil {
+			return fmt.Errorf("write-forge-yaml: creating .envrc: %w", err)
+		}
+	}
+
 	// If _raw is set, write verbatim content.
 	if raw, ok := input["_raw"]; ok {
 		rawStr, ok := raw.(string)

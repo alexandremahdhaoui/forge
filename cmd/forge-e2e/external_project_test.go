@@ -47,6 +47,11 @@ func TestExternalProject_BinaryPathResolution(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Logf("Created temporary project directory: %s", tmpDir)
 
+	// Create empty .envrc (required by forge default)
+	if err := os.WriteFile(filepath.Join(tmpDir, ".envrc"), []byte(""), 0o644); err != nil {
+		t.Fatalf("Failed to create .envrc: %v", err)
+	}
+
 	// Create a minimal forge.yaml
 	forgeYAML := `name: test-external-project
 artifactStorePath: .ignore.artifact-store.yaml
@@ -163,6 +168,11 @@ go 1.24
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0o644); err != nil {
 		t.Fatalf("Failed to create go.mod: %v", err)
+	}
+
+	// Create empty .envrc (required by forge default)
+	if err := os.WriteFile(filepath.Join(tmpDir, ".envrc"), []byte(""), 0o644); err != nil {
+		t.Fatalf("Failed to create .envrc: %v", err)
 	}
 
 	// Create forge.yaml with build configuration

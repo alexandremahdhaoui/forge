@@ -49,6 +49,11 @@ func TestIntegration_DockerMode(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Create empty .envrc (required by forge default)
+	if err := os.WriteFile(filepath.Join(tmpDir, ".envrc"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
 	// Create minimal forge.yaml
 	forgeYaml := filepath.Join(tmpDir, "forge.yaml")
 	forgeContent := `name: test-docker-mode
@@ -155,6 +160,11 @@ func TestIntegration_KanikoMode(t *testing.T) {
 	containerfile := filepath.Join(tmpDir, "Containerfile")
 	content := `FROM scratch`
 	if err := os.WriteFile(containerfile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create empty .envrc (required by forge default)
+	if err := os.WriteFile(filepath.Join(tmpDir, ".envrc"), []byte(""), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -271,6 +281,11 @@ func TestIntegration_DockerVsKanikoEquivalence(t *testing.T) {
 	containerfile := filepath.Join(tmpDir, "Containerfile")
 	content := `FROM scratch`
 	if err := os.WriteFile(containerfile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create empty .envrc (required by forge default)
+	if err := os.WriteFile(filepath.Join(tmpDir, ".envrc"), []byte(""), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

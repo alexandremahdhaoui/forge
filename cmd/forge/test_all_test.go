@@ -48,6 +48,11 @@ func TestTestAll_WithMultiEngineBuilder(t *testing.T) {
 	// Create a temporary directory for test artifacts
 	tmpDir := t.TempDir()
 
+	// Create empty .envrc (required by forge default)
+	if err := os.WriteFile(filepath.Join(tmpDir, ".envrc"), []byte(""), 0o644); err != nil {
+		t.Fatalf("Failed to create .envrc: %v", err)
+	}
+
 	// Create a test forge.yaml with multi-engine builder alias
 	forgeYAML := `name: test-multi-engine-project
 artifactStorePath: .ignore.artifact-store.yaml
@@ -189,6 +194,11 @@ func TestTestAll_WithSingleEngineBuilder(t *testing.T) {
 		t.Fatalf("Failed to find forge repository root: %v", err)
 	}
 
+	// Create empty .envrc (required by forge default)
+	if err := os.WriteFile(filepath.Join(tmpDir, ".envrc"), []byte(""), 0o644); err != nil {
+		t.Fatalf("Failed to create .envrc: %v", err)
+	}
+
 	// Create a minimal forge.yaml with a single-engine builder (direct go:// URI)
 	forgeYAML := `name: test-single-engine-project
 artifactStorePath: .ignore.artifact-store.yaml
@@ -292,6 +302,11 @@ func TestTestAll_FailFast(t *testing.T) {
 	// Set FORGE_RUN_LOCAL_ENABLED and FORGE_REPO_PATH so forge can find engines
 	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "true")
 	t.Setenv("FORGE_REPO_PATH", forgeRoot)
+
+	// Create empty .envrc (required by forge default)
+	if err := os.WriteFile(filepath.Join(tmpDir, ".envrc"), []byte(""), 0o644); err != nil {
+		t.Fatalf("Failed to create .envrc: %v", err)
+	}
 
 	// Create forge.yaml with 3 stages: pass, fail, should-not-run
 	// Using direct go:// URIs with spec fields at test level

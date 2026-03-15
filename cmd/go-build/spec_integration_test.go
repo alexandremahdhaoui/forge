@@ -52,6 +52,11 @@ go 1.23
 	}
 
 	// Create forge.yaml with spec containing custom args
+	// Create empty .envrc (required by forge default)
+	if err := os.WriteFile(filepath.Join(tmpDir, ".envrc"), []byte(""), 0o644); err != nil {
+		t.Fatalf("Failed to create .envrc: %v", err)
+	}
+
 	forgeYAML := `name: test-project
 artifactStorePath: .ignore.artifact-store.yaml
 
@@ -162,6 +167,11 @@ go 1.23
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0o644); err != nil {
 		t.Fatalf("Failed to write go.mod: %v", err)
+	}
+
+	// Create empty .envrc (required by forge default)
+	if err := os.WriteFile(filepath.Join(tmpDir, ".envrc"), []byte(""), 0o644); err != nil {
+		t.Fatalf("Failed to create .envrc: %v", err)
 	}
 
 	// Create forge.yaml with spec containing custom env
