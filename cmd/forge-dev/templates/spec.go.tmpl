@@ -34,6 +34,12 @@ type {{.Name}} struct {
 	{{.}} *{{.}} `json:"-"`
 {{- end}}
 }
+{{- else if isTypeMap .}}
+// {{.Name}} represents the {{.Name}} configuration.
+{{- if .Description}}
+{{commentify .Description}}
+{{- end}}
+type {{.Name}} map[string]{{typeMapValue .}}
 {{- else}}
 // {{.Name}} represents the {{.Name}} configuration.
 {{- if .Description}}
