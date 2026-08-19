@@ -36,8 +36,11 @@ type DocsTemplateData struct {
 	RequiredDocs []string
 }
 
-// DocsBaseURL is the base URL for engine documentation.
-const DocsBaseURL = "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
+// DefaultDocsBaseURL is the base URL used when forge-dev.yaml sets no
+// generate.docsBaseURL. It points at the forge repository, so a sibling
+// repository that generates engines with forge-dev must set its own or its
+// engines advertise forge's URLs for their documentation.
+const DefaultDocsBaseURL = "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
 
 // GenerateDocsFile generates the zz_generated.docs.go file content.
 // It uses the docs.go.tmpl template to generate Go code with:
@@ -53,7 +56,7 @@ func GenerateDocsFile(config *Config, checksum string) ([]byte, error) {
 		ChecksumHeader: ChecksumHeader(checksum),
 		EngineName:     config.Name,
 		LocalDir:       localDir,
-		BaseURL:        DocsBaseURL,
+		BaseURL:        config.GetDocsBaseURL(),
 		RequiredDocs:   []string{"usage", "schema"},
 	}
 

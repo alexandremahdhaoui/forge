@@ -108,7 +108,7 @@ func TestGeneratedDocsPassEngineDocsValidate(t *testing.T) {
 	errs := enginedocs.Validate(enginedocs.Config{
 		EngineName:   "go-build",
 		LocalDir:     "cmd/go-build/docs",
-		BaseURL:      DocsBaseURL,
+		BaseURL:      DefaultDocsBaseURL,
 		RequiredDocs: []string{"usage", "schema"},
 	})
 
@@ -141,5 +141,75 @@ func TestGenerateListYAMLCarriesTheChecksum(t *testing.T) {
 
 	if !strings.Contains(string(out), "# SourceChecksum: sha256:abc123") {
 		t.Errorf("checksum header missing:\n%s", out)
+	}
+}
+
+func TestDocsBaseURLDefaultsToForge(t *testing.T) {
+	c := &Config{Name: "go-build"}
+
+	if got := c.GetDocsBaseURL(); got != DefaultDocsBaseURL {
+		t.Errorf("GetDocsBaseURL() = %q, want the forge default", got)
+	}
+}
+
+func TestDocsBaseURLIsOverridable(t *testing.T) {
+	const sibling = "https://raw.githubusercontent.com/alexandremahdhaoui/forge-ci/refs/heads/main"
+
+	c := &Config{Name: "ci-state-git"}
+	c.Generate.DocsBaseURL = sibling
+
+	if got := c.GetDocsBaseURL(); got != sibling {
+		t.Errorf("GetDocsBaseURL() = %q, want the sibling URL", got)
+	}
+
+	out, err := GenerateListYAML(c, "sha256:abc")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(string(out), sibling) {
+		t.Errorf("generated list.yaml does not carry the configured baseURL:\n%s", out)
+	}
+
+	if strings.Contains(string(out), "/forge/refs") {
+		t.Errorf("generated list.yaml still advertises forge's own URL:\n%s", out)
+	}
+}
+
+func TestDocsBaseURLIsValidated(t *testing.T) {
+	for _, tc := range []struct{ name, url, want string }{
+		{"not a URL", "not-a-url", "must be an absolute http or https URL"},
+		{"wrong scheme", "ftp://example.com/docs", "must be an absolute http or https URL"},
+		{"relative", "/docs", "must be an absolute http or https URL"},
+		{"trailing slash", "https://example.com/docs/", "must not end with a trailing slash"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &Config{Name: "go-build", Type: EngineTypeBuilder, Version: "1.0.0"}
+			c.Generate.PackageName = "main"
+			c.Generate.DocsBaseURL = tc.url
+
+			var found bool
+
+			for _, e := range ValidateConfig(c) {
+				if e.Field == "generate.docsBaseURL" && e.Message == tc.want {
+					found = true
+				}
+			}
+
+			if !found {
+				t.Errorf("ValidateConfig accepted %q, want %q", tc.url, tc.want)
+			}
+		})
+	}
+}
+
+func TestAnEmptyDocsBaseURLIsNotAnError(t *testing.T) {
+	c := &Config{Name: "go-build", Type: EngineTypeBuilder, Version: "1.0.0"}
+	c.Generate.PackageName = "main"
+
+	for _, e := range ValidateConfig(c) {
+		if e.Field == "generate.docsBaseURL" {
+			t.Errorf("an unset docsBaseURL must be allowed, got %v", e)
+		}
 	}
 }
