@@ -8,8 +8,10 @@ docs:
   - name: "usage"
     title: "Usage Guide"
     description: "How to use generic-builder"
+    url: "cmd/generic-builder/docs/usage.md"
     required: true
   - name: "schema"
     title: "Configuration Schema"
     description: "Configuration options for generic-builder"
+    url: "cmd/generic-builder/docs/schema.md"
     required: true
