@@ -133,6 +133,13 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		return nil, fmt.Errorf("generating types: %w", err)
 	}
 
+	// A generic engine names its inputs and outputs by schema. Cross reference
+	// them now, before anything is written, because a missing schema would
+	// otherwise surface as a compile error in generated code.
+	if errs := ValidateGenericTools(config, types); len(errs) > 0 {
+		return nil, fmt.Errorf("invalid forge-dev.yaml: %s: %s", errs[0].Field, errs[0].Message)
+	}
+
 	// Step 6: Generate all three files using templates
 	generatedFiles := []string{}
 

@@ -343,3 +343,83 @@ generate:
 
 It must be an absolute http or https URL with no trailing slash, because every
 consumer joins it with a slash already.
+
+## type: generic
+
+Every other engine type has its tools fixed by its family. A builder has
+`build`. A test runner has `run`. A generic engine declares its own, so a
+sibling repository can generate an engine forge has never heard of.
+
+```yaml
+name: ci-state-git
+type: generic
+version: 0.1.0
+description: Read and write CI state in a git repo.
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main
+  docsBaseURL: https://raw.githubusercontent.com/alexandremahdhaoui/forge-ci/refs/heads/main
+  tools:
+    - name: get
+      description: Read one record.
+      input: StateGetInput
+      output: StateGetOutput
+      useSpec: true
+    - name: put
+      description: Write one record.
+      input: StatePutInput
+```
+
+### generate.tools
+
+| Field | Required | Means |
+|---|---|---|
+| `name` | yes | The MCP tool name callers use. Alphanumeric with hyphens or underscores. |
+| `description` | yes | What the tool does. Shown to callers. |
+| `input` | yes | A schema name from `components.schemas`. |
+| `output` | no | A schema name. Omit it and the handler returns only an error. |
+| `useSpec` | no | Parse and validate `Spec` from the input, and hand the handler a typed value. |
+
+`config-validate` is registered automatically and cannot be declared.
+
+### What gets generated
+
+One `<Name>Func` type per tool, one `Handlers` struct with a field per tool, and
+one wrapper per tool. `SetupMCPServer(name, version string, handlers Handlers)`
+takes the struct rather than positional arguments, because several tools often
+share an input type and positional arguments of near identical types are a
+silent miswiring hazard. A nil field returns an error rather than registering a
+tool that panics when called.
+
+### What you write
+
+A constructor returning `Handlers`, named `NewHandlers` unless you set
+`generate.handlersFunc`.
+
+```go
+func NewHandlers() Handlers {
+	return Handlers{
+		Get: func(ctx context.Context, in StateGetInput, spec *Spec) (*StateGetOutput, error) {
+			...
+		},
+		Put: func(ctx context.Context, in StatePutInput) error {
+			...
+		},
+	}
+}
+```
+
+### A Spec schema is still required
+
+`components.schemas.Spec` must exist even when an engine reads no
+configuration, because the generator emits `Validate` and `FromMap`
+unconditionally. Declare an empty one, as `go-dependency-detector` does.
+
+```yaml
+components:
+  schemas:
+    Spec:
+      type: object
+      description: This engine reads no configuration.
+```

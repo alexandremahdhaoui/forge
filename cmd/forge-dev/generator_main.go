@@ -27,8 +27,12 @@ type MainTemplateData struct {
 	ChecksumHeader string
 	// EngineName is the name of the engine.
 	EngineName string
-	// EngineType is the type of engine (builder, test-runner, testenv-subengine, dependency-detector).
+	// EngineType is the type of engine (builder, test-runner, testenv-subengine, dependency-detector, generic).
 	EngineType string
+	// Tools are the resolved tools of a generic engine.
+	Tools []GenericTool
+	// HandlersFunc is the constructor the engine author writes to return Handlers.
+	HandlersFunc string
 	// Version is the engine version.
 	Version string
 	// Description is the engine description.
@@ -57,6 +61,8 @@ func GenerateMainFile(config *Config, checksum string, specTypesCtx *SpecTypesCo
 		ChecksumHeader:   ChecksumHeader(checksum),
 		EngineName:       config.Name,
 		EngineType:       string(config.Type),
+		Tools:            BuildGenericTools(config, specTypesCtx),
+		HandlersFunc:     config.GetHandlersFunc(),
 		Version:          config.Version,
 		Description:      config.Description,
 		BuildFunc:        config.GetBuildFunc(),
