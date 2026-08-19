@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"net/url"
 )
 
 // ConfigFileName is the expected name of the forge-dev configuration file.
@@ -92,6 +93,10 @@ type GenerateConfig struct {
 	DeleteFunc string `yaml:"deleteFunc,omitempty"`
 	// SpecTypes configures external spec types generation (optional).
 	SpecTypes *SpecTypesConfig `yaml:"specTypes,omitempty"`
+	// DocsBaseURL is the raw content base URL used for remote documentation
+	// fetching. Defaults to DefaultDocsBaseURL, which points at the forge
+	// repository. A sibling repository must set its own.
+	DocsBaseURL string `yaml:"docsBaseURL,omitempty"`
 }
 
 // SpecTypesConfig contains configuration for external spec types generation.
@@ -108,6 +113,16 @@ type SpecTypesConfig struct {
 }
 
 // GetBuildFunc returns the BuildFunc from config, or "Build" if not set.
+// GetDocsBaseURL returns the configured documentation base URL, or the forge
+// repository default when unset.
+func (c *Config) GetDocsBaseURL() string {
+	if c.Generate.DocsBaseURL == "" {
+		return DefaultDocsBaseURL
+	}
+
+	return c.Generate.DocsBaseURL
+}
+
 func (c *Config) GetBuildFunc() string {
 	if c.Generate.BuildFunc == "" {
 		return "Build"
@@ -179,8 +194,39 @@ var semverRegexp = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 var packageNameRegexp = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 // ValidateConfig validates the configuration and returns any validation errors.
+// validateDocsBaseURL checks generate.docsBaseURL when it is set. A trailing
+// slash is rejected because every consumer joins it with a slash already.
+func validateDocsBaseURL(raw string) []ValidationError {
+	if raw == "" {
+		return nil
+	}
+
+	var errors []ValidationError
+
+	parsed, err := url.Parse(raw)
+	if err != nil || !parsed.IsAbs() || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		errors = append(errors, ValidationError{
+			Field:   "generate.docsBaseURL",
+			Message: "must be an absolute http or https URL",
+		})
+
+		return errors
+	}
+
+	if strings.HasSuffix(raw, "/") {
+		errors = append(errors, ValidationError{
+			Field:   "generate.docsBaseURL",
+			Message: "must not end with a trailing slash",
+		})
+	}
+
+	return errors
+}
+
 func ValidateConfig(c *Config) []ValidationError {
 	var errors []ValidationError
+
+	errors = append(errors, validateDocsBaseURL(c.Generate.DocsBaseURL)...)
 
 	// Validate name (required)
 	if c.Name == "" {

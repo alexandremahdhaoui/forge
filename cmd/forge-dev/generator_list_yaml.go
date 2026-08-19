@@ -42,7 +42,7 @@ func GenerateListYAML(config *Config, checksum string) ([]byte, error) {
 	data := ListYAMLTemplateData{
 		ChecksumHeader: "# SourceChecksum: " + checksum,
 		EngineName:     config.Name,
-		BaseURL:        DocsBaseURL,
+		BaseURL:        config.GetDocsBaseURL(),
 		LocalDir:       fmt.Sprintf("cmd/%s/docs", config.Name),
 	}
 

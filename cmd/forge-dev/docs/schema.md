@@ -326,3 +326,20 @@ If your engine requires these features, it cannot use forge-dev and must impleme
 
 - [forge-dev Usage Guide](usage.md)
 - [OpenAPI 3.0 Specification](https://spec.openapis.org/oas/v3.0.3)
+
+## generate.docsBaseURL
+
+The raw content base URL used for remote documentation fetching. Optional.
+
+Defaults to forge's own repository. **A sibling repository that generates
+engines with forge-dev must set this**, or its engines advertise forge's URLs
+for their own documentation.
+
+```yaml
+generate:
+  packageName: main
+  docsBaseURL: https://raw.githubusercontent.com/alexandremahdhaoui/forge-ci/refs/heads/main
+```
+
+It must be an absolute http or https URL with no trailing slash, because every
+consumer joins it with a slash already.
