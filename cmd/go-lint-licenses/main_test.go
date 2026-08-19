@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"sort"
 	"testing"
+
+	"github.com/alexandremahdhaoui/forge/internal/licenseheader"
 )
 
 // createTempFile is a helper function to create test files.
@@ -44,7 +46,7 @@ package main
 
 func main() {}
 `)
-		hasLicense, err := hasLicenseHeader(path)
+		hasLicense, err := licenseheader.HasHeader(path)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -60,7 +62,7 @@ package main
 
 func main() {}
 `)
-		hasLicense, err := hasLicenseHeader(path)
+		hasLicense, err := licenseheader.HasHeader(path)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -76,7 +78,7 @@ package main
 
 func main() {}
 `)
-		hasLicense, err := hasLicenseHeader(path)
+		hasLicense, err := licenseheader.HasHeader(path)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -91,7 +93,7 @@ func main() {}
 
 func main() {}
 `)
-		hasLicense, err := hasLicenseHeader(path)
+		hasLicense, err := licenseheader.HasHeader(path)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -104,7 +106,7 @@ func main() {}
 		dir := t.TempDir()
 		path := createTempFile(t, dir, "test.go", "")
 
-		hasLicense, err := hasLicenseHeader(path)
+		hasLicense, err := licenseheader.HasHeader(path)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -120,12 +122,67 @@ func main() {}
 // Copyright 2024 Example Corp
 func main() {}
 `)
-		hasLicense, err := hasLicenseHeader(path)
+		hasLicense, err := licenseheader.HasHeader(path)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if hasLicense {
 			t.Error("expected hasLicenseHeader to return false when license is after package declaration")
+		}
+	})
+
+	// Regression test: the previous implementation capped its scan at 15
+	// lines. A build tag, a blank line, and a 13-line Apache-2.0 header lands
+	// the "package" line at line 16, one past that cap, so it never even
+	// mattered there - the copyright line itself was always found within the
+	// first 15 lines in that exact shape. But two build-constraint lines (the
+	// pre-1.17 "// +build" form alongside "//go:build", still common for
+	// compatibility) plus the same header pushes the copyright notice itself
+	// past line 15, and the old scan returned false for a file that has a
+	// perfectly valid license.
+	t.Run("license_after_long_build_tag_preamble", func(t *testing.T) {
+		dir := t.TempDir()
+		path := createTempFile(t, dir, "test.go", `//go:build unit
+// +build unit
+
+// Copyright 2024 Example Corp
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package main
+
+func main() {}
+`)
+		hasLicense, err := licenseheader.HasHeader(path)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !hasLicense {
+			t.Error("expected hasLicenseHeader to find a real header even with unusually long comment preamble before it")
+		}
+	})
+
+	t.Run("only_comments_no_code", func(t *testing.T) {
+		dir := t.TempDir()
+		path := createTempFile(t, dir, "test.go", `// just a comment
+// another comment
+`)
+		hasLicense, err := licenseheader.HasHeader(path)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if hasLicense {
+			t.Error("expected hasLicenseHeader to return false for a comment-only file with no license keywords")
 		}
 	})
 }
@@ -136,7 +193,7 @@ func TestFindGoFiles(t *testing.T) {
 		aPath := createTempFile(t, dir, "a.go", "package main\n")
 		bPath := createTempFile(t, dir, "b.go", "package main\n")
 
-		files, err := findGoFiles(dir)
+		files, err := licenseheader.FindFiles(dir, []string{".go"}, licenseheader.DefaultExcludeDirs())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -161,7 +218,7 @@ func TestFindGoFiles(t *testing.T) {
 		createTempFile(t, dir, "vendor/c.go", "package vendor\n")
 		createTempFile(t, dir, "main.go", "package main\n")
 
-		files, err := findGoFiles(dir)
+		files, err := licenseheader.FindFiles(dir, []string{".go"}, licenseheader.DefaultExcludeDirs())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -181,7 +238,7 @@ func TestFindGoFiles(t *testing.T) {
 		createTempFile(t, dir, ".git/hooks/d.go", "package hooks\n")
 		createTempFile(t, dir, "main.go", "package main\n")
 
-		files, err := findGoFiles(dir)
+		files, err := licenseheader.FindFiles(dir, []string{".go"}, licenseheader.DefaultExcludeDirs())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -201,7 +258,7 @@ func TestFindGoFiles(t *testing.T) {
 		createTempFile(t, dir, "generated.go", "// Code generated by tool. DO NOT EDIT.\npackage main\n")
 		createTempFile(t, dir, "main.go", "package main\n")
 
-		files, err := findGoFiles(dir)
+		files, err := licenseheader.FindFiles(dir, []string{".go"}, licenseheader.DefaultExcludeDirs())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -220,7 +277,7 @@ func TestFindGoFiles(t *testing.T) {
 		dir := t.TempDir()
 		ePath := createTempFile(t, dir, "sub/e.go", "package sub\n")
 
-		files, err := findGoFiles(dir)
+		files, err := licenseheader.FindFiles(dir, []string{".go"}, licenseheader.DefaultExcludeDirs())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

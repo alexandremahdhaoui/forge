@@ -267,6 +267,14 @@ build:
     src: ./cmd/go-format
     dest: ./build/bin
     engine: go://go-build
+  - name: rust-license-header
+    src: ./cmd/rust-license-header
+    dest: ./build/bin
+    engine: go://go-build
+  - name: go-license-header
+    src: ./cmd/go-license-header
+    dest: ./build/bin
+    engine: go://go-build
   - name: go-lint
     src: ./cmd/go-lint
     dest: ./build/bin
@@ -361,6 +369,12 @@ build:
     engine: go://forge-dev
   - name: gen-go-format
     src: ./cmd/go-format
+    engine: go://forge-dev
+  - name: gen-rust-license-header
+    src: ./cmd/rust-license-header
+    engine: go://forge-dev
+  - name: gen-go-license-header
+    src: ./cmd/go-license-header
     engine: go://forge-dev
   - name: gen-go-gen-bpf
     src: ./cmd/go-gen-bpf

@@ -1,0 +1,11 @@
+name: rust-license-header
+type: builder
+version: 0.1.0
+description: >
+  Adds an Apache License 2.0 header to Rust source files that don't already
+  have a license header. Never rewrites a file that already has one, so it
+  never touches an existing copyright year.
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main

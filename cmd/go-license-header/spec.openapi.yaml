@@ -1,0 +1,29 @@
+openapi: 3.0.3
+info:
+  title: go-license-header Spec Schema
+  version: 0.1.0
+  description: >
+    Schema for the go-license-header engine spec.
+    The go-license-header engine adds an Apache License 2.0 header to Go
+    source files that don't already have a license header.
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for the go-license-header engine
+      properties:
+        rootDir:
+          type: string
+          description: Root directory to scan for *.go files (defaults to src or current directory)
+        holder:
+          type: string
+          description: Copyright holder name to insert into new headers
+        excludeDirs:
+          type: array
+          items:
+            type: string
+          description: >
+            Additional directory names to skip, beyond the built-in defaults
+            (target, vendor, .git, build, tmp, .tmp, node_modules)
+      required:
+        - holder
