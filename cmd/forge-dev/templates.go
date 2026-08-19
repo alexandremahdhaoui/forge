@@ -59,6 +59,8 @@ var templateFuncs = template.FuncMap{
 	"discField":      discField,
 	"discMapping":    discMapping,
 	"isTypeEnum":     isTypeEnum,
+	"isTypeMap":      isTypeMap,
+	"typeMapValue":   typeMapValue,
 	"unionVariants":  unionVariants,
 	"typeEnumValues": typeEnumValues,
 
@@ -278,6 +280,21 @@ func discField(t ForgeTypeDefinition) string {
 // discMapping returns the discriminator value to type mapping.
 func discMapping(t ForgeTypeDefinition) map[string]string {
 	return t.DiscriminatorMapping
+}
+
+// isTypeMap reports a named schema that is a free form object. It becomes a
+// map rather than a struct, because a struct with no fields drops everything.
+func isTypeMap(t ForgeTypeDefinition) bool {
+	return t.IsMap
+}
+
+// typeMapValue is the Go type of a map schema's value.
+func typeMapValue(t ForgeTypeDefinition) string {
+	if t.MapValueType == "" {
+		return "interface{}"
+	}
+
+	return t.MapValueType
 }
 
 // isTypeEnum returns true if the type definition is an enum type.

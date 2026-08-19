@@ -34,6 +34,8 @@ type ForgeTypeDefinition struct {
 	DiscriminatorMapping map[string]string // value -> type mapping
 	IsEnum               bool              // true for enum types
 	EnumValues           []string          // Enum constant names (sorted)
+	IsMap                bool              // true for a free form object
+	MapValueType         string            // Go type of the map value
 }
 
 // ForgeProperty represents a property in a generated struct.
@@ -246,6 +248,30 @@ func ConvertSchemaToTypeDefinition(name string, schemaRef *openapi3.SchemaRef) F
 
 	schema := schemaRef.Value
 	td.Description = schema.Description
+
+	// A named schema that is an object with additionalProperties and no
+	// properties of its own is a map, not a struct. Emitting a struct here
+	// gives an empty type that silently drops everything the caller sent,
+	// which is what a free form engine spec block is made of.
+	if schema.Type.Is("object") && len(schema.Properties) == 0 {
+		hasSchema := schema.AdditionalProperties.Schema != nil
+		hasTrue := schema.AdditionalProperties.Has != nil && *schema.AdditionalProperties.Has
+
+		if hasSchema || hasTrue {
+			td.IsMap = true
+			td.MapValueType = "interface{}"
+
+			if hasSchema {
+				if ref := schema.AdditionalProperties.Schema.Ref; ref != "" {
+					td.MapValueType = extractSchemaName(ref)
+				} else if v := schema.AdditionalProperties.Schema.Value; v != nil {
+					td.MapValueType = schemaToGoType(v)
+				}
+			}
+
+			return td
+		}
+	}
 
 	// Handle union types (oneOf or anyOf)
 	if len(schema.OneOf) > 0 || len(schema.AnyOf) > 0 {

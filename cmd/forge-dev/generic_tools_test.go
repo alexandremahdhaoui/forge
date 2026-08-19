@@ -16,7 +16,11 @@
 
 package main
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func genericConfigWith(tools ...ToolConfig) *Config {
 	c := &Config{Name: "ci-state-git", Type: EngineTypeGeneric, Version: "0.1.0"}
@@ -284,5 +288,65 @@ func TestBuildGenericToolsQualifiesExternalSpecTypes(t *testing.T) {
 
 	if tools[0].OutputType != "citypes.StateGetOutput" {
 		t.Errorf("output type = %q, want the package prefix", tools[0].OutputType)
+	}
+}
+
+func TestAFreeFormSchemaBecomesAMapNotAnEmptyStruct(t *testing.T) {
+	dir := t.TempDir()
+	specPath := filepath.Join(dir, "spec.openapi.yaml")
+
+	if err := os.WriteFile(specPath, []byte(`openapi: 3.0.3
+info:
+  title: t
+  version: "1"
+paths: {}
+components:
+  schemas:
+    Spec:
+      type: object
+      additionalProperties: true
+      description: Engine specific configuration.
+    Labels:
+      type: object
+      additionalProperties:
+        type: string
+    Held:
+      type: object
+      properties:
+        name:
+          type: string
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	spec, err := LoadOpenAPISpec(specPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	types, err := GenerateForgeTypes(spec, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	byName := map[string]ForgeTypeDefinition{}
+	for _, td := range types {
+		byName[td.Name] = td
+	}
+
+	if !byName["Spec"].IsMap {
+		t.Error("a free form object must be a map, or it drops everything the caller sent")
+	}
+
+	if got := byName["Spec"].MapValueType; got != "interface{}" {
+		t.Errorf("Spec value type = %q, want interface{}", got)
+	}
+
+	if got := byName["Labels"].MapValueType; got != "string" {
+		t.Errorf("Labels value type = %q, want string", got)
+	}
+
+	if byName["Held"].IsMap {
+		t.Error("an object with properties is a struct")
 	}
 }
