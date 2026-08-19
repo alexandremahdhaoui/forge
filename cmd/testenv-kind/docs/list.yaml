@@ -8,8 +8,10 @@ docs:
   - name: "usage"
     title: "Usage Guide"
     description: "How to use testenv-kind"
+    url: "cmd/testenv-kind/docs/usage.md"
     required: true
   - name: "schema"
     title: "Configuration Schema"
     description: "Configuration options for testenv-kind"
+    url: "cmd/testenv-kind/docs/schema.md"
     required: true

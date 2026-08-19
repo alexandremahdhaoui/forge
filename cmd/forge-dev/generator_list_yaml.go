@@ -16,6 +16,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 )
 
 // ListYAMLTemplateData contains the data passed to the list.yaml.tmpl template.
@@ -26,6 +27,10 @@ type ListYAMLTemplateData struct {
 	EngineName string
 	// BaseURL is the base URL for remote docs.
 	BaseURL string
+	// LocalDir is the docs directory relative to the repository root.
+	// Each entry's url is built from it, and enginedocs reads exactly that
+	// field to locate a document.
+	LocalDir string
 }
 
 // GenerateListYAML generates the docs/list.yaml file content.
@@ -38,6 +43,7 @@ func GenerateListYAML(config *Config, checksum string) ([]byte, error) {
 		ChecksumHeader: "# SourceChecksum: " + checksum,
 		EngineName:     config.Name,
 		BaseURL:        DocsBaseURL,
+		LocalDir:       fmt.Sprintf("cmd/%s/docs", config.Name),
 	}
 
 	// Parse and execute template
