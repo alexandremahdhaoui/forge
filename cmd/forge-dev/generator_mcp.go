@@ -32,6 +32,9 @@ type MCPTemplateData struct {
 	EngineType EngineType
 	// SpecTypesContext holds external spec types info (nil when disabled).
 	SpecTypesContext *SpecTypesContext
+	// Tools are the resolved tools of a generic engine. Empty for every other
+	// engine type, whose tools are fixed by their family.
+	Tools []GenericTool
 }
 
 // GenerateMCPFile generates the zz_generated.mcp.go file content.
@@ -47,6 +50,7 @@ func GenerateMCPFile(config *Config, checksum string, specTypesCtx *SpecTypesCon
 		EngineName:       config.Name,
 		EngineType:       config.Type,
 		SpecTypesContext: specTypesCtx,
+		Tools:            BuildGenericTools(config, specTypesCtx),
 	}
 
 	// Select template based on engine type
@@ -87,6 +91,8 @@ func mcpTemplateName(engineType EngineType) (string, error) {
 		return "mcp_testenv.go.tmpl", nil
 	case EngineTypeDependencyDetector:
 		return "mcp_dependency_detector.go.tmpl", nil
+	case EngineTypeGeneric:
+		return "mcp_generic.go.tmpl", nil
 	default:
 		return "", fmt.Errorf("unsupported engine type: %s", engineType)
 	}
