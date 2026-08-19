@@ -135,6 +135,14 @@ func TestResolveSemVerTag(t *testing.T) {
 	if err := runCmd("git", "config", "user.name", "Test User"); err != nil {
 		t.Fatalf("Failed to config git name: %v", err)
 	}
+	// Scoped to this throwaway repo only: a machine with tag.gpgsign=true
+	// set globally turns even a plain "git tag <name>" into a signed tag,
+	// which then needs a message/editor and fails non-interactively with
+	// "fatal: no tag message?". The lightweight tags below are supposed to
+	// need neither a signature nor a message.
+	if err := runCmd("git", "config", "tag.gpgsign", "false"); err != nil {
+		t.Fatalf("Failed to disable tag signing: %v", err)
+	}
 
 	// Create initial commit
 	readmeFile := filepath.Join(tmpDir, "README.md")
