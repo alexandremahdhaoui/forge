@@ -217,7 +217,6 @@ func AllEngines(repoRoot string) []Engine {
 		{Name: "go-lint", BinaryPath: filepath.Join(buildBin, "go-lint"), SupportsMCP: true},
 		{Name: "go-gen-mocks", BinaryPath: filepath.Join(buildBin, "go-gen-mocks"), SupportsMCP: true},
 		{Name: "go-gen-openapi", BinaryPath: filepath.Join(buildBin, "go-gen-openapi"), SupportsMCP: true},
-		{Name: "ci-orchestrator", BinaryPath: filepath.Join(buildBin, "ci-orchestrator"), SupportsMCP: true},
 		{Name: "forge-e2e", BinaryPath: filepath.Join(buildBin, "forge-e2e"), SupportsMCP: true},
 	}
 }

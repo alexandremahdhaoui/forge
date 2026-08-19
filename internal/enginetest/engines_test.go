@@ -79,8 +79,8 @@ func TestEnginesList(t *testing.T) {
 	repoRoot := getRepoRoot(t)
 	engines := enginetest.AllEngines(repoRoot)
 
-	if len(engines) != 19 {
-		t.Errorf("Expected 19 engines, got %d", len(engines))
+	if len(engines) != 18 {
+		t.Errorf("Expected 18 engines, got %d", len(engines))
 	}
 
 	expectedEngines := map[string]bool{
@@ -101,7 +101,6 @@ func TestEnginesList(t *testing.T) {
 		"go-lint":              true,
 		"go-gen-mocks":         true,
 		"go-gen-openapi":       true,
-		"ci-orchestrator":      true,
 		"forge-e2e":            true,
 	}
 
@@ -142,7 +141,6 @@ func TestMCPEnginesConfiguration(t *testing.T) {
 		"go-lint":              true,
 		"go-gen-mocks":         true,
 		"go-gen-openapi":       true,
-		"ci-orchestrator":      true,
 		"forge-e2e":            true,
 	}
 

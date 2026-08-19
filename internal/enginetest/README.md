@@ -43,7 +43,6 @@ The package tests all 18 engines:
 | go-lint | ✅ | ✅ |
 | go-gen-mocks | ✅ | ✅ |
 | go-gen-openapi | ✅ | ✅ |
-| ci-orchestrator | ✅ | ✅ |
 | forge-e2e | ✅ | ✅ |
 
 ## Test Functions
