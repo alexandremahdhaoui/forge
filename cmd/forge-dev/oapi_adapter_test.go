@@ -548,9 +548,9 @@ func TestConvertSchemaToTypeDefinition(t *testing.T) {
 			},
 			Discriminator: &openapi3.Discriminator{
 				PropertyName: "kind",
-				Mapping: map[string]string{
-					"a": "#/components/schemas/TypeA",
-					"b": "#/components/schemas/TypeB",
+				Mapping: map[string]openapi3.MappingRef{
+					"a": {Ref: "#/components/schemas/TypeA"},
+					"b": {Ref: "#/components/schemas/TypeB"},
 				},
 			},
 		}

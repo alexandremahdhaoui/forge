@@ -267,7 +267,7 @@ func ConvertSchemaToTypeDefinition(name string, schemaRef *openapi3.SchemaRef) F
 			if len(schema.Discriminator.Mapping) > 0 {
 				td.DiscriminatorMapping = make(map[string]string)
 				for value, ref := range schema.Discriminator.Mapping {
-					td.DiscriminatorMapping[value] = extractSchemaName(ref)
+					td.DiscriminatorMapping[value] = extractSchemaName(ref.Ref)
 				}
 			}
 		}
