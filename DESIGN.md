@@ -94,7 +94,7 @@ The `context` field in `BuildSpec` specifies where source files live. Forge reso
 forge.yaml                           go.work
   |                                    |
   | build[].context                    | use directives
-  | (git URL, path, or empty)         | (./forge, ./forge-workspace, ...)
+  | (git URL, path, or empty)         | (./forge, ./forge-station, ...)
   |                                    |
   v                                    v
 +------------------------------------------------------------------+
@@ -134,7 +134,7 @@ forge.yaml                           go.work
 build:
   - name: forge-ws-controller-image
     src: ./containers/forge-ws-controller/Containerfile
-    context: git@github.com:alexandremahdhaoui/forge-workspace.git
+    context: git@github.com:alexandremahdhaoui/forge-station.git
     engine: go://container-build
 ```
 
@@ -147,7 +147,7 @@ resolveWorkspace():
 
   1. Walk up from CWD looking for go.work
   2. If not found: return (no-op)
-  3. Parse use directives (e.g., ./forge, ./forge-workspace)
+  3. Parse use directives (e.g., ./forge, ./forge-station)
   4. If CWD is inside a use directory:
      - Set FORGE_RUN_LOCAL_ENABLED=true
      - Set FORGE_RUN_LOCAL_BASEDIR to forge repo directory
@@ -607,7 +607,7 @@ build:
   # Cross-repo container build with context
   - name: forge-ws-controller-image
     src: ./containers/forge-ws-controller/Containerfile
-    context: git@github.com:alexandremahdhaoui/forge-workspace.git
+    context: git@github.com:alexandremahdhaoui/forge-station.git
     engine: go://container-build
   # ... 23 more build targets
 ```
