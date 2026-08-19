@@ -318,3 +318,46 @@ func TestGenericEngineDocsUseTheConfiguredBaseURL(t *testing.T) {
 		t.Errorf("list.yaml is missing the url enginedocs reads:\n%s", got)
 	}
 }
+
+func TestGenericEngineWithExternalSpecTypesCompiles(t *testing.T) {
+	root := t.TempDir()
+	createTestGoMod(t, root, "github.com/test/generic")
+
+	engine := writeGenericEngine(t, root)
+
+	external := strings.Replace(genericConfig, `  packageName: main`, `  packageName: main
+  specTypes:
+    enabled: true
+    outputPath: pkg/wire
+    packageName: wire`, 1)
+
+	if err := os.WriteFile(filepath.Join(engine, "forge-dev.yaml"), []byte(external), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// The handlers must use the external package once spec types move there.
+	handlers := strings.ReplaceAll(genericHandlers, "StateGetInput", "wire.StateGetInput")
+	handlers = strings.ReplaceAll(handlers, "StateGetOutput", "wire.StateGetOutput")
+	handlers = strings.ReplaceAll(handlers, "StateListOutput", "wire.StateListOutput")
+	handlers = strings.ReplaceAll(handlers, "*Spec", "*wire.Spec")
+	handlers = strings.Replace(handlers, `import "context"`,
+		"import (\n\t\"context\"\n\n\twire \"github.com/test/generic/pkg/wire\"\n)", 1)
+
+	if err := os.WriteFile(filepath.Join(engine, "handlers.go"), []byte(handlers), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := generate(context.Background(), mcptypes.BuildInput{
+		Name: "ci-state-git", Src: engine, Engine: "go://forge-dev", Force: true,
+	}); err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+
+	build := exec.Command("go", "build", "./...")
+	build.Dir = root
+	build.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod")
+
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("a generic engine with external spec types does not compile: %v\n%s", err, out)
+	}
+}

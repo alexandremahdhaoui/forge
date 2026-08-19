@@ -23,7 +23,7 @@ import (
 {{- if eq .EngineType "dependency-detector"}}
 	"github.com/alexandremahdhaoui/forge/pkg/mcpserver"
 {{- end}}
-{{- if .SpecTypesContext}}
+{{- if and .SpecTypesContext (ne .EngineType "generic")}}
 	{{.SpecTypesContext.PackageName}} "{{.SpecTypesContext.ImportPath}}"
 {{- end}}
 )
