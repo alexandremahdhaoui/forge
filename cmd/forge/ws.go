@@ -82,7 +82,7 @@ func runWS(args []string) error {
 	binary, binaryArgs, err := cmdutil.ResolveToolBinary(
 		userConfig.Tools.WS,
 		"forge-ws",
-		"github.com/alexandremahdhaoui/forge-workspace",
+		"github.com/alexandremahdhaoui/forge-station",
 		getVersion(),
 	)
 	if err != nil {

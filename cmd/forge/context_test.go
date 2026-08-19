@@ -31,8 +31,8 @@ func TestParseGitRepoURL(t *testing.T) {
 	}{
 		{
 			name:  "SSH with .git suffix",
-			input: "git@github.com:alexandremahdhaoui/forge-workspace.git",
-			want:  "github.com/alexandremahdhaoui/forge-workspace",
+			input: "git@github.com:alexandremahdhaoui/forge-station.git",
+			want:  "github.com/alexandremahdhaoui/forge-station",
 		},
 		{
 			name:  "SSH without .git suffix",
