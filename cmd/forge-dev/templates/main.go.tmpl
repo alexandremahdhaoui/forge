@@ -23,7 +23,7 @@ import (
 {{- if eq .EngineType "dependency-detector"}}
 	"github.com/alexandremahdhaoui/forge/pkg/mcpserver"
 {{- end}}
-{{- if .SpecTypesContext}}
+{{- if and .SpecTypesContext (ne .EngineType "generic")}}
 	{{.SpecTypesContext.PackageName}} "{{.SpecTypesContext.ImportPath}}"
 {{- end}}
 )
@@ -63,6 +63,8 @@ func runMCPServer() error {
 	server, err := SetupMCPServer(Name, Version, {{.CreateFunc}}, {{.DeleteFunc}})
 {{- else if eq .EngineType "dependency-detector"}}
 	server, err := SetupMCPServerBase(Name, Version)
+{{- else if eq .EngineType "generic"}}
+	server, err := SetupMCPServer(Name, Version, {{.HandlersFunc}}())
 {{- end}}
 	if err != nil {
 		return fmt.Errorf("setting up MCP server: %w", err)
@@ -132,4 +134,19 @@ var _ = func() DeleteFunc {
 // This function must be implemented by the engine author in a separate file.
 // The implementation should call mcpserver.RegisterTool with the appropriate handler.
 var registerDetectDependenciesTool func(server *mcpserver.Server)
+{{- end}}
+{{- if eq .EngineType "generic"}}
+
+// {{.HandlersFunc}} must be implemented by the engine author in a separate file.
+// It returns one implementation per tool declared in forge-dev.yaml:
+//
+//	func {{.HandlersFunc}}() Handlers {
+//		return Handlers{
+{{- range .Tools}}
+//			{{.GoName}}: func(ctx context.Context, input {{.InputType}}{{if .UseSpec}}, spec *Spec{{end}}) ({{if .OutputType}}*{{.OutputType}}, {{end}}error) {
+//				panic("{{.Name}} is not implemented")
+//			},
+{{- end}}
+//		}
+//	}
 {{- end}}

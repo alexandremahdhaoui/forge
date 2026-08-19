@@ -137,11 +137,21 @@ func validateForgeDevConfig(input mcptypes.ConfigValidateInput) *mcptypes.Config
 			Field:   "spec.openapi.yaml",
 			Message: fmt.Sprintf("failed to generate types from OpenAPI spec: %v", err),
 		})
+
 		return &mcptypes.ConfigValidateOutput{
 			Valid:    false,
 			Errors:   errors,
 			Warnings: warnings,
 		}
+	}
+
+	// A generic engine names its inputs and outputs by schema. Those names can
+	// only be checked once the spec has produced its types.
+	for _, e := range ValidateGenericTools(config, types) {
+		errors = append(errors, mcptypes.ValidationError{
+			Field:   e.Field,
+			Message: e.Message,
+		})
 	}
 
 	// Find the Spec type

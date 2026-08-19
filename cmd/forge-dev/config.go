@@ -40,6 +40,11 @@ const (
 	EngineTypeTestEnvSubengine EngineType = "testenv-subengine"
 	// EngineTypeDependencyDetector is for dependency detector engines.
 	EngineTypeDependencyDetector EngineType = "dependency-detector"
+	// EngineTypeGeneric is for engines whose tools are declared in
+	// forge-dev.yaml rather than fixed by the engine family. Their inputs and
+	// outputs are schemas from components.schemas, so a sibling repository can
+	// generate an engine forge has never heard of.
+	EngineTypeGeneric EngineType = "generic"
 )
 
 // ValidEngineTypes contains all valid engine types.
@@ -48,6 +53,7 @@ var ValidEngineTypes = []EngineType{
 	EngineTypeTestRunner,
 	EngineTypeTestEnvSubengine,
 	EngineTypeDependencyDetector,
+	EngineTypeGeneric,
 }
 
 // Config represents the forge-dev.yaml configuration file.
@@ -93,10 +99,33 @@ type GenerateConfig struct {
 	DeleteFunc string `yaml:"deleteFunc,omitempty"`
 	// SpecTypes configures external spec types generation (optional).
 	SpecTypes *SpecTypesConfig `yaml:"specTypes,omitempty"`
+	// Tools declares the MCP tools of a generic engine. Required when type is
+	// generic, and rejected otherwise.
+	Tools []ToolConfig `yaml:"tools,omitempty"`
+	// HandlersFunc names the constructor the engine author writes to return
+	// Handlers. Defaults to NewHandlers.
+	HandlersFunc string `yaml:"handlersFunc,omitempty"`
 	// DocsBaseURL is the raw content base URL used for remote documentation
 	// fetching. Defaults to DefaultDocsBaseURL, which points at the forge
 	// repository. A sibling repository must set its own.
 	DocsBaseURL string `yaml:"docsBaseURL,omitempty"`
+}
+
+// ToolConfig declares one MCP tool of a generic engine. Input and Output name
+// schemas that must exist in components.schemas of the OpenAPI spec.
+type ToolConfig struct {
+	// Name is the MCP tool name as callers see it.
+	Name string `yaml:"name"`
+	// Description is what the tool does. Shown to callers.
+	Description string `yaml:"description"`
+	// Input names a schema in components.schemas.
+	Input string `yaml:"input"`
+	// Output names a schema in components.schemas. Empty means the handler
+	// returns only an error.
+	Output string `yaml:"output,omitempty"`
+	// UseSpec parses and validates Spec from the input's spec property and
+	// hands the handler a typed value.
+	UseSpec bool `yaml:"useSpec,omitempty"`
 }
 
 // SpecTypesConfig contains configuration for external spec types generation.
@@ -113,6 +142,16 @@ type SpecTypesConfig struct {
 }
 
 // GetBuildFunc returns the BuildFunc from config, or "Build" if not set.
+// GetHandlersFunc returns the configured Handlers constructor name, or the
+// default.
+func (c *Config) GetHandlersFunc() string {
+	if c.Generate.HandlersFunc == "" {
+		return "NewHandlers"
+	}
+
+	return c.Generate.HandlersFunc
+}
+
 // GetDocsBaseURL returns the configured documentation base URL, or the forge
 // repository default when unset.
 func (c *Config) GetDocsBaseURL() string {
@@ -187,6 +226,18 @@ func ReadConfig(dir string) (*Config, error) {
 // nameRegexp validates that name is lowercase alphanumeric with hyphens, starting with a letter.
 var nameRegexp = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 
+var (
+	toolNameRegexp      = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+	schemaNameRegexp    = regexp.MustCompile(`^[A-Z][A-Za-z0-9]*$`)
+	exportedIdentRegexp = regexp.MustCompile(`^[A-Z][A-Za-z0-9_]*$`)
+)
+
+var reservedToolNames = map[string]bool{
+	"config-validate": true,
+	"docs-list":       true,
+	"docs-get":        true,
+}
+
 // semverRegexp validates semantic versioning format (x.y.z).
 var semverRegexp = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 
@@ -223,10 +274,107 @@ func validateDocsBaseURL(raw string) []ValidationError {
 	return errors
 }
 
+// validateTools checks the tools block. Cross referencing an input or output
+// against components.schemas needs the parsed spec and happens in
+// ValidateGenericTools instead.
+func validateTools(c *Config) []ValidationError {
+	var errors []ValidationError
+
+	if c.Type != EngineTypeGeneric {
+		if len(c.Generate.Tools) > 0 {
+			errors = append(errors, ValidationError{
+				Field:   "generate.tools",
+				Message: `only valid when type is "generic"`,
+			})
+		}
+
+		return errors
+	}
+
+	if len(c.Generate.Tools) == 0 {
+		errors = append(errors, ValidationError{
+			Field:   "generate.tools",
+			Message: `at least one tool is required when type is "generic"`,
+		})
+
+		return errors
+	}
+
+	if c.Generate.HandlersFunc != "" && !exportedIdentRegexp.MatchString(c.Generate.HandlersFunc) {
+		errors = append(errors, ValidationError{
+			Field:   "generate.handlersFunc",
+			Message: "must be an exported Go identifier",
+		})
+	}
+
+	seen := map[string]bool{}
+
+	for i, t := range c.Generate.Tools {
+		field := fmt.Sprintf("generate.tools[%d]", i)
+		errors = append(errors, validateTool(field, t, seen)...)
+	}
+
+	return errors
+}
+
+func validateTool(field string, t ToolConfig, seen map[string]bool) []ValidationError {
+	var errors []ValidationError
+
+	switch {
+	case t.Name == "":
+		errors = append(errors, ValidationError{
+			Field: field + ".name", Message: "required field is missing",
+		})
+	case !toolNameRegexp.MatchString(t.Name):
+		errors = append(errors, ValidationError{
+			Field:   field + ".name",
+			Message: "must be alphanumeric with hyphens or underscores, starting with a letter",
+		})
+	case reservedToolNames[t.Name]:
+		errors = append(errors, ValidationError{
+			Field:   field + ".name",
+			Message: fmt.Sprintf("%q is reserved and registered automatically", t.Name),
+		})
+	case seen[t.Name]:
+		errors = append(errors, ValidationError{
+			Field: field + ".name", Message: fmt.Sprintf("duplicate tool name %q", t.Name),
+		})
+	}
+
+	seen[t.Name] = true
+
+	if t.Description == "" {
+		errors = append(errors, ValidationError{
+			Field: field + ".description", Message: "required field is missing",
+		})
+	}
+
+	if t.Input == "" {
+		errors = append(errors, ValidationError{
+			Field: field + ".input", Message: "required field is missing",
+		})
+	} else if !schemaNameRegexp.MatchString(t.Input) {
+		errors = append(errors, ValidationError{
+			Field:   field + ".input",
+			Message: "must be a schema name from components.schemas, CamelCase starting with an uppercase letter",
+		})
+	}
+
+	if t.Output != "" && !schemaNameRegexp.MatchString(t.Output) {
+		errors = append(errors, ValidationError{
+			Field:   field + ".output",
+			Message: "must be a schema name from components.schemas, CamelCase starting with an uppercase letter",
+		})
+	}
+
+	return errors
+}
+
 func ValidateConfig(c *Config) []ValidationError {
 	var errors []ValidationError
 
 	errors = append(errors, validateDocsBaseURL(c.Generate.DocsBaseURL)...)
+	errors = append(errors, validateTools(c)...)
 
 	// Validate name (required)
 	if c.Name == "" {
