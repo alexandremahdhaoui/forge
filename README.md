@@ -152,7 +152,7 @@ Forge ships 28 CLI tools, all implemented as MCP servers.
 
 | Category | Count | Tools | Description |
 |---|---|---|---|
-| Orchestration | 4 | forge, forge-dev, forge-e2e, ci-orchestrator | CLI orchestrator, engine scaffolding, e2e testing, CI (planned) |
+| Orchestration | 3 | forge, forge-dev, forge-e2e | CLI orchestrator, engine scaffolding, e2e testing |
 | Build Engines | 4 | go-build, container-build, generic-builder, parallel-builder | Go binaries, container images, arbitrary commands, parallel builds |
 | Dependency Detection | 3 | go-dependency-detector, go-gen-mocks-dep-detector, go-gen-openapi-dep-detector | Track file and package dependencies for lazy rebuild |
 | Test Environment | 5 | testenv, testenv-kind, testenv-lcr, testenv-helm-install, testenv-stub | Orchestrate Kind clusters, TLS registries, Helm charts, stubs |

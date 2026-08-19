@@ -1,8 +1,6 @@
 version: "1.0"
 baseURL: "https://raw.githubusercontent.com/alexandremahdhaoui/forge/refs/heads/main"
 engines:
-  - name: ci-orchestrator
-    path: cmd/ci-orchestrator
   - name: container-build
     path: cmd/container-build
   - name: forge-e2e
