@@ -392,7 +392,7 @@ All 12 MCP tool inputs accept an optional `cwd` field (JSON tag `"cwd"`) that ov
 | forge | `cmd/forge` | Orchestration | `build`, `test-all`, `test-create`, `test-run`, `test-get`, `test-list`, `test-delete`, `config-validate` |
 | forge-dev | `cmd/forge-dev` | Orchestration | `build` |
 | forge-e2e | `cmd/forge-e2e` | Orchestration | `run` |
-| ci-orchestrator | `cmd/ci-orchestrator` | Orchestration | (planned) |
+| ci-orchestrator | `cmd/ci-orchestrator` | Orchestration | (retired, see forge-ci) |
 | go-build | `cmd/go-build` | Build Engine | `build` |
 | container-build | `cmd/container-build` | Build Engine | `build` |
 | generic-builder | `cmd/generic-builder` | Build Engine | `build` |
@@ -485,7 +485,7 @@ All 12 MCP tool inputs accept an optional `cwd` field (JSON tag `"cwd"`) that ov
 |------|-----------|
 | MCP protocol immaturity | Keep JSON-RPC 2.0 core simple; avoid protocol extensions |
 | Go-only ecosystem perception | generic-builder and generic-test-runner wrap any CLI command |
-| Local-only execution | Acceptable for current scope; ci-orchestrator planned for remote execution |
+| Local-only execution | Acceptable for current scope; forge-ci handles multi-repo and remote execution |
 
 ## Testing Strategy
 

@@ -61,16 +61,17 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Print(`ci-orchestrator - Orchestrate CI pipelines (not yet implemented)
+	fmt.Print(`ci-orchestrator - retired, superseded by forge-ci
 
 Usage:
-  ci-orchestrator --mcp           Run as MCP server (not yet implemented)
   ci-orchestrator version         Show version information
   ci-orchestrator help            Show this help message
 
 Description:
-  ci-orchestrator is a placeholder for future CI pipeline orchestration
-  functionality. Currently not implemented.
+  This command was never implemented. Orchestration now lives in forge-ci,
+  which keeps forge focused on one repo on one machine.
+
+  https://github.com/alexandremahdhaoui/forge-ci
 `)
 }
 
@@ -85,7 +86,7 @@ func runMCPServer() error {
 	// Register run tool (not yet implemented)
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "run",
-		Description: "Run CI pipeline (not yet implemented)",
+		Description: "Retired. Use forge-ci instead.",
 	}, handleRunTool)
 
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
@@ -101,5 +102,6 @@ func handleRunTool(
 	input RunInput,
 ) (*mcp.CallToolResult, any, error) {
 	log.Printf("Run called (not yet implemented): pipeline=%s", input.Pipeline)
-	return mcputil.ErrorResult("ci-orchestrator: not yet implemented"), nil, nil
+	return mcputil.ErrorResult("ci-orchestrator is retired. Use forge-ci instead: " +
+		"https://github.com/alexandremahdhaoui/forge-ci"), nil, nil
 }

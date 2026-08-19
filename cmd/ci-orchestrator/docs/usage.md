@@ -8,7 +8,7 @@
 
 CI/CD pipelines often require complex orchestration across multiple stages with proper artifact tracking and failure handling. ci-orchestrator provides a unified interface for pipeline execution that integrates with forge's build system.
 
-**Status: PLANNED - NOT YET IMPLEMENTED**
+**Status: RETIRED. Superseded by [forge-ci](https://github.com/alexandremahdhaoui/forge-ci).**
 
 ## How do I use ci-orchestrator?
 

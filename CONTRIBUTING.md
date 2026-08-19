@@ -94,7 +94,7 @@ forge/
 │   ├── forge/            # Main orchestrator
 │   ├── forge-dev/        # Engine scaffolding generator
 │   ├── forge-e2e/        # End-to-end test runner
-│   ├── ci-orchestrator/  # CI orchestration (planned)
+│   ├── ci-orchestrator/  # CI orchestration (retired, see forge-ci)
 │   ├── go-build/         # Go binary builder
 │   ├── container-build/  # Container image builder (Kaniko)
 │   ├── ...               # See tool catalog below
@@ -117,7 +117,7 @@ All 28 tools are MCP servers speaking JSON-RPC 2.0 over stdio.
 | `forge` | Main CLI orchestrator. Reads `forge.yaml`, resolves engines, runs builds and tests. |
 | `forge-dev` | Engine scaffolding code generator. Creates new engines from OpenAPI specs. |
 | `forge-e2e` | End-to-end test runner for Forge itself. |
-| `ci-orchestrator` | CI pipeline orchestration (planned). |
+| `ci-orchestrator` | Retired. Superseded by forge-ci. |
 
 **Build Engines (4):**
 
