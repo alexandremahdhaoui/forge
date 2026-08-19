@@ -19,6 +19,7 @@ package mcpcaller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -26,6 +27,33 @@ import (
 	"github.com/alexandremahdhaoui/forge/internal/engineresolver"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// toArguments turns whatever a caller passed into the map CallTool wants.
+//
+// This used to be a type switch whose default asserted params.(map[string]any).
+// That branch is only reachable when params is not a map, so it panicked every
+// time it ran. A struct is the normal thing to pass, so it goes through JSON.
+func toArguments(params interface{}) (map[string]any, error) {
+	switch p := params.(type) {
+	case nil:
+		return map[string]any{}, nil
+	case map[string]any:
+		return p, nil
+	}
+
+	raw, err := json.Marshal(params)
+	if err != nil {
+		return nil, err
+	}
+
+	out := map[string]any{}
+
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
 
 // MCPCaller is a function type for calling MCP engines.
 // Matches signature from internal/orchestrate/orchestrate.go:24

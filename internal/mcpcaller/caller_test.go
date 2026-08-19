@@ -143,3 +143,52 @@ func TestMockEngineResolver(t *testing.T) {
 	assert.Equal(t, "go", command)
 	assert.Equal(t, []string{"run", "pkg@v1.0.0"}, args)
 }
+
+// toArguments used to be a type switch whose default asserted
+// params.(map[string]any). That branch is only reachable when params is not a
+// map, so it panicked every time it ran.
+func TestAStructBecomesArgumentsRatherThanAPanic(t *testing.T) {
+	type input struct {
+		Kind string `json:"kind"`
+		Key  string `json:"key,omitempty"`
+	}
+
+	got, err := toArguments(input{Kind: "revision", Key: "abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got["kind"] != "revision" || got["key"] != "abc" {
+		t.Errorf("toArguments = %v, want the struct's json fields", got)
+	}
+}
+
+func TestAMapIsPassedThrough(t *testing.T) {
+	in := map[string]any{"kind": "run"}
+
+	got, err := toArguments(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got["kind"] != "run" {
+		t.Errorf("toArguments = %v", got)
+	}
+}
+
+func TestNilBecomesAnEmptyObject(t *testing.T) {
+	got, err := toArguments(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got == nil || len(got) != 0 {
+		t.Errorf("toArguments(nil) = %v, want an empty object", got)
+	}
+}
+
+func TestSomethingThatIsNotAnObjectIsAnError(t *testing.T) {
+	if _, err := toArguments(42); err == nil {
+		t.Error("a number is not a set of arguments, want an error not a panic")
+	}
+}
