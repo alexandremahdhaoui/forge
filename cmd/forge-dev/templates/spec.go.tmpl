@@ -70,7 +70,13 @@ func {{.Name}}FromMap(m map[string]interface{}) (*{{.Name}}, error) {
 {{- range .Properties}}
 	// Parse {{.JsonName}}
 	if v, ok := m["{{.JsonName}}"]; ok && v != nil {
-{{- if forgeIsRef .}}
+{{- if forgeIsEnumRef .}}
+		if str, ok := v.(string); ok {
+			s.{{.Name}} = {{forgeRefType .}}(str)
+		} else {
+			return nil, fmt.Errorf("field {{.JsonName}}: expected string, got %T", v)
+		}
+{{- else if forgeIsRef .}}
 		if obj, ok := v.(map[string]interface{}); ok {
 			ref, err := {{forgeRefType .}}FromMap(obj)
 			if err != nil {

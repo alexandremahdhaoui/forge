@@ -60,6 +60,7 @@ var templateFuncs = template.FuncMap{
 	"discMapping":    discMapping,
 	"isTypeEnum":     isTypeEnum,
 	"isTypeMap":      isTypeMap,
+	"forgeIsEnumRef": forgeIsEnumRef,
 	"typeMapValue":   typeMapValue,
 	"unionVariants":  unionVariants,
 	"typeEnumValues": typeEnumValues,
@@ -280,6 +281,12 @@ func discField(t ForgeTypeDefinition) string {
 // discMapping returns the discriminator value to type mapping.
 func discMapping(t ForgeTypeDefinition) map[string]string {
 	return t.DiscriminatorMapping
+}
+
+// forgeIsEnumRef reports a property that references a named enum. An enum is a
+// string, so it is parsed as one and there is no FromMap to call for it.
+func forgeIsEnumRef(p ForgeProperty) bool {
+	return p.IsEnumRef
 }
 
 // isTypeMap reports a named schema that is a free form object. It becomes a

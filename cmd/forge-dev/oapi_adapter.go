@@ -54,6 +54,7 @@ type ForgeProperty struct {
 	IsMap         bool     // Is map[string]T
 	MapValueType  string   // Map value type
 	IsEnum        bool     // Has enum values
+	IsEnumRef     bool     // References a named enum, which is a string not an object
 	EnumValues    []string // Valid enum values
 	IsPointer     bool     // Type is pointer
 }
@@ -382,6 +383,15 @@ func GenerateForgeTypes(spec *openapi3.T, pkgName string) ([]ForgeTypeDefinition
 
 	// Build result in topological order
 	order := registry.GetGenerationOrder()
+	// A named enum is a string, not an object. A property that references one
+	// must be parsed as a string, and the enum itself has no FromMap to call.
+	enums := map[string]bool{}
+	for name, td := range typeMap {
+		if td.IsEnum {
+			enums[name] = true
+		}
+	}
+
 	types := make([]ForgeTypeDefinition, 0, len(order))
 	for _, name := range order {
 		if td, ok := typeMap[name]; ok {
@@ -389,6 +399,13 @@ func GenerateForgeTypes(spec *openapi3.T, pkgName string) ([]ForgeTypeDefinition
 			if namedSchema := registry.Get(name); namedSchema != nil {
 				updatePointerFlags(&td, namedSchema)
 			}
+
+			for i := range td.Properties {
+				if td.Properties[i].IsRef && enums[td.Properties[i].RefType] {
+					td.Properties[i].IsEnumRef = true
+				}
+			}
+
 			types = append(types, td)
 		}
 	}

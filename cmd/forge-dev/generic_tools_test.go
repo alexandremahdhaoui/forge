@@ -350,3 +350,62 @@ components:
 		t.Error("an object with properties is a struct")
 	}
 }
+
+func TestAPropertyReferencingAnEnumParsesAsAString(t *testing.T) {
+	dir := t.TempDir()
+	specPath := filepath.Join(dir, "spec.openapi.yaml")
+
+	if err := os.WriteFile(specPath, []byte(`openapi: 3.0.3
+info:
+  title: t
+  version: "1"
+paths: {}
+components:
+  schemas:
+    Spec:
+      type: object
+      additionalProperties: true
+    Status:
+      type: string
+      enum: [passed, failed]
+    Run:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/Status'
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	spec, err := LoadOpenAPISpec(specPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	types, err := GenerateForgeTypes(spec, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, td := range types {
+		if td.Name != "Run" {
+			continue
+		}
+
+		for _, p := range td.Properties {
+			if p.JsonName != "status" {
+				continue
+			}
+
+			if !p.IsEnumRef {
+				t.Fatal("a property referencing an enum must parse as a string, " +
+					"because an enum has no FromMap to call")
+			}
+
+			return
+		}
+	}
+
+	t.Fatal("Run.status not found")
+}
