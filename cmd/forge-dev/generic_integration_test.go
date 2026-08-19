@@ -56,6 +56,10 @@ components:
           type: object
           additionalProperties: true
           description: Engine specific configuration.
+    Status:
+      type: string
+      enum: [pending, passed, failed]
+      description: What a read came to.
     StateGetOutput:
       type: object
       required: [found]
@@ -66,6 +70,8 @@ components:
         payload:
           type: string
           description: The record body.
+        status:
+          $ref: '#/components/schemas/Status'
     StateListOutput:
       type: object
       required: [keys]

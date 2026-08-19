@@ -65,6 +65,14 @@ func Validate{{.Name}}(s *{{if $.SpecTypesContext}}{{$.SpecTypesContext.Prefix}}
 			Message: "required field is missing or empty",
 		})
 	}
+{{- else if forgeIsEnumRef .}}
+	// Validate required enum field: {{.JsonName}}. An enum is a string.
+	if s.{{.Name}} == "" {
+		errors = append(errors, mcptypes.ValidationError{
+			Field:   "spec.{{.JsonName}}",
+			Message: "required field is missing or empty",
+		})
+	}
 {{- else if forgeIsRef .}}
 	// Validate required reference field: {{.JsonName}}
 {{- if forgeUsePointer .}}
@@ -120,7 +128,10 @@ func Validate{{.Name}}(s *{{if $.SpecTypesContext}}{{$.SpecTypesContext.Prefix}}
 		}
 	}
 {{- end}}
-{{- if forgeIsRef .}}
+{{- if forgeIsEnumRef .}}
+	// {{forgeRefType .}} is an enum. Its allowed values are checked where it is
+	// declared, and there is no Validate function generated for a string type.
+{{- else if forgeIsRef .}}
 	// Validate nested reference: {{.JsonName}}
 {{- if forgeUsePointer .}}
 	if s.{{.Name}} != nil {

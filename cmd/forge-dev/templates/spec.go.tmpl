@@ -235,7 +235,12 @@ func (s *{{.Name}}) ToMap() map[string]interface{} {
 
 	m := make(map[string]interface{})
 {{- range .Properties}}
-{{- if forgeIsRef .}}
+{{- if forgeIsEnumRef .}}
+	// {{forgeRefType .}} is an enum, which is a string and has no ToMap.
+	if s.{{.Name}} != "" {
+		m["{{.JsonName}}"] = string(s.{{.Name}})
+	}
+{{- else if forgeIsRef .}}
 {{- if forgeUsePointer .}}
 	if s.{{.Name}} != nil {
 		m["{{.JsonName}}"] = s.{{.Name}}.ToMap()
