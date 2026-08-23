@@ -14,7 +14,7 @@ generic-test-runner --mcp
 
 Forge invokes this via:
 ```yaml
-runner: go://generic-test-runner
+runner: forge://generic-test-runner
 ```
 
 ## Available Tools
@@ -96,13 +96,13 @@ In `forge.yaml`:
 test:
   - name: lint
     stage: lint
-    runner: go://generic-test-runner
+    runner: forge://generic-test-runner
     command: golangci-lint
     args: ["run", "./..."]
 
   - name: security
     stage: security
-    runner: go://generic-test-runner
+    runner: forge://generic-test-runner
     command: gosec
     args: ["-fmt=json", "./..."]
 ```

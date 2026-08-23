@@ -84,7 +84,7 @@ type EngineSpec struct {
 
 // BuilderEngineSpec defines specification for builder-type engines
 type BuilderEngineSpec struct {
-	// Engine is the builder engine URI (e.g., "go://generic-builder")
+	// Engine is the builder engine URI (e.g., "forge://generic-builder")
 	Engine string `json:"engine"`
 
 	// Spec contains the engine-specific configuration
@@ -93,7 +93,7 @@ type BuilderEngineSpec struct {
 
 // TestRunnerSpec defines specification for test-runner-type engines
 type TestRunnerSpec struct {
-	// Engine is the test runner engine URI (e.g., "go://generic-test-runner")
+	// Engine is the test runner engine URI (e.g., "forge://generic-test-runner")
 	Engine string `json:"engine"`
 
 	// Spec contains the engine-specific configuration
@@ -103,7 +103,7 @@ type TestRunnerSpec struct {
 // TestenvEngineSpec defines specification for a testenv-subengine component
 // Note: "testenv-subengine" is an interface/role, not a formal type
 type TestenvEngineSpec struct {
-	// Engine is the testenv-subengine URI (e.g., "go://testenv-kind")
+	// Engine is the testenv-subengine URI (e.g., "forge://testenv-kind")
 	Engine string `json:"engine"`
 
 	// Spec contains engine-specific configuration (free-form)
@@ -117,7 +117,7 @@ type TestenvEngineSpec struct {
 
 // DependencyDetectorEngineSpec defines specification for dependency-detector-type engines
 type DependencyDetectorEngineSpec struct {
-	// Engine is the dependency detector engine URI (e.g., "go://go-dependency-detector")
+	// Engine is the dependency detector engine URI (e.g., "forge://go-dependency-detector")
 	Engine string `json:"engine"`
 
 	// Spec contains engine-specific configuration (free-form)

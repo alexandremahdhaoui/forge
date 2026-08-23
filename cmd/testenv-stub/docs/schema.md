@@ -11,7 +11,7 @@ engines:
   - alias: stub-testenv
     type: testenv
     testenv:
-      - engine: go://testenv-stub
+      - engine: forge://testenv-stub
 ```
 
 ## Configuration Options
@@ -20,7 +20,7 @@ engines:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `engine` | string | Must be `go://testenv-stub`. |
+| `engine` | string | Must be `forge://testenv-stub`. |
 | `spec` | object | Engine-specific configuration (currently unused). |
 
 **Note:** testenv-stub does not require any spec configuration. It operates as a pure no-op subengine.
@@ -34,7 +34,7 @@ engines:
   - alias: stub-env
     type: testenv
     testenv:
-      - engine: go://testenv-stub
+      - engine: forge://testenv-stub
 ```
 
 ### For E2E Testing
@@ -44,13 +44,13 @@ engines:
   - alias: e2e-stub-env
     type: testenv
     testenv:
-      - engine: go://testenv-stub
+      - engine: forge://testenv-stub
 
 test:
   - name: e2e
     stage: e2e
     testenv: e2e-stub-env
-    runner: go://go-test
+    runner: forge://go-test
 ```
 
 ### Fast Unit Test Environment
@@ -60,13 +60,13 @@ engines:
   - alias: fast-unit-env
     type: testenv
     testenv:
-      - engine: go://testenv-stub
+      - engine: forge://testenv-stub
 
 test:
   - name: unit
     stage: unit
     testenv: fast-unit-env
-    runner: go://go-test
+    runner: forge://go-test
 ```
 
 ## Output Artifacts

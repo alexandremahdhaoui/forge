@@ -31,7 +31,7 @@ engines:
   - alias: my-formatter
     type: builder
     builder:
-      - engine: go://generic-builder
+      - engine: forge://generic-builder
         spec:
           command: "gofmt"
           args: ["-w", "."]
@@ -44,7 +44,7 @@ engines:
   - alias: my-linter
     type: test-runner
     testRunner:
-      - engine: go://generic-test-runner
+      - engine: forge://generic-test-runner
         spec:
           command: "golangci-lint"
           args: ["run", "./..."]
@@ -52,8 +52,8 @@ engines:
   - alias: my-testenv
     type: testenv
     testenv:
-      - engine: go://testenv-kind
-      - engine: go://testenv-lcr
+      - engine: forge://testenv-kind
+      - engine: forge://testenv-lcr
         spec:
           enabled: true
 `
@@ -80,8 +80,8 @@ engines:
 	if len(formatter.Builder) != 1 {
 		t.Fatalf("Expected 1 builder, got %d", len(formatter.Builder))
 	}
-	if formatter.Builder[0].Engine != "go://generic-builder" {
-		t.Errorf("Expected engine 'go://generic-builder', got '%s'", formatter.Builder[0].Engine)
+	if formatter.Builder[0].Engine != "forge://generic-builder" {
+		t.Errorf("Expected engine 'forge://generic-builder', got '%s'", formatter.Builder[0].Engine)
 	}
 	if formatter.Builder[0].Spec.Command != "gofmt" {
 		t.Errorf("Expected command 'gofmt', got '%s'", formatter.Builder[0].Spec.Command)
@@ -122,8 +122,8 @@ engines:
 	if len(linter.TestRunner) != 1 {
 		t.Fatalf("Expected 1 test runner, got %d", len(linter.TestRunner))
 	}
-	if linter.TestRunner[0].Engine != "go://generic-test-runner" {
-		t.Errorf("Expected engine 'go://generic-test-runner', got '%s'", linter.TestRunner[0].Engine)
+	if linter.TestRunner[0].Engine != "forge://generic-test-runner" {
+		t.Errorf("Expected engine 'forge://generic-test-runner', got '%s'", linter.TestRunner[0].Engine)
 	}
 	if linter.TestRunner[0].Spec.Command != "golangci-lint" {
 		t.Errorf("Expected command 'golangci-lint', got '%s'", linter.TestRunner[0].Spec.Command)
@@ -149,11 +149,11 @@ engines:
 	if len(testenv.Testenv) != 2 {
 		t.Fatalf("Expected 2 testenv engines, got %d", len(testenv.Testenv))
 	}
-	if testenv.Testenv[0].Engine != "go://testenv-kind" {
-		t.Errorf("Expected engine 'go://testenv-kind', got '%s'", testenv.Testenv[0].Engine)
+	if testenv.Testenv[0].Engine != "forge://testenv-kind" {
+		t.Errorf("Expected engine 'forge://testenv-kind', got '%s'", testenv.Testenv[0].Engine)
 	}
-	if testenv.Testenv[1].Engine != "go://testenv-lcr" {
-		t.Errorf("Expected engine 'go://testenv-lcr', got '%s'", testenv.Testenv[1].Engine)
+	if testenv.Testenv[1].Engine != "forge://testenv-lcr" {
+		t.Errorf("Expected engine 'forge://testenv-lcr', got '%s'", testenv.Testenv[1].Engine)
 	}
 }
 
@@ -172,7 +172,7 @@ engines:
   - alias: minimal
     type: builder
     builder:
-      - engine: go://generic-builder
+      - engine: forge://generic-builder
 `,
 			validate: func(t *testing.T, spec Spec) {
 				if len(spec.Engines) != 1 {
@@ -188,8 +188,8 @@ engines:
 				if len(eng.Builder) != 1 {
 					t.Fatalf("Expected 1 builder, got %d", len(eng.Builder))
 				}
-				if eng.Builder[0].Engine != "go://generic-builder" {
-					t.Errorf("Expected engine 'go://generic-builder', got '%s'", eng.Builder[0].Engine)
+				if eng.Builder[0].Engine != "forge://generic-builder" {
+					t.Errorf("Expected engine 'forge://generic-builder', got '%s'", eng.Builder[0].Engine)
 				}
 				// Verify spec is empty/default
 				if eng.Builder[0].Spec.Command != "" {
@@ -215,7 +215,7 @@ engines:
   - alias: full
     type: builder
     builder:
-      - engine: go://generic-builder
+      - engine: forge://generic-builder
         spec:
           command: "test-cmd"
           args: ["arg1", "arg2", "arg3"]
@@ -310,7 +310,7 @@ engines:
   - alias: my-dep-detector
     type: dependency-detector
     dependencyDetector:
-      - engine: go://go-dependency-detector
+      - engine: forge://go-dependency-detector
         spec:
           someConfig: value
 `,
@@ -332,8 +332,8 @@ engines:
 				if len(eng.DependencyDetector) != 1 {
 					t.Fatalf("Expected 1 dependency detector, got %d", len(eng.DependencyDetector))
 				}
-				if eng.DependencyDetector[0].Engine != "go://go-dependency-detector" {
-					t.Errorf("Expected engine 'go://go-dependency-detector', got '%s'", eng.DependencyDetector[0].Engine)
+				if eng.DependencyDetector[0].Engine != "forge://go-dependency-detector" {
+					t.Errorf("Expected engine 'forge://go-dependency-detector', got '%s'", eng.DependencyDetector[0].Engine)
 				}
 			},
 		},
@@ -369,9 +369,9 @@ engines:
   - alias: my-dep-detector
     type: dependency-detector
     dependencyDetector:
-      - engine: go://go-dependency-detector
+      - engine: forge://go-dependency-detector
     builder:
-      - engine: go://generic-builder
+      - engine: forge://generic-builder
 `,
 			shouldError: true,
 			validate: func(t *testing.T, spec Spec, err error) {
@@ -394,9 +394,9 @@ engines:
   - alias: my-dep-detector
     type: dependency-detector
     dependencyDetector:
-      - engine: go://go-dependency-detector
+      - engine: forge://go-dependency-detector
     testRunner:
-      - engine: go://generic-test-runner
+      - engine: forge://generic-test-runner
 `,
 			shouldError: true,
 			validate: func(t *testing.T, spec Spec, err error) {
@@ -419,9 +419,9 @@ engines:
   - alias: my-dep-detector
     type: dependency-detector
     dependencyDetector:
-      - engine: go://go-dependency-detector
+      - engine: forge://go-dependency-detector
     testenv:
-      - engine: go://testenv-kind
+      - engine: forge://testenv-kind
 `,
 			shouldError: true,
 			validate: func(t *testing.T, spec Spec, err error) {
@@ -490,7 +490,7 @@ engines:
   - alias: my-testenv
     type: testenv
     testenv:
-      - engine: go://testenv-kind
+      - engine: forge://testenv-kind
 `,
 			validate: func(t *testing.T, spec Spec) {
 				if len(spec.Engines) != 1 {
@@ -513,7 +513,7 @@ engines:
   - alias: my-testenv
     type: testenv
     testenv:
-      - engine: go://testenv-helm
+      - engine: forge://testenv-helm
         deferTemplates: true
         spec:
           chart: "my-chart"
@@ -549,7 +549,7 @@ engines:
   - alias: my-testenv
     type: testenv
     testenv:
-      - engine: go://testenv-kind
+      - engine: forge://testenv-kind
         deferTemplates: false
 `,
 			validate: func(t *testing.T, spec Spec) {
@@ -573,9 +573,9 @@ engines:
   - alias: my-testenv
     type: testenv
     testenv:
-      - engine: go://testenv-kind
+      - engine: forge://testenv-kind
         deferTemplates: false
-      - engine: go://testenv-helm
+      - engine: forge://testenv-helm
         deferTemplates: true
         spec:
           values:

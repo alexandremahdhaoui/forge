@@ -17,8 +17,8 @@ engines:
   - alias: with-charts
     type: testenv
     testenv:
-      - engine: go://testenv-kind
-      - engine: go://testenv-helm-install
+      - engine: forge://testenv-kind
+      - engine: forge://testenv-helm-install
         spec:
           charts:
             - name: cert-manager
@@ -73,10 +73,10 @@ charts:
 Reference testenv-lcr's registry via template expansion:
 
 ```yaml
-- engine: go://testenv-lcr
+- engine: forge://testenv-lcr
   spec:
     enabled: true
-- engine: go://testenv-helm-install
+- engine: forge://testenv-helm-install
   spec:
     charts:
       - name: my-app

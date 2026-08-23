@@ -14,7 +14,7 @@ generic-builder --mcp
 
 Forge invokes this via:
 ```yaml
-builder: go://generic-builder
+builder: forge://generic-builder
 ```
 
 ## Available Tools
@@ -104,13 +104,13 @@ build:
       command: gofumpt
       args: ["-w", "./..."]
       context: .
-      builder: go://generic-builder
+      builder: forge://generic-builder
 
     - name: generate-mocks
       command: mockery
       args: ["--all", "--output", "{{ .Dest }}"]
       dest: ./mocks
-      builder: go://generic-builder
+      builder: forge://generic-builder
 ```
 
 ## Use Cases

@@ -213,7 +213,7 @@ func buildAll(artifactName string, forceRebuild bool) (*BuildAllResult, error) {
 				}
 			}
 		} else {
-			// Direct go:// URI - single engine
+			// Direct forge:// URI - single engine
 			command, args, err := resolveEngine(engineURI, &config)
 			if err != nil {
 				result.BuildErrors = append(result.BuildErrors, fmt.Sprintf("failed to resolve engine %s: %v", engineURI, err))
@@ -252,7 +252,7 @@ func buildAll(artifactName string, forceRebuild bool) (*BuildAllResult, error) {
 // Returns the normalized URI and whether a deprecated URI was used.
 func normalizeEngineURI(uri string) (string, bool) {
 	deprecated := map[string]string{
-		"go://build-container": "go://container-build",
+		"forge://build-container": "forge://container-build",
 	}
 
 	if newURI, ok := deprecated[uri]; ok {
@@ -358,7 +358,7 @@ func shouldRebuild(artifactName string, store forge.ArtifactStore, forceRebuild 
 	return false, "", nil
 }
 
-// buildWithSingleEngine handles building with a single engine (either direct go:// URI or single-engine alias).
+// buildWithSingleEngine handles building with a single engine (either direct forge:// URI or single-engine alias).
 func buildWithSingleEngine(
 	command string,
 	args []string,

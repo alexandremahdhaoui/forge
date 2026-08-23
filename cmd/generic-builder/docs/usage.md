@@ -17,7 +17,7 @@ build:
   - name: format-code
     command: gofumpt
     args: ["-w", "./..."]
-    engine: go://generic-builder
+    engine: forge://generic-builder
 ```
 
 Run the build:
@@ -61,7 +61,7 @@ build:
       - "{{ .Src }}/api.proto"
     src: ./proto
     dest: ./pkg/api
-    engine: go://generic-builder
+    engine: forge://generic-builder
 ```
 
 ## How do I run custom scripts?
@@ -73,7 +73,7 @@ build:
     args: ["{{ .Name }}", "{{ .Version }}"]
     env:
       BUILD_MODE: production
-    engine: go://generic-builder
+    engine: forge://generic-builder
 ```
 
 ## How does it work?

@@ -15,7 +15,7 @@ Add to `forge.yaml`:
 ```yaml
 test:
   - name: e2e
-    runner: go://forge-e2e
+    runner: forge://forge-e2e
     tags: ["e2e"]
 ```
 

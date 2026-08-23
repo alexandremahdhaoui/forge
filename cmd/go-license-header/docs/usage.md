@@ -21,7 +21,7 @@ Add a build target to `forge.yaml`:
 build:
   - name: license-headers
     src: .
-    engine: go://go-license-header
+    engine: forge://go-license-header
     spec:
       holder: "Your Name"
 ```

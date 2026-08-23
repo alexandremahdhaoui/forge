@@ -63,7 +63,7 @@ func cmdDelete(testID string) error {
 	// Orchestrate testenv-subengine cleanup in REVERSE order
 	var cleanupErr error
 	if testSpec != nil && testSpec.Testenv != "" {
-		if strings.HasPrefix(testSpec.Testenv, "go://") {
+		if strings.HasPrefix(testSpec.Testenv, "forge://") {
 			// Direct engine URI - call delete tool directly
 			fmt.Fprintf(os.Stderr, "Tearing down %s...\n", testSpec.Testenv)
 
@@ -74,7 +74,7 @@ func cmdDelete(testID string) error {
 				// Prepare parameters - test-report uses reportID, others use testID
 				// Include metadata for proper resource identification during cleanup
 				params := map[string]any{}
-				if testSpec.Testenv == "go://test-report" {
+				if testSpec.Testenv == "forge://test-report" {
 					params["reportID"] = testID
 				} else {
 					params["testID"] = testID

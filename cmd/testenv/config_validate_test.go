@@ -39,12 +39,12 @@ func TestExtractSubenginesFromSpec_ValidSubengines(t *testing.T) {
 			spec: map[string]interface{}{
 				"subengines": []interface{}{
 					map[string]interface{}{
-						"engine": "go://testenv-kind",
+						"engine": "forge://testenv-kind",
 					},
 				},
 			},
 			expected: []forge.TestenvEngineSpec{
-				{Engine: "go://testenv-kind"},
+				{Engine: "forge://testenv-kind"},
 			},
 		},
 		{
@@ -52,7 +52,7 @@ func TestExtractSubenginesFromSpec_ValidSubengines(t *testing.T) {
 			spec: map[string]interface{}{
 				"subengines": []interface{}{
 					map[string]interface{}{
-						"engine": "go://testenv-kind",
+						"engine": "forge://testenv-kind",
 						"spec": map[string]interface{}{
 							"kubeconfigPath": "kubeconfig.yaml",
 						},
@@ -61,7 +61,7 @@ func TestExtractSubenginesFromSpec_ValidSubengines(t *testing.T) {
 			},
 			expected: []forge.TestenvEngineSpec{
 				{
-					Engine: "go://testenv-kind",
+					Engine: "forge://testenv-kind",
 					Spec:   map[string]interface{}{"kubeconfigPath": "kubeconfig.yaml"},
 				},
 			},
@@ -71,14 +71,14 @@ func TestExtractSubenginesFromSpec_ValidSubengines(t *testing.T) {
 			spec: map[string]interface{}{
 				"subengines": []interface{}{
 					map[string]interface{}{
-						"engine":         "go://testenv-helm-install",
+						"engine":         "forge://testenv-helm-install",
 						"deferTemplates": true,
 					},
 				},
 			},
 			expected: []forge.TestenvEngineSpec{
 				{
-					Engine:         "go://testenv-helm-install",
+					Engine:         "forge://testenv-helm-install",
 					DeferTemplates: true,
 				},
 			},
@@ -88,24 +88,24 @@ func TestExtractSubenginesFromSpec_ValidSubengines(t *testing.T) {
 			spec: map[string]interface{}{
 				"subengines": []interface{}{
 					map[string]interface{}{
-						"engine": "go://testenv-kind",
+						"engine": "forge://testenv-kind",
 					},
 					map[string]interface{}{
-						"engine": "go://testenv-lcr",
+						"engine": "forge://testenv-lcr",
 						"spec": map[string]interface{}{
 							"enabled": true,
 						},
 					},
 					map[string]interface{}{
-						"engine":         "go://testenv-helm-install",
+						"engine":         "forge://testenv-helm-install",
 						"deferTemplates": true,
 					},
 				},
 			},
 			expected: []forge.TestenvEngineSpec{
-				{Engine: "go://testenv-kind"},
-				{Engine: "go://testenv-lcr", Spec: map[string]interface{}{"enabled": true}},
-				{Engine: "go://testenv-helm-install", DeferTemplates: true},
+				{Engine: "forge://testenv-kind"},
+				{Engine: "forge://testenv-lcr", Spec: map[string]interface{}{"enabled": true}},
+				{Engine: "forge://testenv-helm-install", DeferTemplates: true},
 			},
 		},
 		{
@@ -159,7 +159,7 @@ func TestExtractSubenginesFromSpec_InvalidSubengines(t *testing.T) {
 			name: "Second subengine element not an object",
 			spec: map[string]interface{}{
 				"subengines": []interface{}{
-					map[string]interface{}{"engine": "go://testenv-kind"},
+					map[string]interface{}{"engine": "forge://testenv-kind"},
 					123, // invalid
 				},
 			},
@@ -192,7 +192,7 @@ func TestExtractSubenginesFromForgeSpec_FromAlias(t *testing.T) {
 		Test: []forge.TestSpec{
 			{
 				Name:    "integration",
-				Runner:  "go://go-test",
+				Runner:  "forge://go-test",
 				Testenv: "alias://k8senv",
 			},
 		},
@@ -201,8 +201,8 @@ func TestExtractSubenginesFromForgeSpec_FromAlias(t *testing.T) {
 				Alias: "k8senv",
 				Type:  forge.TestenvEngineConfigType,
 				Testenv: []forge.TestenvEngineSpec{
-					{Engine: "go://testenv-kind"},
-					{Engine: "go://testenv-lcr", Spec: map[string]interface{}{"enabled": true}},
+					{Engine: "forge://testenv-kind"},
+					{Engine: "forge://testenv-lcr", Spec: map[string]interface{}{"enabled": true}},
 				},
 			},
 		},
@@ -213,11 +213,11 @@ func TestExtractSubenginesFromForgeSpec_FromAlias(t *testing.T) {
 	if len(result) != 2 {
 		t.Fatalf("Expected 2 subengines, got %d", len(result))
 	}
-	if result[0].Engine != "go://testenv-kind" {
-		t.Errorf("Expected first engine 'go://testenv-kind', got %s", result[0].Engine)
+	if result[0].Engine != "forge://testenv-kind" {
+		t.Errorf("Expected first engine 'forge://testenv-kind', got %s", result[0].Engine)
 	}
-	if result[1].Engine != "go://testenv-lcr" {
-		t.Errorf("Expected second engine 'go://testenv-lcr', got %s", result[1].Engine)
+	if result[1].Engine != "forge://testenv-lcr" {
+		t.Errorf("Expected second engine 'forge://testenv-lcr', got %s", result[1].Engine)
 	}
 }
 
@@ -226,8 +226,8 @@ func TestExtractSubenginesFromForgeSpec_NoAlias(t *testing.T) {
 		Test: []forge.TestSpec{
 			{
 				Name:    "integration",
-				Runner:  "go://go-test",
-				Testenv: "go://testenv", // Direct reference, not alias
+				Runner:  "forge://go-test",
+				Testenv: "forge://testenv", // Direct reference, not alias
 			},
 		},
 	}
@@ -235,7 +235,7 @@ func TestExtractSubenginesFromForgeSpec_NoAlias(t *testing.T) {
 	result := extractSubenginesFromForgeSpec(forgeSpec, "integration")
 
 	if result != nil {
-		t.Errorf("Expected nil for direct go:// reference, got %+v", result)
+		t.Errorf("Expected nil for direct forge:// reference, got %+v", result)
 	}
 }
 
@@ -244,7 +244,7 @@ func TestExtractSubenginesFromForgeSpec_StageNotFound(t *testing.T) {
 		Test: []forge.TestSpec{
 			{
 				Name:    "unit",
-				Runner:  "go://go-test",
+				Runner:  "forge://go-test",
 				Testenv: "alias://k8senv",
 			},
 		},
@@ -262,7 +262,7 @@ func TestExtractSubenginesFromForgeSpec_AliasNotFound(t *testing.T) {
 		Test: []forge.TestSpec{
 			{
 				Name:    "integration",
-				Runner:  "go://go-test",
+				Runner:  "forge://go-test",
 				Testenv: "alias://nonexistent",
 			},
 		},
@@ -271,7 +271,7 @@ func TestExtractSubenginesFromForgeSpec_AliasNotFound(t *testing.T) {
 				Alias: "other-alias",
 				Type:  forge.TestenvEngineConfigType,
 				Testenv: []forge.TestenvEngineSpec{
-					{Engine: "go://testenv-kind"},
+					{Engine: "forge://testenv-kind"},
 				},
 			},
 		},
@@ -289,7 +289,7 @@ func TestExtractSubenginesFromForgeSpec_NoTestenv(t *testing.T) {
 		Test: []forge.TestSpec{
 			{
 				Name:   "unit",
-				Runner: "go://go-test",
+				Runner: "forge://go-test",
 				// No Testenv field
 			},
 		},
@@ -321,7 +321,7 @@ func TestGetSubengineConfig_KindEngine(t *testing.T) {
 		},
 	}
 
-	result := getSubengineConfig("go://testenv-kind", nil, forgeSpec)
+	result := getSubengineConfig("forge://testenv-kind", nil, forgeSpec)
 
 	if result == nil {
 		t.Fatal("Expected non-nil result for kind engine")
@@ -341,7 +341,7 @@ func TestGetSubengineConfig_LCREngine(t *testing.T) {
 		},
 	}
 
-	result := getSubengineConfig("go://testenv-lcr", nil, forgeSpec)
+	result := getSubengineConfig("forge://testenv-lcr", nil, forgeSpec)
 
 	if result == nil {
 		t.Fatal("Expected non-nil result for lcr engine")
@@ -369,7 +369,7 @@ func TestGetSubengineConfig_HelmInstallEngine(t *testing.T) {
 
 	forgeSpec := &forge.Spec{}
 
-	result := getSubengineConfig("go://testenv-helm-install", subengineSpec, forgeSpec)
+	result := getSubengineConfig("forge://testenv-helm-install", subengineSpec, forgeSpec)
 
 	if result == nil {
 		t.Fatal("Expected non-nil result for helm-install engine")
@@ -402,7 +402,7 @@ func TestGetSubengineConfig_UnknownEngine(t *testing.T) {
 	}
 	forgeSpec := &forge.Spec{}
 
-	result := getSubengineConfig("go://unknown-engine", subengineSpec, forgeSpec)
+	result := getSubengineConfig("forge://unknown-engine", subengineSpec, forgeSpec)
 
 	if !reflect.DeepEqual(result, subengineSpec) {
 		t.Errorf("Expected unknown engine to return subengineSpec, got %+v", result)
@@ -414,7 +414,7 @@ func TestGetSubengineConfig_NilForgeSpec(t *testing.T) {
 		"data": "value",
 	}
 
-	result := getSubengineConfig("go://testenv-kind", subengineSpec, nil)
+	result := getSubengineConfig("forge://testenv-kind", subengineSpec, nil)
 
 	if !reflect.DeepEqual(result, subengineSpec) {
 		t.Errorf("Expected subengineSpec when forgeSpec is nil, got %+v", result)
@@ -429,7 +429,7 @@ func TestAggregateResults_AllValid(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI:      "go://testenv-kind",
+				URI:      "forge://testenv-kind",
 				SpecType: "testenv-subengine",
 				SpecName: "integration[0]",
 			},
@@ -439,7 +439,7 @@ func TestAggregateResults_AllValid(t *testing.T) {
 		},
 		{
 			Ref: engineReference{
-				URI:      "go://testenv-lcr",
+				URI:      "forge://testenv-lcr",
 				SpecType: "testenv-subengine",
 				SpecName: "integration[1]",
 			},
@@ -463,7 +463,7 @@ func TestAggregateResults_OneInvalid(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI:      "go://testenv-kind",
+				URI:      "forge://testenv-kind",
 				SpecType: "testenv-subengine",
 				SpecName: "integration[0]",
 			},
@@ -473,7 +473,7 @@ func TestAggregateResults_OneInvalid(t *testing.T) {
 		},
 		{
 			Ref: engineReference{
-				URI:      "go://testenv-lcr",
+				URI:      "forge://testenv-lcr",
 				SpecType: "testenv-subengine",
 				SpecName: "integration[1]",
 			},
@@ -497,8 +497,8 @@ func TestAggregateResults_OneInvalid(t *testing.T) {
 	if output.Errors[0].Field != "spec.enabled" {
 		t.Errorf("Expected field 'spec.enabled', got %s", output.Errors[0].Field)
 	}
-	if output.Errors[0].Engine != "go://testenv-lcr" {
-		t.Errorf("Expected engine 'go://testenv-lcr', got %s", output.Errors[0].Engine)
+	if output.Errors[0].Engine != "forge://testenv-lcr" {
+		t.Errorf("Expected engine 'forge://testenv-lcr', got %s", output.Errors[0].Engine)
 	}
 }
 
@@ -506,7 +506,7 @@ func TestAggregateResults_InfraError(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI:      "go://testenv-kind",
+				URI:      "forge://testenv-kind",
 				SpecType: "testenv-subengine",
 				SpecName: "integration[0]",
 			},
@@ -534,7 +534,7 @@ func TestAggregateResults_MultipleErrors(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI:      "go://testenv-kind",
+				URI:      "forge://testenv-kind",
 				SpecType: "testenv-subengine",
 				SpecName: "integration[0]",
 			},
@@ -547,7 +547,7 @@ func TestAggregateResults_MultipleErrors(t *testing.T) {
 		},
 		{
 			Ref: engineReference{
-				URI:      "go://testenv-lcr",
+				URI:      "forge://testenv-lcr",
 				SpecType: "testenv-subengine",
 				SpecName: "integration[1]",
 			},
@@ -575,7 +575,7 @@ func TestAggregateResults_Warnings(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI:      "go://testenv-kind",
+				URI:      "forge://testenv-kind",
 				SpecType: "testenv-subengine",
 				SpecName: "integration[0]",
 			},
@@ -588,7 +588,7 @@ func TestAggregateResults_Warnings(t *testing.T) {
 		},
 		{
 			Ref: engineReference{
-				URI:      "go://testenv-lcr",
+				URI:      "forge://testenv-lcr",
 				SpecType: "testenv-subengine",
 				SpecName: "integration[1]",
 			},
@@ -615,13 +615,13 @@ func TestAggregateResults_NilOutput(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI: "go://testenv-kind",
+				URI: "forge://testenv-kind",
 			},
 			Output: nil, // Nil output should be skipped
 		},
 		{
 			Ref: engineReference{
-				URI: "go://testenv-lcr",
+				URI: "forge://testenv-lcr",
 			},
 			Output: &mcptypes.ConfigValidateOutput{
 				Valid: true,
@@ -654,7 +654,7 @@ func TestAggregateResults_EngineContextPreserved(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI:      "go://testenv-lcr",
+				URI:      "forge://testenv-lcr",
 				SpecType: "testenv-subengine",
 				SpecName: "integration[1]",
 			},
@@ -664,7 +664,7 @@ func TestAggregateResults_EngineContextPreserved(t *testing.T) {
 					{
 						Field:   "spec.enabled",
 						Message: "required",
-						Engine:  "go://nested-engine", // Pre-set engine
+						Engine:  "forge://nested-engine", // Pre-set engine
 					},
 				},
 			},
@@ -673,8 +673,8 @@ func TestAggregateResults_EngineContextPreserved(t *testing.T) {
 
 	output := aggregateResults(results)
 
-	if output.Errors[0].Engine != "go://nested-engine" {
-		t.Errorf("Expected engine 'go://nested-engine' to be preserved, got %s", output.Errors[0].Engine)
+	if output.Errors[0].Engine != "forge://nested-engine" {
+		t.Errorf("Expected engine 'forge://nested-engine' to be preserved, got %s", output.Errors[0].Engine)
 	}
 }
 
@@ -947,7 +947,7 @@ func TestValidateTestenvSpec_FromForgeSpec(t *testing.T) {
 		Test: []forge.TestSpec{
 			{
 				Name:    "integration",
-				Runner:  "go://go-test",
+				Runner:  "forge://go-test",
 				Testenv: "alias://k8senv",
 			},
 		},
@@ -956,7 +956,7 @@ func TestValidateTestenvSpec_FromForgeSpec(t *testing.T) {
 				Alias: "k8senv",
 				Type:  forge.TestenvEngineConfigType,
 				Testenv: []forge.TestenvEngineSpec{
-					{Engine: "go://testenv-kind"},
+					{Engine: "forge://testenv-kind"},
 					// Note: The actual MCP call would fail in unit tests
 					// but we can verify the extraction logic
 				},
@@ -985,13 +985,13 @@ func TestValidateTestenvSpec_FromForgeSpec(t *testing.T) {
 
 func TestEngineReference_Fields(t *testing.T) {
 	ref := engineReference{
-		URI:      "go://testenv-kind",
+		URI:      "forge://testenv-kind",
 		SpecType: "testenv-subengine",
 		SpecName: "integration[0]",
 	}
 
-	if ref.URI != "go://testenv-kind" {
-		t.Errorf("Expected URI 'go://testenv-kind', got %s", ref.URI)
+	if ref.URI != "forge://testenv-kind" {
+		t.Errorf("Expected URI 'forge://testenv-kind', got %s", ref.URI)
 	}
 	if ref.SpecType != "testenv-subengine" {
 		t.Errorf("Expected SpecType 'testenv-subengine', got %s", ref.SpecType)
@@ -1004,15 +1004,15 @@ func TestEngineReference_Fields(t *testing.T) {
 func TestValidationResult_Fields(t *testing.T) {
 	result := validationResult{
 		Ref: engineReference{
-			URI: "go://testenv-kind",
+			URI: "forge://testenv-kind",
 		},
 		Output: &mcptypes.ConfigValidateOutput{
 			Valid: true,
 		},
 	}
 
-	if result.Ref.URI != "go://testenv-kind" {
-		t.Errorf("Expected Ref.URI 'go://testenv-kind', got %s", result.Ref.URI)
+	if result.Ref.URI != "forge://testenv-kind" {
+		t.Errorf("Expected Ref.URI 'forge://testenv-kind', got %s", result.Ref.URI)
 	}
 	if result.Output == nil {
 		t.Error("Expected non-nil Output")

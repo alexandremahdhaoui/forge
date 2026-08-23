@@ -35,7 +35,7 @@ func TestExtractOpenAPIConfigFromInput(t *testing.T) {
 			name: "valid sourceFile pattern with client",
 			input: mcptypes.BuildInput{
 				Name:   "example-api-v1",
-				Engine: "go://go-gen-openapi",
+				Engine: "forge://go-gen-openapi",
 				Spec: map[string]interface{}{
 					"sourceFile":     "./api/example-api.v1.yaml",
 					"destinationDir": "./pkg/generated",
@@ -70,7 +70,7 @@ func TestExtractOpenAPIConfigFromInput(t *testing.T) {
 			name: "valid sourceDir+name+version pattern with server",
 			input: mcptypes.BuildInput{
 				Name:   "products-api-v1",
-				Engine: "go://go-gen-openapi",
+				Engine: "forge://go-gen-openapi",
 				Spec: map[string]interface{}{
 					"sourceDir":      "./api",
 					"name":           "products-api",
@@ -107,7 +107,7 @@ func TestExtractOpenAPIConfigFromInput(t *testing.T) {
 			name: "both client and server enabled",
 			input: mcptypes.BuildInput{
 				Name:   "api-v1",
-				Engine: "go://go-gen-openapi",
+				Engine: "forge://go-gen-openapi",
 				Spec: map[string]interface{}{
 					"sourceFile":     "./api/api.v1.yaml",
 					"destinationDir": "./pkg/generated",
@@ -147,7 +147,7 @@ func TestExtractOpenAPIConfigFromInput(t *testing.T) {
 			name: "default destinationDir applied",
 			input: mcptypes.BuildInput{
 				Name:   "api-v1",
-				Engine: "go://go-gen-openapi",
+				Engine: "forge://go-gen-openapi",
 				Spec: map[string]interface{}{
 					"sourceFile": "./api/api.v1.yaml",
 					"client": map[string]interface{}{
@@ -181,7 +181,7 @@ func TestExtractOpenAPIConfigFromInput(t *testing.T) {
 			name: "error - missing sourceFile and sourceDir",
 			input: mcptypes.BuildInput{
 				Name:   "api-v1",
-				Engine: "go://go-gen-openapi",
+				Engine: "forge://go-gen-openapi",
 				Spec: map[string]interface{}{
 					"client": map[string]interface{}{
 						"enabled":     true,
@@ -196,7 +196,7 @@ func TestExtractOpenAPIConfigFromInput(t *testing.T) {
 			name: "error - missing name in templated pattern",
 			input: mcptypes.BuildInput{
 				Name:   "api-v1",
-				Engine: "go://go-gen-openapi",
+				Engine: "forge://go-gen-openapi",
 				Spec: map[string]interface{}{
 					"sourceDir": "./api",
 					"version":   "v1",
@@ -213,7 +213,7 @@ func TestExtractOpenAPIConfigFromInput(t *testing.T) {
 			name: "error - client enabled but no packageName",
 			input: mcptypes.BuildInput{
 				Name:   "api-v1",
-				Engine: "go://go-gen-openapi",
+				Engine: "forge://go-gen-openapi",
 				Spec: map[string]interface{}{
 					"sourceFile": "./api/api.v1.yaml",
 					"client": map[string]interface{}{
@@ -228,7 +228,7 @@ func TestExtractOpenAPIConfigFromInput(t *testing.T) {
 			name: "error - server enabled but no packageName",
 			input: mcptypes.BuildInput{
 				Name:   "api-v1",
-				Engine: "go://go-gen-openapi",
+				Engine: "forge://go-gen-openapi",
 				Spec: map[string]interface{}{
 					"sourceFile": "./api/api.v1.yaml",
 					"server": map[string]interface{}{
@@ -243,7 +243,7 @@ func TestExtractOpenAPIConfigFromInput(t *testing.T) {
 			name: "error - both client and server disabled",
 			input: mcptypes.BuildInput{
 				Name:   "api-v1",
-				Engine: "go://go-gen-openapi",
+				Engine: "forge://go-gen-openapi",
 				Spec: map[string]interface{}{
 					"sourceFile": "./api/api.v1.yaml",
 					"client": map[string]interface{}{
@@ -261,7 +261,7 @@ func TestExtractOpenAPIConfigFromInput(t *testing.T) {
 			name: "error - neither client nor server configured",
 			input: mcptypes.BuildInput{
 				Name:   "api-v1",
-				Engine: "go://go-gen-openapi",
+				Engine: "forge://go-gen-openapi",
 				Spec: map[string]interface{}{
 					"sourceFile": "./api/api.v1.yaml",
 				},
@@ -273,7 +273,7 @@ func TestExtractOpenAPIConfigFromInput(t *testing.T) {
 			name: "error - invalid enabled type",
 			input: mcptypes.BuildInput{
 				Name:   "api-v1",
-				Engine: "go://go-gen-openapi",
+				Engine: "forge://go-gen-openapi",
 				Spec: map[string]interface{}{
 					"sourceFile": "./api/api.v1.yaml",
 					"client": map[string]interface{}{

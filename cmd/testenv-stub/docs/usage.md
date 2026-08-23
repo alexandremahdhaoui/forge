@@ -17,12 +17,12 @@ engines:
   - alias: fast-testenv
     type: testenv
     testenv:
-      - engine: go://testenv-stub
+      - engine: forge://testenv-stub
 
 test:
   - name: e2e
     testenv: alias://fast-testenv
-    runner: go://go-test
+    runner: forge://go-test
 ```
 
 ## When should I use testenv-stub?

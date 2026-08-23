@@ -53,7 +53,7 @@ engines:
   - alias: formatter
     type: builder
     builder:
-      - engine: go://generic-builder
+      - engine: forge://generic-builder
         spec:
           command: "gofmt"
           args: ["-l", "-w", "."]
@@ -61,7 +61,7 @@ engines:
   - alias: linter
     type: test-runner
     testRunner:
-      - engine: go://generic-test-runner
+      - engine: forge://generic-test-runner
         spec:
           command: "golangci-lint"
           args: ["run", "./..."]
@@ -74,11 +74,11 @@ build:
   - name: myapp
     src: ./cmd/myapp
     dest: ./bin
-    engine: go://go-build
+    engine: forge://go-build
 
 test:
   - name: unit
-    runner: go://go-test
+    runner: forge://go-test
 
   - name: lint
     runner: alias://linter
@@ -98,7 +98,7 @@ engines:
   - alias: linux-builder
     type: builder
     builder:
-      - engine: go://generic-builder
+      - engine: forge://generic-builder
         spec:
           command: "go"
           args: ["build", "-o", "bin/myapp", "./cmd/myapp"]
@@ -121,7 +121,7 @@ engines:
   - alias: complex-build
     type: builder
     builder:
-      - engine: go://generic-builder
+      - engine: forge://generic-builder
         spec:
           command: "./scripts/complex-build.sh"
           args: ["--env=prod"]

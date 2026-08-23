@@ -14,7 +14,7 @@ go-lint --mcp
 
 Forge invokes this via:
 ```yaml
-runner: go://go-lint
+runner: forge://go-lint
 ```
 
 ## Available Tools
@@ -68,7 +68,7 @@ In `forge.yaml`:
 ```yaml
 test:
   - name: lint
-    runner: go://go-lint
+    runner: forge://go-lint
 ```
 
 Run with:

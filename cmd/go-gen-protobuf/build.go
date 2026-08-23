@@ -85,7 +85,7 @@ func Build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.A
 		Location:                 input.Dest,
 		Timestamp:                time.Now().UTC().Format(time.RFC3339),
 		Dependencies:             deps,
-		DependencyDetectorEngine: "go://go-gen-protobuf",
+		DependencyDetectorEngine: "forge://go-gen-protobuf",
 	}
 
 	log.Printf("Successfully generated protobuf code for %s", input.Name)

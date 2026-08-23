@@ -16,8 +16,8 @@ Add testenv to your forge.yaml:
 test:
   - name: integration
     stage: integration
-    testenv: go://testenv
-    runner: go://go-test
+    testenv: forge://testenv
+    runner: forge://go-test
 ```
 
 Run with:
@@ -37,12 +37,12 @@ engines:
   - alias: my-testenv
     type: testenv
     testenv:
-      - engine: go://testenv-kind
-      - engine: go://testenv-lcr
+      - engine: forge://testenv-kind
+      - engine: forge://testenv-lcr
         spec:
           enabled: true
           imagePullSecretNamespaces: [default, my-app]
-      - engine: go://testenv-helm-install
+      - engine: forge://testenv-helm-install
         spec:
           charts:
             - name: cert-manager
@@ -56,7 +56,7 @@ engines:
 test:
   - name: integration
     testenv: alias://my-testenv
-    runner: go://go-test
+    runner: forge://go-test
 ```
 
 ## What is the environment lifecycle?

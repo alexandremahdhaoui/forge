@@ -201,7 +201,7 @@ All 28 tools are MCP servers speaking JSON-RPC 2.0 over stdio.
 | Package | Purpose |
 |---|---|
 | `cmdutil` | Command execution utilities (exec.Command wrappers). |
-| `engineresolver` | Resolves engine URIs (`go://`, `alias://`) to MCP server binaries. |
+| `engineresolver` | Resolves engine URIs (`forge://`, `alias://`) to MCP server binaries. |
 | `enginetest` | Test helpers for engine development. |
 | `forgepath` | Forge path resolution (config, artifact store, build output). |
 | `gitutil` | Git operations (SHA, version, dirty state). |
@@ -230,10 +230,10 @@ go run ./cmd/forge-dev generate --src ./cmd/my-engine
 #    - name: my-engine
 #      src: ./cmd/my-engine
 #      dest: ./build/bin
-#      engine: go://go-build
+#      engine: forge://go-build
 
 # 6. Reference in forge.yaml test or build section
-#    engine: go://my-engine
+#    engine: forge://my-engine
 ```
 
 See [Engine Development](./docs/dev/getting-started.md) and [forge-dev](./docs/dev/forge-dev.md) for complete guides.
@@ -261,7 +261,7 @@ The `lint-license` stage enforces this. Test files place the build tag before th
 
 **Generated files.** Files produced by `forge-dev` (in `cmd/*/`) are regenerated on build. Do not edit generated code manually -- modify the OpenAPI spec and regenerate.
 
-**Engine URIs.** Reference engines as `go://engine-name` or `alias://alias-name` in `forge.yaml`. The `engine:` field names the engine; `builder:` is not a valid field.
+**Engine URIs.** Reference engines as `forge://engine-name` or `alias://alias-name` in `forge.yaml`. The `engine:` field names the engine; `builder:` is not a valid field.
 
 **Linting.** The project runs golangci-lint with 41 linters enabled. Run `go run ./cmd/forge test lint run` before pushing.
 

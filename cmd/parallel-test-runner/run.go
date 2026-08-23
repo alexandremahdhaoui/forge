@@ -42,7 +42,7 @@ type RunnerConfig struct {
 	// Name is required and used for coverage selection.
 	Name string `json:"name"`
 
-	// Engine must be a go:// URI (not alias://).
+	// Engine must be a forge:// URI (not alias://).
 	Engine string `json:"engine"`
 
 	// Spec is passed to the sub-runner.

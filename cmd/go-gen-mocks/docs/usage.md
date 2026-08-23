@@ -15,7 +15,7 @@ Add a build target to `forge.yaml`:
 ```yaml
 build:
   - name: go-gen-mocks
-    engine: go://go-gen-mocks
+    engine: forge://go-gen-mocks
 ```
 
 Run the generator:
@@ -55,12 +55,12 @@ MOCKS_DIR=./test/mocks forge build
 ```yaml
 build:
   - name: go-gen-mocks
-    engine: go://go-gen-mocks
+    engine: forge://go-gen-mocks
 
   - name: myapp
     src: ./cmd/myapp
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
 ```
 
 ## What environment variables are available?

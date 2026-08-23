@@ -14,7 +14,7 @@ go-format --mcp
 
 Forge invokes this automatically via:
 ```yaml
-engine: go://go-format
+engine: forge://go-format
 ```
 
 ## Available Tools
@@ -66,7 +66,7 @@ In `forge.yaml`:
 build:
   - name: format-code
     src: .
-    engine: go://go-format
+    engine: forge://go-format
 ```
 
 Run with:

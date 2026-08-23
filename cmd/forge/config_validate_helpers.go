@@ -27,7 +27,7 @@ import (
 // It captures the URI, the type of spec (build/test/testenv), the spec name,
 // and the spec configuration to pass to the engine for validation.
 type engineReference struct {
-	// URI is the engine URI (e.g., "go://go-build", "alias://my-engine")
+	// URI is the engine URI (e.g., "forge://go-build", "alias://my-engine")
 	URI string
 
 	// SpecType is the type of spec this reference came from: "build", "test", or "testenv"
@@ -108,7 +108,7 @@ func extractEngineURIs(spec forge.Spec) []engineReference {
 //   - error: only if there's a programming error (not validation failures)
 func validateEngineSpec(ctx context.Context, ref engineReference, forgeSpec *forge.Spec, configPath string) (*mcptypes.ConfigValidateOutput, error) {
 	// Resolve the engine URI to command and args
-	// This handles both go:// and alias:// URIs
+	// This handles both forge:// and alias:// URIs
 	command, args, err := resolveEngine(ref.URI, forgeSpec)
 	if err != nil {
 		// Return as InfraError - we couldn't even resolve the engine

@@ -34,16 +34,16 @@ func TestResolveEngine_MultiEngineAlias(t *testing.T) {
 				Alias: "multi-builder",
 				Type:  forge.BuilderEngineConfigType,
 				Builder: []forge.BuilderEngineSpec{
-					{Engine: "go://generic-builder", Spec: forge.EngineSpec{Command: "echo", Args: []string{"step1"}}},
-					{Engine: "go://generic-builder", Spec: forge.EngineSpec{Command: "echo", Args: []string{"step2"}}},
-					{Engine: "go://generic-builder", Spec: forge.EngineSpec{Command: "echo", Args: []string{"step3"}}},
+					{Engine: "forge://generic-builder", Spec: forge.EngineSpec{Command: "echo", Args: []string{"step1"}}},
+					{Engine: "forge://generic-builder", Spec: forge.EngineSpec{Command: "echo", Args: []string{"step2"}}},
+					{Engine: "forge://generic-builder", Spec: forge.EngineSpec{Command: "echo", Args: []string{"step3"}}},
 				},
 			},
 			{
 				Alias: "single-builder",
 				Type:  forge.BuilderEngineConfigType,
 				Builder: []forge.BuilderEngineSpec{
-					{Engine: "go://go-build"},
+					{Engine: "forge://go-build"},
 				},
 			},
 		},
@@ -82,11 +82,11 @@ func TestResolveEngine_MultiEngineAlias(t *testing.T) {
 		t.Logf("Single-engine alias resolved to: command=%s, args=%v", command, args)
 	})
 
-	// Test direct go:// URI (should work)
-	t.Run("direct go:// URI", func(t *testing.T) {
-		command, args, err := resolveEngine("go://go-build", spec)
+	// Test direct forge:// URI (should work)
+	t.Run("direct forge:// URI", func(t *testing.T) {
+		command, args, err := resolveEngine("forge://go-build", spec)
 		if err != nil {
-			t.Fatalf("Direct go:// URI should resolve successfully: %v", err)
+			t.Fatalf("Direct forge:// URI should resolve successfully: %v", err)
 		}
 		if command == "" {
 			t.Error("Expected command to be set")
@@ -112,8 +112,8 @@ func TestBuildLogic_MultiEngineDetection(t *testing.T) {
 				Alias: "generate-all",
 				Type:  forge.BuilderEngineConfigType,
 				Builder: []forge.BuilderEngineSpec{
-					{Engine: "go://generic-builder", Spec: forge.EngineSpec{Command: "echo", Args: []string{"step1"}}},
-					{Engine: "go://generic-builder", Spec: forge.EngineSpec{Command: "echo", Args: []string{"step2"}}},
+					{Engine: "forge://generic-builder", Spec: forge.EngineSpec{Command: "echo", Args: []string{"step1"}}},
+					{Engine: "forge://generic-builder", Spec: forge.EngineSpec{Command: "echo", Args: []string{"step2"}}},
 				},
 			},
 		},

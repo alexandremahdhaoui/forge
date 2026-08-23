@@ -15,7 +15,7 @@ Add a build target to `forge.yaml`:
 ```yaml
 build:
   - name: example-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/example-api.v1.yaml
       destinationDir: ./pkg/generated
@@ -47,7 +47,7 @@ forge build
 ```yaml
 build:
   - name: products-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/products-api.v1.yaml
       destinationDir: ./pkg/generated
@@ -70,14 +70,14 @@ Each version needs a separate build spec:
 ```yaml
 build:
   - name: example-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/example-api.v1.yaml
       destinationDir: ./pkg/generated
       client: { enabled: true, packageName: exampleclient }
 
   - name: example-api-v2
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/example-api.v2.yaml
       destinationDir: ./pkg/generated

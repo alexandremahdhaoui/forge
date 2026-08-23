@@ -101,7 +101,7 @@ components:
 		input := mcptypes.BuildInput{
 			Name:   "test-engine",
 			Src:    tmpDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		artifact, err := generate(ctx, input)
@@ -185,7 +185,7 @@ components:
 		input := mcptypes.BuildInput{
 			Name:   "idempotent-engine",
 			Src:    tmpDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		// First run
@@ -227,7 +227,7 @@ components:
 		input := mcptypes.BuildInput{
 			Name:   "test",
 			Src:    "",
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		_, err := generate(ctx, input)
@@ -245,7 +245,7 @@ components:
 		input := mcptypes.BuildInput{
 			Name:   "test",
 			Src:    tmpDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		_, err := generate(ctx, input)
@@ -273,7 +273,7 @@ version: not-semver
 		input := mcptypes.BuildInput{
 			Name:   "test",
 			Src:    tmpDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		_, err := generate(ctx, input)
@@ -308,7 +308,7 @@ generate:
 		input := mcptypes.BuildInput{
 			Name:   "test",
 			Src:    tmpDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		_, err := generate(ctx, input)
@@ -362,7 +362,7 @@ components:
 		input := mcptypes.BuildInput{
 			Name:   "test-runner-engine",
 			Src:    tmpDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		artifact, err := generate(ctx, input)
@@ -426,7 +426,7 @@ components:
 		input := mcptypes.BuildInput{
 			Name:   "testenv-subengine-engine",
 			Src:    tmpDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		artifact, err := generate(ctx, input)

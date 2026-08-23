@@ -36,7 +36,7 @@ TEST_REQUEST='{
       "name": "test-mcp-build",
       "src": "./cmd/go-lint",
       "dest": "./build/bin",
-      "engine": "go://go-build"
+      "engine": "forge://go-build"
     }
   }
 }'

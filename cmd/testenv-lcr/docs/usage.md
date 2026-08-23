@@ -17,8 +17,8 @@ engines:
   - alias: with-registry
     type: testenv
     testenv:
-      - engine: go://testenv-kind
-      - engine: go://testenv-lcr
+      - engine: forge://testenv-kind
+      - engine: forge://testenv-lcr
         spec:
           enabled: true
 ```
@@ -28,7 +28,7 @@ engines:
 Specify namespaces that need to pull images from the registry:
 
 ```yaml
-- engine: go://testenv-lcr
+- engine: forge://testenv-lcr
   spec:
     enabled: true
     imagePullSecretNamespaces:
@@ -42,7 +42,7 @@ Specify namespaces that need to pull images from the registry:
 Push images during environment creation:
 
 ```yaml
-- engine: go://testenv-lcr
+- engine: forge://testenv-lcr
   spec:
     enabled: true
     images:
@@ -60,7 +60,7 @@ Push images during environment creation:
 Use template expansion with the `TESTENV_LCR_FQDN` environment variable:
 
 ```yaml
-- engine: go://testenv-helm-install
+- engine: forge://testenv-helm-install
   spec:
     charts:
       - name: my-app

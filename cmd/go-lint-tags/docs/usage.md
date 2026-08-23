@@ -14,7 +14,7 @@ Go test files without build tags run in ALL test stages or get silently skipped.
 test:
   - name: verify-tags
     stage: verify-tags
-    runner: go://go-lint-tags
+    runner: forge://go-lint-tags
 ```
 
 Run with:

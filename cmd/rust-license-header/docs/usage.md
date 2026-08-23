@@ -20,7 +20,7 @@ Add a build target to `forge.yaml`:
 build:
   - name: license-headers
     src: .
-    engine: go://rust-license-header
+    engine: forge://rust-license-header
     spec:
       holder: "Your Name"
 ```

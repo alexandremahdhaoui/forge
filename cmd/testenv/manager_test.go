@@ -95,12 +95,12 @@ func TestCmdCreate_Integration(t *testing.T) {
 	tmpDir := t.TempDir()
 	artifactStorePath := filepath.Join(tmpDir, "artifact-store.yaml")
 
-	// Create minimal forge.yaml (testenv will default to go://test-report)
+	// Create minimal forge.yaml (testenv will default to forge://test-report)
 	forgeYAML := `name: test-project
 artifactStorePath: ` + artifactStorePath + `
 test:
   - name: integration
-    runner: "go://go-test"
+    runner: "forge://go-test"
 `
 	forgeYAMLPath := filepath.Join(tmpDir, "forge.yaml")
 	err = os.WriteFile(forgeYAMLPath, []byte(forgeYAML), 0o644)
@@ -113,7 +113,7 @@ test:
 	defer os.Chdir(oldWd)
 	os.Chdir(tmpDir)
 
-	// Run cmdCreate - will fail if go://test-report isn't available
+	// Run cmdCreate - will fail if forge://test-report isn't available
 	testID, err := cmdCreate("integration")
 	if err != nil {
 		t.Fatalf("cmdCreate failed: %v", err)

@@ -148,7 +148,7 @@ func TestConfigValidateOutput_JSONRoundTrip(t *testing.T) {
 					{
 						Field:    "spec.command",
 						Message:  "required field is missing",
-						Engine:   "go://generic-builder",
+						Engine:   "forge://generic-builder",
 						SpecType: "build",
 						SpecName: "my-app",
 					},
@@ -251,7 +251,7 @@ func TestValidationError_JSONRoundTrip(t *testing.T) {
 			error: ValidationError{
 				Field:    "spec.args[0]",
 				Message:  "expected string, got int",
-				Engine:   "go://go-build",
+				Engine:   "forge://go-build",
 				SpecType: "build",
 				SpecName: "my-app",
 			},
@@ -268,7 +268,7 @@ func TestValidationError_JSONRoundTrip(t *testing.T) {
 			error: ValidationError{
 				Field:   "",
 				Message: "infrastructure error: engine failed",
-				Engine:  "go://testenv",
+				Engine:  "forge://testenv",
 			},
 		},
 	}

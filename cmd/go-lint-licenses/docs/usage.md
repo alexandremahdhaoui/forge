@@ -13,7 +13,7 @@ Manually checking license headers is tedious and error-prone. go-lint-licenses s
 ```yaml
 test:
   - name: verify-license
-    runner: go://go-lint-licenses
+    runner: forge://go-lint-licenses
 ```
 
 Run with:

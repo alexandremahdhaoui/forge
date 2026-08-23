@@ -17,7 +17,7 @@ engines:
   - alias: protoc
     type: builder
     builder:
-      - engine: go://generic-builder
+      - engine: forge://generic-builder
         spec:
           command: "protoc"
           args: ["--go_out=.", "api/service.proto"]
@@ -45,9 +45,9 @@ Run with: `forge build generate-proto`
 ## When should I use a built-in engine instead?
 
 Use built-in engines when available:
-- **Go binaries**: `go://go-build`
-- **Containers**: `go://container-build`
-- **Go formatting**: `go://go-format`
+- **Go binaries**: `forge://go-build`
+- **Containers**: `forge://container-build`
+- **Go formatting**: `forge://go-format`
 
 Use generic-builder when no built-in exists for your tool.
 
@@ -59,7 +59,7 @@ engines:
   - alias: prettier
     type: builder
     builder:
-      - engine: go://generic-builder
+      - engine: forge://generic-builder
         spec:
           command: "prettier"
           args: ["--write", "src/**/*.ts"]
@@ -77,7 +77,7 @@ engines:
   - alias: docker-build
     type: builder
     builder:
-      - engine: go://generic-builder
+      - engine: forge://generic-builder
         spec:
           command: "docker"
           args: ["build", "-t", "myapp:latest", "."]

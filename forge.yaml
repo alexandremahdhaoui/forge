@@ -17,40 +17,40 @@ localContainerRegistry:
 #
 # Parallel Engines Documentation:
 #
-# go://parallel-builder - Runs multiple builders in parallel
+# forge://parallel-builder - Runs multiple builders in parallel
 # Example usage in build section:
 #   - name: all-binaries
-#     engine: go://parallel-builder
+#     engine: forge://parallel-builder
 #     spec:
 #       builders:
 #         - name: forge-cli
-#           engine: go://go-build
+#           engine: forge://go-build
 #           spec:
 #             src: ./cmd/forge
 #             dest: ./build/bin
 #         - name: go-test-runner
-#           engine: go://go-build
+#           engine: forge://go-build
 #           spec:
 #             src: ./cmd/go-test
 #             dest: ./build/bin
 #
-# go://parallel-test-runner - Runs multiple test runners in parallel
+# forge://parallel-test-runner - Runs multiple test runners in parallel
 # Example usage in test section:
 #   - name: unit-and-lint
-#     runner: go://parallel-test-runner
+#     runner: forge://parallel-test-runner
 #     spec:
 #       primaryCoverageRunner: go-test  # Coverage is taken from this runner only
 #       runners:
 #         - name: go-test
-#           engine: go://go-test
+#           engine: forge://go-test
 #           spec:
 #             packages: ./pkg/...
 #         - name: go-lint-licenses
-#           engine: go://go-lint-licenses
+#           engine: forge://go-lint-licenses
 #           spec: {}
 #
 # Key notes:
-# - All sub-engines must use go:// URIs (not alias://)
+# - All sub-engines must use forge:// URIs (not alias://)
 # - Coverage is NOT averaged - it comes from primaryCoverageRunner only
 # - TestStats are summed from all runners
 # - If any runner fails, the overall status is "failed"
@@ -61,7 +61,7 @@ engines:
   # - alias: verify-tags-runner
   #   type: test-runner
   #   testRunner:
-  #     - engine: go://generic-test-runner
+  #     - engine: forge://generic-test-runner
   #       spec:
   #         command: "go"
   #         args: ["run", "./cmd/go-lint-tags", "."]
@@ -70,12 +70,12 @@ engines:
   - alias: setup-e2e-stub
     type: testenv
     testenv:
-      - engine: "go://testenv-stub"
+      - engine: "forge://testenv-stub"
 
   - alias: setup-integration
     type: testenv
     testenv:
-      - engine: "go://testenv-kind"
+      - engine: "forge://testenv-kind"
       # spec:
       #   kubeconfigPath: .ignore.kindenv.kubeconfig.yaml
       #
@@ -92,7 +92,7 @@ engines:
 
       - # -- localContainerRegistry will create if enabled a container registry in the kindenv using the kubeconfig which path
         #    is defined by {.kindenv.kubeconfigPath}.
-        engine: "go://testenv-lcr"
+        engine: "forge://testenv-lcr"
         spec:
           # -- enabled defines whether the local container registry must be created or not.
           enabled: true
@@ -122,7 +122,7 @@ engines:
           #     - SECRET_TOKEN
 
       - # -- testenv-helm-install installs Helm charts into the Kind cluster
-        engine: "go://testenv-helm-install"
+        engine: "forge://testenv-helm-install"
         spec:
           charts:
             # FluxCD-inspired comprehensive spec
@@ -158,24 +158,24 @@ engines:
 test:
   # -- lint-tags - verify all test files have build tags
   - name: lint-tags
-    runner: "go://go-lint-tags"
-    # -- default value for setup is "go://test-report"
+    runner: "forge://go-lint-tags"
+    # -- default value for setup is "forge://test-report"
 
   # -- lint-license - verify all Go files have license headers
   - name: lint-license
-    runner: "go://go-lint-licenses"
+    runner: "forge://go-lint-licenses"
 
   # -- lint - linting as a test stage (no environment needed)
   - name: lint
-    runner: "go://go-lint"
+    runner: "forge://go-lint"
 
   # -- unit tests - no environment management needed
   - name: unit
-    runner: "go://go-test"
+    runner: "forge://go-test"
 
   # -- integration tests - creates isolated test environments
   - name: integration
-    runner: "go://go-test"
+    runner: "forge://go-test"
     testenv: "alias://setup-integration"
     # spec:
     #   # -- Example: Test runner environment filtering (optional)
@@ -191,11 +191,11 @@ test:
 
   # -- e2e tests - comprehensive forge integration tests (no environment needed)
   - name: e2e
-    runner: "go://forge-e2e"
+    runner: "forge://forge-e2e"
 
   # -- e2e-decl - declarative YAML-based e2e tests (test/e2e/testdata/)
   - name: e2e-decl
-    runner: "go://go-test"
+    runner: "forge://go-test"
     spec:
       tags:
         - e2e
@@ -208,7 +208,7 @@ test:
 
   # -- e2e-stub - lightweight testenv for fast e2e testing of create/list/get/delete workflow
   - name: e2e-stub
-    runner: "go://go-test"
+    runner: "forge://go-test"
     testenv: "alias://setup-e2e-stub"
 
 # -- build defines the artifacts to build
@@ -216,125 +216,125 @@ build:
   # Format code before building
   - name: format-code
     src: .
-    engine: go://go-format
+    engine: forge://go-format
 
   # Binaries
   - name: forge
     src: ./cmd/forge
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-build
     src: ./cmd/go-build
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: container-build
     src: ./cmd/container-build
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: testenv-kind
     src: ./cmd/testenv-kind
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: testenv-lcr
     src: ./cmd/testenv-lcr
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: testenv-helm-install
     src: ./cmd/testenv-helm-install
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: testenv-stub
     src: ./cmd/testenv-stub
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-test
     src: ./cmd/go-test
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-lint-licenses
     src: ./cmd/go-lint-licenses
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-lint-tags
     src: ./cmd/go-lint-tags
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: testenv
     src: ./cmd/testenv
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-format
     src: ./cmd/go-format
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: rust-license-header
     src: ./cmd/rust-license-header
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-license-header
     src: ./cmd/go-license-header
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-lint
     src: ./cmd/go-lint
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-gen-mocks
     src: ./cmd/go-gen-mocks
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-gen-openapi
     src: ./cmd/go-gen-openapi
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-gen-protobuf
     src: ./cmd/go-gen-protobuf
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-gen-bpf
     src: ./cmd/go-gen-bpf
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: forge-e2e
     src: ./cmd/forge-e2e
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: generic-builder
     src: ./cmd/generic-builder
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: generic-test-runner
     src: ./cmd/generic-test-runner
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: parallel-builder
     src: ./cmd/parallel-builder
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: parallel-test-runner
     src: ./cmd/parallel-test-runner
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: test-report
     src: ./cmd/test-report
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-dependency-detector
     src: ./cmd/go-dependency-detector
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-gen-mocks-dep-detector
     src: ./cmd/go-gen-mocks-dep-detector
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-gen-openapi-dep-detector
     src: ./cmd/go-gen-openapi-dep-detector
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: forge-dev
     src: ./cmd/forge-dev
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     spec:
       ldflags: "-X main.Version={{.GitVersion}}"
 
@@ -342,86 +342,86 @@ build:
   - name: generated-mocks
     src: .
     dest: ./internal/util/mocks
-    engine: go://go-gen-mocks
+    engine: forge://go-gen-mocks
 
   # Code generation (forge-dev)
   - name: gen-container-build
     src: ./cmd/container-build
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-forge-e2e
     src: ./cmd/forge-e2e
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-generic-builder
     src: ./cmd/generic-builder
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-generic-test-runner
     src: ./cmd/generic-test-runner
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-go-build
     src: ./cmd/go-build
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-go-dependency-detector
     src: ./cmd/go-dependency-detector
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-go-format
     src: ./cmd/go-format
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-rust-license-header
     src: ./cmd/rust-license-header
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-go-license-header
     src: ./cmd/go-license-header
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-go-gen-bpf
     src: ./cmd/go-gen-bpf
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-go-gen-mocks
     src: ./cmd/go-gen-mocks
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-go-gen-mocks-dep-detector
     src: ./cmd/go-gen-mocks-dep-detector
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-go-gen-openapi
     src: ./cmd/go-gen-openapi
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-go-gen-openapi-dep-detector
     src: ./cmd/go-gen-openapi-dep-detector
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-go-gen-protobuf
     src: ./cmd/go-gen-protobuf
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-go-lint
     src: ./cmd/go-lint
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-go-lint-licenses
     src: ./cmd/go-lint-licenses
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-go-lint-tags
     src: ./cmd/go-lint-tags
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-go-test
     src: ./cmd/go-test
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-parallel-builder
     src: ./cmd/parallel-builder
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-parallel-test-runner
     src: ./cmd/parallel-test-runner
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-testenv-helm-install
     src: ./cmd/testenv-helm-install
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-testenv-kind
     src: ./cmd/testenv-kind
-    engine: go://forge-dev
+    engine: forge://forge-dev
   - name: gen-testenv-lcr
     src: ./cmd/testenv-lcr
-    engine: go://forge-dev
+    engine: forge://forge-dev
 
   # Containers
   - name: for-testing-purposes
     src: ./containers/for-testing-purposes/Containerfile
-    engine: go://container-build
+    engine: forge://container-build
 
 # Example: OpenAPI code generation
 # Generates client and/or server code from OpenAPI specifications
@@ -430,7 +430,7 @@ build:
 # - name: example-api-v1
 #   src: ./api/example-api.v1.yaml      # Required by BuildSpec (source file)
 #   dest: ./pkg/generated                # Required by BuildSpec (destination directory)
-#   engine: go://go-gen-openapi
+#   engine: forge://go-gen-openapi
 #   spec:
 #     # Option 1: Explicit source file (RECOMMENDED)
 #     sourceFile: ./api/example-api.v1.yaml

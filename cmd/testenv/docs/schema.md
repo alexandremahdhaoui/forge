@@ -10,8 +10,8 @@ This document describes the configuration options for `testenv` in `forge.yaml`.
 test:
   - name: integration
     stage: integration
-    testenv: go://testenv
-    runner: go://go-test
+    testenv: forge://testenv
+    runner: forge://go-test
 ```
 
 ## Configuration Options
@@ -22,8 +22,8 @@ test:
 |-------|------|-------------|
 | `name` | string | The name of the test stage. |
 | `stage` | string | Stage identifier (e.g., "unit", "integration", "e2e"). |
-| `testenv` | string | Engine URL for test environment orchestration. Must be `go://testenv`. |
-| `runner` | string | Engine URL for running tests (e.g., `go://go-test`). |
+| `testenv` | string | Engine URL for test environment orchestration. Must be `forge://testenv`. |
+| `runner` | string | Engine URL for running tests (e.g., `forge://go-test`). |
 
 ## Engines Configuration
 
@@ -34,11 +34,11 @@ engines:
   - alias: my-testenv
     type: testenv
     testenv:
-      - engine: go://testenv-kind
-      - engine: go://testenv-lcr
+      - engine: forge://testenv-kind
+      - engine: forge://testenv-lcr
         spec:
           enabled: true
-      - engine: go://testenv-helm-install
+      - engine: forge://testenv-helm-install
         spec:
           charts:
             - name: cert-manager
@@ -51,17 +51,17 @@ engines:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `engine` | string | Engine URL (e.g., `go://testenv-kind`). |
+| `engine` | string | Engine URL (e.g., `forge://testenv-kind`). |
 | `spec` | object | Engine-specific configuration. |
 
 ### Available Subengines
 
 | Engine | Purpose |
 |--------|---------|
-| `go://testenv-kind` | Creates Kind (Kubernetes in Docker) clusters |
-| `go://testenv-lcr` | Deploys local container registry with TLS |
-| `go://testenv-helm-install` | Installs Helm charts into the cluster |
-| `go://testenv-stub` | Lightweight no-op subengine for testing |
+| `forge://testenv-kind` | Creates Kind (Kubernetes in Docker) clusters |
+| `forge://testenv-lcr` | Deploys local container registry with TLS |
+| `forge://testenv-helm-install` | Installs Helm charts into the cluster |
+| `forge://testenv-stub` | Lightweight no-op subengine for testing |
 
 ## Examples
 
@@ -71,8 +71,8 @@ engines:
 test:
   - name: integration
     stage: integration
-    testenv: go://testenv
-    runner: go://go-test
+    testenv: forge://testenv
+    runner: forge://go-test
 ```
 
 ### Full Configuration with Custom Subengines
@@ -82,8 +82,8 @@ engines:
   - alias: integration-env
     type: testenv
     testenv:
-      - engine: go://testenv-kind
-      - engine: go://testenv-lcr
+      - engine: forge://testenv-kind
+      - engine: forge://testenv-lcr
         spec:
           enabled: true
           namespace: testenv-lcr
@@ -92,7 +92,7 @@ engines:
             - my-app
           images:
             - name: local://myapp:latest
-      - engine: go://testenv-helm-install
+      - engine: forge://testenv-helm-install
         spec:
           charts:
             - name: nginx
@@ -106,7 +106,7 @@ test:
   - name: integration
     stage: integration
     testenv: integration-env
-    runner: go://go-test
+    runner: forge://go-test
 ```
 
 ### Multiple Test Stages
@@ -115,18 +115,18 @@ test:
 test:
   - name: unit
     stage: unit
-    runner: go://go-test
+    runner: forge://go-test
     # No testenv needed for unit tests
 
   - name: integration
     stage: integration
-    testenv: go://testenv
-    runner: go://go-test
+    testenv: forge://testenv
+    runner: forge://go-test
 
   - name: e2e
     stage: e2e
-    testenv: go://testenv
-    runner: go://go-test
+    testenv: forge://testenv
+    runner: forge://go-test
 ```
 
 ## TestEnvironment Structure

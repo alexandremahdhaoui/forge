@@ -22,13 +22,13 @@ type TestSpec struct {
 	Name string `json:"name"`
 
 	// Testenv orchestrates test environment setup (create/delete)
-	// Defaults to "go://test-report" if not specified
+	// Defaults to "forge://test-report" if not specified
 	// Can be "noop" or "" to use default
-	// Examples: "alias://k8senv", "go://testenv"
+	// Examples: "alias://k8senv", "forge://testenv"
 	Testenv string `json:"testenv,omitempty"`
 
 	// Runner implements the run method to execute tests
-	// Examples: "go://go-test", "shell://bash ./scripts/run-test.sh"
+	// Examples: "forge://go-test", "shell://bash ./scripts/run-test.sh"
 	Runner string `json:"runner"`
 
 	// Spec contains runner-specific configuration (free-form)

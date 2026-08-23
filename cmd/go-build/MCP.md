@@ -14,7 +14,7 @@ go-build --mcp
 
 Forge invokes this automatically via:
 ```yaml
-builder: go://go-build
+builder: forge://go-build
 ```
 
 ## Available Tools
@@ -91,7 +91,7 @@ build:
   - name: myapp
     src: ./cmd/myapp
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
 ```
 
 Run with:
@@ -107,7 +107,7 @@ build:
   - name: static-binary
     src: ./cmd/myapp
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     spec:
       args:
         - "-tags=netgo"
@@ -122,7 +122,7 @@ build:
   - name: myapp-linux-amd64
     src: ./cmd/myapp
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     spec:
       env:
         GOOS: "linux"
@@ -132,7 +132,7 @@ build:
   - name: myapp-darwin-arm64
     src: ./cmd/myapp
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     spec:
       env:
         GOOS: "darwin"
@@ -146,7 +146,7 @@ build:
   - name: myapp-optimized
     src: ./cmd/myapp
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     spec:
       args:
         - "-ldflags=-w -s -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)"

@@ -62,7 +62,7 @@ artifactStorePath: .ignore.artifact-store.yaml
 build:
   - name: test-docker-image
     src: ./Containerfile
-    engine: go://container-build
+    engine: forge://container-build
 `
 	if err := os.WriteFile(forgeYaml, []byte(forgeContent), 0o644); err != nil {
 		t.Fatal(err)
@@ -176,7 +176,7 @@ artifactStorePath: .ignore.artifact-store.yaml
 build:
   - name: test-kaniko-image
     src: ./Containerfile
-    engine: go://container-build
+    engine: forge://container-build
 `
 	if err := os.WriteFile(forgeYaml, []byte(forgeContent), 0o644); err != nil {
 		t.Fatal(err)
@@ -297,7 +297,7 @@ artifactStorePath: .ignore.artifact-store.yaml
 build:
   - name: test-comparison
     src: ./Containerfile
-    engine: go://container-build
+    engine: forge://container-build
 `
 	if err := os.WriteFile(forgeYaml, []byte(forgeContent), 0o644); err != nil {
 		t.Fatal(err)

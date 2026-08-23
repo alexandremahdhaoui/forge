@@ -102,8 +102,8 @@ int minimal() {
 	}
 
 	// Verify artifact has DependencyDetectorEngine set
-	if artifact.DependencyDetectorEngine != "go://go-gen-bpf" {
-		t.Errorf("artifact.DependencyDetectorEngine = %q, want %q", artifact.DependencyDetectorEngine, "go://go-gen-bpf")
+	if artifact.DependencyDetectorEngine != "forge://go-gen-bpf" {
+		t.Errorf("artifact.DependencyDetectorEngine = %q, want %q", artifact.DependencyDetectorEngine, "forge://go-gen-bpf")
 	}
 
 	// Verify dependencies populated with .c file

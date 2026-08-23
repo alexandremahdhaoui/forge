@@ -66,9 +66,9 @@ func TestProcessTemplatedArgs(t *testing.T) {
 				Name:   "myapp",
 				Src:    "./src",
 				Dest:   "./dest",
-				Engine: "go://go-build",
+				Engine: "forge://go-build",
 			},
-			expected: []string{"Name=myapp", "Src=./src", "Dest=./dest", "Engine=go://go-build"},
+			expected: []string{"Name=myapp", "Src=./src", "Dest=./dest", "Engine=forge://go-build"},
 			wantErr:  false,
 		},
 		{

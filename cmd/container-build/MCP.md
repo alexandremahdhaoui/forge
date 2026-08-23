@@ -14,7 +14,7 @@ container-build --mcp
 
 Forge invokes this automatically via:
 ```yaml
-builder: go://container-build
+builder: forge://container-build
 ```
 
 ## Available Tools
@@ -88,7 +88,7 @@ build:
     - name: my-app-image
       src: ./Containerfile
       dest: localhost:5000
-      builder: go://container-build
+      builder: forge://container-build
 ```
 
 Run with:

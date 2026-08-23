@@ -96,8 +96,8 @@ func cmdCreate(stageName string) (string, error) {
 	if setupSpec == "" {
 		// No setup configured, just create the environment entry
 		fmt.Fprintf(os.Stderr, "No testenv configured for stage %s\n", stageName)
-	} else if strings.HasPrefix(setupSpec, "go://") {
-		// Direct engine URI (e.g., go://test-report)
+	} else if strings.HasPrefix(setupSpec, "forge://") {
+		// Direct engine URI (e.g., forge://test-report)
 		// Call the engine's create tool directly
 		fmt.Fprintf(os.Stderr, "Setting up %s...\n", setupSpec)
 
@@ -113,7 +113,7 @@ func cmdCreate(stageName string) (string, error) {
 		}
 
 		// For engines other than test-report, include full testenv parameters
-		if setupSpec != "go://test-report" {
+		if setupSpec != "forge://test-report" {
 			params["testID"] = env.ID
 			params["tmpDir"] = env.TmpDir
 		}

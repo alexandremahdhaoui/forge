@@ -31,9 +31,9 @@ import (
 // 1. Validating its own spec structure (checking that subengines have engine fields)
 // 2. Extracting subengine URIs from the spec
 // 3. For each subengine, determining config from forgeSpec using the mapping:
-//   - go://testenv-kind        -> forgeSpec.Kindenv
-//   - go://testenv-lcr         -> forgeSpec.LocalContainerRegistry
-//   - go://testenv-helm-install -> subengine.spec (passed directly)
+//   - forge://testenv-kind        -> forgeSpec.Kindenv
+//   - forge://testenv-lcr         -> forgeSpec.LocalContainerRegistry
+//   - forge://testenv-helm-install -> subengine.spec (passed directly)
 //   - alias://...              -> Resolved from forgeSpec.Engines[]
 //
 // 4. Calling each subengine's config-validate tool
@@ -75,7 +75,7 @@ func validateTestenvSpec(ctx context.Context, input mcptypes.ConfigValidateInput
 
 	// Step 1: Validate own spec structure
 	// The testenv orchestrator itself doesn't have specific spec fields to validate
-	// when called directly via go://testenv. It's an orchestrator that reads subengines
+	// when called directly via forge://testenv. It's an orchestrator that reads subengines
 	// from the engine alias config.
 
 	// Step 2: Find the testenv engine config from forgeSpec
@@ -103,7 +103,7 @@ func validateTestenvSpec(ctx context.Context, input mcptypes.ConfigValidateInput
 		}
 	}
 
-	// If we still have no subengines, that's OK for go://testenv or go://test-report
+	// If we still have no subengines, that's OK for forge://testenv or forge://test-report
 	// as they might be used directly without orchestration
 	if len(subengines) == 0 {
 		log.Printf("testenv: no subengines to validate")
@@ -256,7 +256,7 @@ func extractSubenginesFromForgeSpec(forgeSpec *forge.Spec, stageName string) []f
 		}
 	}
 
-	// For direct go:// references (like go://testenv), there are no subengines
+	// For direct forge:// references (like forge://testenv), there are no subengines
 	// The caller is using testenv directly without orchestration
 	return nil
 }
@@ -314,9 +314,9 @@ func extractSubenginesFromSpec(spec map[string]interface{}) ([]forge.TestenvEngi
 
 // getSubengineConfig determines the spec to pass to a subengine based on its engine URI.
 // The mapping is:
-//   - go://testenv-kind        -> forgeSpec.Kindenv (converted to map)
-//   - go://testenv-lcr         -> forgeSpec.LocalContainerRegistry (converted to map)
-//   - go://testenv-helm-install -> subengine.spec (passed directly)
+//   - forge://testenv-kind        -> forgeSpec.Kindenv (converted to map)
+//   - forge://testenv-lcr         -> forgeSpec.LocalContainerRegistry (converted to map)
+//   - forge://testenv-helm-install -> subengine.spec (passed directly)
 //   - alias://...              -> resolved from forgeSpec.Engines[]
 //   - other engines            -> subengine.spec (passed directly)
 func getSubengineConfig(engineURI string, subengineSpec map[string]interface{}, forgeSpec *forge.Spec) map[string]interface{} {
@@ -326,15 +326,15 @@ func getSubengineConfig(engineURI string, subengineSpec map[string]interface{}, 
 	}
 
 	switch {
-	case engineURI == "go://testenv-kind":
+	case engineURI == "forge://testenv-kind":
 		// Return kindenv config from forgeSpec
 		return structToMap(forgeSpec.Kindenv)
 
-	case engineURI == "go://testenv-lcr":
+	case engineURI == "forge://testenv-lcr":
 		// Return localContainerRegistry config from forgeSpec
 		return structToMap(forgeSpec.LocalContainerRegistry)
 
-	case engineURI == "go://testenv-helm-install":
+	case engineURI == "forge://testenv-helm-install":
 		// Return subengine spec directly (contains helm charts config)
 		return subengineSpec
 
@@ -350,7 +350,7 @@ func getSubengineConfig(engineURI string, subengineSpec map[string]interface{}, 
 		return subengineSpec
 
 	default:
-		// For other engines (go://test-report, etc.), pass subengine spec directly
+		// For other engines (forge://test-report, etc.), pass subengine spec directly
 		return subengineSpec
 	}
 }

@@ -14,16 +14,16 @@ Running independent tests sequentially wastes time. parallel-test-runner execute
 test:
   - name: unit
     stage: unit
-    runner: go://parallel-test-runner
+    runner: forge://parallel-test-runner
     spec:
       primaryCoverageRunner: go-test
       runners:
         - name: go-test
-          engine: go://go-test
+          engine: forge://go-test
         - name: lint
-          engine: go://go-lint
+          engine: forge://go-lint
         - name: verify-tags
-          engine: go://go-lint-tags
+          engine: forge://go-lint-tags
 ```
 
 Run with:
@@ -39,7 +39,7 @@ forge test run unit
 | `primaryCoverageRunner` | Name of runner to use for coverage percentage |
 | `runners` | Array of test runners to execute in parallel |
 | `runners[].name` | Unique name for the runner |
-| `runners[].engine` | Engine URI (e.g., `go://go-test`) |
+| `runners[].engine` | Engine URI (e.g., `forge://go-test`) |
 | `runners[].spec` | Engine-specific configuration |
 
 ## How are results aggregated?

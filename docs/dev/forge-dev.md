@@ -185,12 +185,12 @@ Add to your `forge.yaml`:
 build:
   - name: generate-my-engine
     src: ./cmd/my-engine
-    engine: go://forge-dev
+    engine: forge://forge-dev
 
   - name: my-engine
     src: ./cmd/my-engine
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     depends: [generate-my-engine]
 ```
 

@@ -78,7 +78,7 @@ func TestShouldRebuild_ArtifactFileMissing(t *testing.T) {
 				Timestamp:                time.Now().UTC().Format(time.RFC3339),
 				Version:                  "abc123",
 				Dependencies:             []forge.ArtifactDependency{},
-				DependencyDetectorEngine: "go://test-detector",
+				DependencyDetectorEngine: "forge://test-detector",
 			},
 		},
 	}
@@ -209,7 +209,7 @@ func TestShouldRebuild_DependencyFileMissing(t *testing.T) {
 						Timestamp: time.Now().UTC().Format(time.RFC3339),
 					},
 				},
-				DependencyDetectorEngine: "go://test-detector",
+				DependencyDetectorEngine: "forge://test-detector",
 			},
 		},
 	}
@@ -261,7 +261,7 @@ func TestShouldRebuild_DependencyModified(t *testing.T) {
 						Timestamp: oldTimestamp, // Old timestamp - different from current
 					},
 				},
-				DependencyDetectorEngine: "go://test-detector",
+				DependencyDetectorEngine: "forge://test-detector",
 			},
 		},
 	}
@@ -329,7 +329,7 @@ func TestShouldRebuild_AllDependenciesUnchanged(t *testing.T) {
 						Semver:          "v1.2.3",
 					},
 				},
-				DependencyDetectorEngine: "go://test-detector",
+				DependencyDetectorEngine: "forge://test-detector",
 			},
 		},
 	}
@@ -385,7 +385,7 @@ func TestShouldRebuild_ExternalPackagesWithoutGoMod(t *testing.T) {
 						Semver:          "v1.2.3",
 					},
 				},
-				DependencyDetectorEngine: "go://test-detector",
+				DependencyDetectorEngine: "forge://test-detector",
 			},
 		},
 	}

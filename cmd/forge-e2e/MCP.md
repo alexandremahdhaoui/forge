@@ -166,7 +166,7 @@ forge-e2e is invoked by forge's test infrastructure:
 # forge.yaml
 test:
   - name: e2e
-    runner: go://forge-e2e
+    runner: forge://forge-e2e
     tags: ["e2e"]
 ```
 

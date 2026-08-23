@@ -260,12 +260,12 @@ Add build targets for code generation:
 build:
   - name: gen-your-engine
     src: ./cmd/your-engine
-    engine: go://forge-dev
+    engine: forge://forge-dev
 
   - name: your-engine
     src: ./cmd/your-engine
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     depends: [gen-your-engine]
 ```
 

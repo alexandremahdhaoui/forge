@@ -226,13 +226,13 @@ func TestBuildWithFormatter(t *testing.T) {
 	}
 
 	// Verify formatter engine was invoked
-	if !strings.Contains(outputStr, "go://go-format") {
-		t.Error("Expected to find 'go://go-format' in output")
+	if !strings.Contains(outputStr, "forge://go-format") {
+		t.Error("Expected to find 'forge://go-format' in output")
 	}
 
 	// Verify builder engine was also invoked
-	if !strings.Contains(outputStr, "go://go-build") {
-		t.Error("Expected to find 'go://go-build' in output")
+	if !strings.Contains(outputStr, "forge://go-build") {
+		t.Error("Expected to find 'forge://go-build' in output")
 	}
 
 	// Note: We don't check strict ordering because builds are grouped by engine type.
@@ -277,7 +277,7 @@ func TestBuildSingleArtifactDoesNotRunFormatter(t *testing.T) {
 	// When building a specific artifact that's not format-code, the formatter should not run
 	// (unless format-code is explicitly requested or the spec filtering includes it)
 	// Since we're building "go-lint" and format-code has name "format-code", it won't match
-	formatCount := strings.Count(outputStr, "go://go-format")
+	formatCount := strings.Count(outputStr, "forge://go-format")
 	if formatCount > 0 {
 		t.Log("Note: formatter ran even for single artifact build - this is expected if format-code is always processed first")
 	}

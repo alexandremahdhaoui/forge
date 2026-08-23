@@ -13,7 +13,7 @@ Running golangci-lint separately from your test pipeline means inconsistent repo
 ```yaml
 test:
   - name: lint
-    runner: go://go-lint
+    runner: forge://go-lint
 ```
 
 Run with:

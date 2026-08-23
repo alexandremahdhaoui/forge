@@ -6,7 +6,7 @@ Dependency detector for mockery mock generation. This MCP server analyzes `.mock
 
 The `go-gen-mocks-dep-detector` is an MCP server that detects file dependencies for mock generation. It is called by `go-gen-mocks` after mock generation to track which source files affect the generated mocks, enabling forge's lazy rebuild system to skip unnecessary rebuilds when source files haven't changed.
 
-**URI:** `go://go-gen-mocks-dep-detector`
+**URI:** `forge://go-gen-mocks-dep-detector`
 
 ## Tools
 

@@ -144,14 +144,14 @@ func TestMapToStruct_ValidMap(t *testing.T) {
 		"runners": []any{
 			map[string]any{
 				"name":   "go-test",
-				"engine": "go://go-test",
+				"engine": "forge://go-test",
 				"spec": map[string]any{
 					"packages": "./...",
 				},
 			},
 			map[string]any{
 				"name":   "go-lint",
-				"engine": "go://go-lint",
+				"engine": "forge://go-lint",
 				"spec":   map[string]any{},
 			},
 		},
@@ -164,10 +164,10 @@ func TestMapToStruct_ValidMap(t *testing.T) {
 	assert.Equal(t, "go-test", spec.PrimaryCoverageRunner)
 	require.Len(t, spec.Runners, 2)
 	assert.Equal(t, "go-test", spec.Runners[0].Name)
-	assert.Equal(t, "go://go-test", spec.Runners[0].Engine)
+	assert.Equal(t, "forge://go-test", spec.Runners[0].Engine)
 	assert.Equal(t, "./...", spec.Runners[0].Spec["packages"])
 	assert.Equal(t, "go-lint", spec.Runners[1].Name)
-	assert.Equal(t, "go://go-lint", spec.Runners[1].Engine)
+	assert.Equal(t, "forge://go-lint", spec.Runners[1].Engine)
 }
 
 func TestMapToStruct_InvalidStruct(t *testing.T) {
@@ -464,7 +464,7 @@ func TestDetermineOverallStatus_EmptyReports(t *testing.T) {
 func TestRunnerConfig_JSONMarshaling(t *testing.T) {
 	m := map[string]any{
 		"name":   "test-runner",
-		"engine": "go://go-test",
+		"engine": "forge://go-test",
 		"spec": map[string]any{
 			"packages": "./pkg/...",
 			"verbose":  true,
@@ -476,7 +476,7 @@ func TestRunnerConfig_JSONMarshaling(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "test-runner", config.Name)
-	assert.Equal(t, "go://go-test", config.Engine)
+	assert.Equal(t, "forge://go-test", config.Engine)
 	assert.Equal(t, "./pkg/...", config.Spec["packages"])
 	assert.Equal(t, true, config.Spec["verbose"])
 }
@@ -500,7 +500,7 @@ func TestParallelTestRunnerSpec_MultipleDifferentRunners(t *testing.T) {
 		"runners": []any{
 			map[string]any{
 				"name":   "go-test",
-				"engine": "go://go-test",
+				"engine": "forge://go-test",
 				"spec": map[string]any{
 					"packages": "./...",
 					"coverage": true,
@@ -508,14 +508,14 @@ func TestParallelTestRunnerSpec_MultipleDifferentRunners(t *testing.T) {
 			},
 			map[string]any{
 				"name":   "go-lint",
-				"engine": "go://go-lint",
+				"engine": "forge://go-lint",
 				"spec": map[string]any{
 					"checks": []any{"all"},
 				},
 			},
 			map[string]any{
 				"name":   "go-lint-licenses",
-				"engine": "go://go-lint-licenses",
+				"engine": "forge://go-lint-licenses",
 				"spec":   map[string]any{},
 			},
 		},
@@ -530,12 +530,12 @@ func TestParallelTestRunnerSpec_MultipleDifferentRunners(t *testing.T) {
 
 	// Verify each runner
 	assert.Equal(t, "go-test", spec.Runners[0].Name)
-	assert.Equal(t, "go://go-test", spec.Runners[0].Engine)
+	assert.Equal(t, "forge://go-test", spec.Runners[0].Engine)
 	assert.Equal(t, true, spec.Runners[0].Spec["coverage"])
 
 	assert.Equal(t, "go-lint", spec.Runners[1].Name)
-	assert.Equal(t, "go://go-lint", spec.Runners[1].Engine)
+	assert.Equal(t, "forge://go-lint", spec.Runners[1].Engine)
 
 	assert.Equal(t, "go-lint-licenses", spec.Runners[2].Name)
-	assert.Equal(t, "go://go-lint-licenses", spec.Runners[2].Engine)
+	assert.Equal(t, "forge://go-lint-licenses", spec.Runners[2].Engine)
 }

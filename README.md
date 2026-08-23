@@ -21,11 +21,11 @@ build:
   - name: my-app
     src: ./cmd/my-app
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
 
 test:
   - name: unit
-    runner: go://go-test
+    runner: forge://go-test
 ```
 
 ```bash
@@ -62,7 +62,7 @@ forge test-all    # Build + run all test stages (fail-fast)
 +----------+ +------------+ +-------------+
 ```
 
-Forge starts each engine as a child process communicating over stdio. The `parallel-builder` and `parallel-test-runner` engines wrap multiple sub-engines for concurrent execution. Engine URIs (`go://engine-name`, `alias://custom-name`) resolve to MCP servers at runtime. See [DESIGN.md](./DESIGN.md) for the full architecture.
+Forge starts each engine as a child process communicating over stdio. The `parallel-builder` and `parallel-test-runner` engines wrap multiple sub-engines for concurrent execution. Engine URIs (`forge://engine-name`, `alias://custom-name`) resolve to MCP servers at runtime. See [DESIGN.md](./DESIGN.md) for the full architecture.
 
 ## Table of Contents
 
@@ -83,30 +83,30 @@ build:
   - name: my-app            # Artifact name
     src: ./cmd/my-app        # Source directory
     dest: ./build/bin        # Output directory
-    engine: go://go-build    # Engine URI
+    engine: forge://go-build    # Engine URI
 
   - name: ws-controller-image
     src: ./containers/ws-controller/Containerfile
     context: git@github.com:user/other-repo.git  # Build from sibling repo
-    engine: go://container-build
+    engine: forge://container-build
 
 test:
   - name: unit
-    runner: go://go-test     # Test runner engine
+    runner: forge://go-test     # Test runner engine
 
   - name: integration
-    runner: go://go-test
+    runner: forge://go-test
     testenv: alias://setup-integration  # Testenv chain alias
 
 engines:
   - alias: setup-integration
     type: testenv
     testenv:                 # Testenv chain: engines run sequentially,
-      - engine: go://testenv-kind      # each propagating env vars to the next
-      - engine: go://testenv-lcr
+      - engine: forge://testenv-kind      # each propagating env vars to the next
+      - engine: forge://testenv-lcr
         spec:
           enabled: true
-      - engine: go://testenv-helm-install
+      - engine: forge://testenv-helm-install
         spec:
           charts:
             - name: my-chart
@@ -168,7 +168,7 @@ All engines implement JSON-RPC 2.0 over stdio. To create a new engine:
 1. Define the engine's MCP tool schema (OpenAPI spec)
 2. Run `forge-dev` to generate the server scaffolding
 3. Implement the tool handler
-4. Reference the engine in `forge.yaml` with a `go://` URI
+4. Reference the engine in `forge.yaml` with a `forge://` URI
 
 See [Engine Development](./docs/dev/getting-started.md) and [forge-dev](./docs/dev/forge-dev.md) for step-by-step guides.
 
@@ -194,7 +194,7 @@ build:
   - name: controller-image
     src: ./containers/controller/Containerfile
     context: git@github.com:user/other-repo.git
-    engine: go://container-build
+    engine: forge://container-build
 ```
 
 **How do I run Forge from a Go workspace?**

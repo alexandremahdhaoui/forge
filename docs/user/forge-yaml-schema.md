@@ -69,7 +69,7 @@ artifactStorePath: .ignore.artifact-store.yaml
 
 #### `localContainerRegistry` (LocalContainerRegistry, optional)
 
-Configuration for the local container registry used by `go://testenv-lcr` engine in test environments. This registry provides TLS-enabled container image storage for integration and end-to-end tests.
+Configuration for the local container registry used by `forge://testenv-lcr` engine in test environments. This registry provides TLS-enabled container image storage for integration and end-to-end tests.
 
 **Fields:**
 
@@ -99,8 +99,8 @@ engines:
   - alias: setup-integration
     type: testenv
     testenv:
-      - engine: "go://testenv-kind"
-      - engine: "go://testenv-lcr"
+      - engine: "forge://testenv-kind"
+      - engine: "forge://testenv-lcr"
         spec:
           enabled: true  # Enable for this test environment
           autoPushImages: true
@@ -135,15 +135,15 @@ engines:
   - alias: generate-all
     type: builder
     builder:
-      - engine: "go://generic-builder"
+      - engine: "forge://generic-builder"
         spec:
           command: "go"
           args: ["mod", "tidy"]
-      - engine: "go://generic-builder"
+      - engine: "forge://generic-builder"
         spec:
           command: "go"
           args: ["generate", "./..."]
-      - engine: "go://generic-builder"
+      - engine: "forge://generic-builder"
         spec:
           command: "controller-gen"
           args: ["object:headerFile=./hack/boilerplate.go.txt", "paths=./..."]
@@ -155,11 +155,11 @@ engines:
   - alias: comprehensive-tests
     type: test-runner
     testRunner:
-      - engine: "go://go-test"
+      - engine: "forge://go-test"
         spec:
           args: ["-tags=unit"]
-      - engine: "go://go-lint-tags"
-      - engine: "go://go-lint"
+      - engine: "forge://go-lint-tags"
+      - engine: "forge://go-lint"
 ```
 
 **Example: Multi-Step Test Environment**
@@ -168,8 +168,8 @@ engines:
   - alias: setup-integration
     type: testenv
     testenv:
-      - engine: "go://testenv-kind"
-      - engine: "go://testenv-lcr"
+      - engine: "forge://testenv-kind"
+      - engine: "forge://testenv-lcr"
         spec:
           enabled: true
           autoPushImages: true
@@ -179,7 +179,7 @@ engines:
 
 Each testenv sub-engine configuration supports these fields:
 
-- `engine` (string, required) - Engine URI (e.g., `go://testenv-kind`)
+- `engine` (string, required) - Engine URI (e.g., `forge://testenv-kind`)
 - `deferTemplates` (boolean, optional, default: `false`) - When `true`, forge skips template expansion for this engine's `spec`. The spec is passed verbatim to the sub-engine, allowing it to perform its own template expansion with a richer context (e.g., access to `.Networks`, `.Keys`, or other sub-engine-specific variables).
 - `spec` (map, optional) - Engine-specific configuration
 
@@ -190,12 +190,12 @@ engines:
     type: testenv
     testenv:
       # Engine using forge template expansion (default)
-      - engine: "go://testenv-kind"
+      - engine: "forge://testenv-kind"
         spec:
           clusterName: "{{.Env.CLUSTER_NAME}}"  # Expanded by forge
 
       # Engine handling its own templates
-      - engine: "go://testenv-vm"
+      - engine: "forge://testenv-vm"
         deferTemplates: true  # Skip forge expansion
         spec:
           cloudInit: |
@@ -222,7 +222,7 @@ test:
     runner: alias://comprehensive-tests
   - name: integration
     testenv: alias://setup-integration
-    runner: go://go-test
+    runner: forge://go-test
 ```
 
 #### `build` (array of BuildSpec, required)
@@ -237,10 +237,10 @@ Test stages configuration. See [Test Configuration](#test-configuration).
 ```yaml
 test:
   - name: unit
-    runner: "go://go-test"
+    runner: "forge://go-test"
   - name: integration
     testenv: "alias://setup-integration"
-    runner: "go://go-test"
+    runner: "forge://go-test"
 ```
 
 #### `oapiCodegenHelper` (OAPICodegenHelper, optional)
@@ -302,11 +302,11 @@ build:
     - name: my-app
       src: ./cmd/my-app
       dest: ./build/bin
-      builder: go://go-build
+      builder: forge://go-build
 
     - name: my-container
       src: ./containers/my-app/Containerfile
-      builder: go://container-build
+      builder: forge://container-build
 ```
 
 ## BuildSpec Specification
@@ -399,10 +399,10 @@ Engine URI specifying which build engine to use.
 **Format:** `<protocol>://<engine-name>`
 
 **Supported Engines:**
-- `go://go-build` - Build Go binaries with automatic dependency tracking
-- `go://container-build` - Build container images
-- `go://go-dependency-detector` - Detect Go dependencies (used internally)
-- `go://generic-builder` - Execute any command as a build step
+- `forge://go-build` - Build Go binaries with automatic dependency tracking
+- `forge://container-build` - Build container images
+- `forge://go-dependency-detector` - Detect Go dependencies (used internally)
+- `forge://generic-builder` - Execute any command as a build step
 - `alias://<alias-name>` - Custom engine alias defined in `engines` section
 
 See [Engine Protocol](#engine-protocol) for details.
@@ -410,10 +410,10 @@ See [Engine Protocol](#engine-protocol) for details.
 **Examples:**
 ```yaml
 # Build Go binary
-engine: go://go-build
+engine: forge://go-build
 
 # Build container image
-engine: go://container-build
+engine: forge://container-build
 
 # Use custom engine alias
 engine: alias://my-custom-builder
@@ -436,7 +436,7 @@ build:
   - name: static-binary
     src: ./cmd/myapp
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     spec:
       args:
         - "-tags=netgo"
@@ -453,7 +453,7 @@ build:
   - name: myapp-darwin-arm64
     src: ./cmd/myapp
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     spec:
       env:
         GOOS: "darwin"
@@ -466,10 +466,10 @@ build:
 build:
   - name: api-server-image
     src: ./containers/api-server/Containerfile
-    engine: go://container-build
+    engine: forge://container-build
     spec:
       dependsOn:
-        - engine: go://go-dependency-detector
+        - engine: forge://go-dependency-detector
           spec:
             filePath: ./cmd/api-server/main.go
             funcName: main
@@ -488,7 +488,7 @@ build:
 - name: my-cli-tool
   src: ./cmd/my-cli-tool
   dest: ./build/bin
-  builder: go://go-build
+  builder: forge://go-build
 ```
 
 **Results in:**
@@ -501,7 +501,7 @@ build:
 ```yaml
 - name: my-api
   src: ./containers/my-api/Containerfile
-  builder: go://container-build
+  builder: forge://container-build
 ```
 
 **Results in:**
@@ -535,15 +535,15 @@ When you run `forge build`:
 
 **Container Images (container-build):**
 - Requires explicit `dependsOn` configuration in `spec`
-- Use `go://go-dependency-detector` for Go-based containers
+- Use `forge://go-dependency-detector` for Go-based containers
 - Example:
   ```yaml
   - name: api-image
     src: ./containers/api/Containerfile
-    engine: go://container-build
+    engine: forge://container-build
     spec:
       dependsOn:
-        - engine: go://go-dependency-detector
+        - engine: forge://go-dependency-detector
           spec:
             filePath: ./cmd/api/main.go
             funcName: main
@@ -586,26 +586,26 @@ Lazy rebuild provides significant performance improvements:
 
 ## Engine Protocol
 
-Build engines use the `go://` protocol to reference MCP servers.
+Build engines use the `forge://` protocol to reference MCP servers.
 
 ### Protocol Format
 
 ```
-go://<binary-name>
+forge://<binary-name>
 ```
 
 **Components:**
-- `go://` - Protocol identifier (indicates MCP server)
+- `forge://` - Protocol identifier (indicates MCP server)
 - `<binary-name>` - Name of the MCP server binary
 
 ### Engine Resolution
 
-When forge encounters an engine URI like `go://go-build@v1.0.0`:
+When forge encounters an engine URI like `forge://go-build@v1.0.0`:
 
-1. **URI Parsing:** Extracts engine name and version from `go://<name>[@<version>]`
+1. **URI Parsing:** Extracts engine name and version from `forge://<name>[@<version>]`
 2. **Short Name Expansion:** Expands short names to full paths
-   - `go://go-build@v1.0.0` -> `github.com/alexandremahdhaoui/forge/cmd/go-build@v1.0.0`
-   - `go://container-build` -> `github.com/alexandremahdhaoui/forge/cmd/container-build@latest`
+   - `forge://go-build@v1.0.0` -> `github.com/alexandremahdhaoui/forge/cmd/go-build@v1.0.0`
+   - `forge://container-build` -> `github.com/alexandremahdhaoui/forge/cmd/container-build@latest`
 3. **Binary Check:** Looks for binary in PATH (from previous `go install`)
 4. **Auto-Install:** If not found, runs `go install <full-path@version>`
 5. **MCP Mode:** Invokes with `--mcp` flag
@@ -617,7 +617,7 @@ When forge encounters an engine URI like `go://go-build@v1.0.0`:
 
 #### go-build
 
-**URI:** `go://go-build`
+**URI:** `forge://go-build`
 
 **Purpose:** Build Go binaries with version metadata injection and automatic dependency tracking
 
@@ -625,7 +625,7 @@ When forge encounters an engine URI like `go://go-build@v1.0.0`:
 - `name` - Binary name
 - `src` - Go package path
 - `dest` - Output directory
-- `builder: go://go-build`
+- `builder: forge://go-build`
 
 **Features:**
 - Automatic dependency detection for Go main packages
@@ -640,7 +640,7 @@ When forge encounters an engine URI like `go://go-build@v1.0.0`:
 - name: my-app
   src: ./cmd/my-app
   dest: ./build/bin
-  builder: go://go-build
+  builder: forge://go-build
 ```
 
 **Build Command:**
@@ -652,7 +652,7 @@ GO_BUILD_LDFLAGS="-X main.Version=v1.0.0" forge build
 
 #### go-dependency-detector
 
-**URI:** `go://go-dependency-detector`
+**URI:** `forge://go-dependency-detector`
 
 **Purpose:** Detect Go code dependencies for lazy rebuild optimization
 
@@ -662,10 +662,10 @@ GO_BUILD_LDFLAGS="-X main.Version=v1.0.0" forge build
 ```yaml
 - name: api-image
   src: ./containers/api/Containerfile
-  engine: go://container-build
+  engine: forge://container-build
   spec:
     dependsOn:
-      - engine: go://go-dependency-detector
+      - engine: forge://go-dependency-detector
         spec:
           filePath: ./cmd/api/main.go
           funcName: main
@@ -675,14 +675,14 @@ GO_BUILD_LDFLAGS="-X main.Version=v1.0.0" forge build
 
 #### container-build
 
-**URI:** `go://container-build`
+**URI:** `forge://container-build`
 
 **Purpose:** Build container images using Kaniko (rootless, secure)
 
 **Required BuildSpec Fields:**
 - `name` - Image name
 - `src` - Path to Containerfile
-- `builder: go://container-build`
+- `builder: forge://container-build`
 
 **Optional BuildSpec Fields:**
 - `dest` - Registry prefix (default: uses local tagging)
@@ -696,7 +696,7 @@ GO_BUILD_LDFLAGS="-X main.Version=v1.0.0" forge build
 - name: my-api
   src: ./containers/my-api/Containerfile
   dest: localhost:5000
-  builder: go://container-build
+  builder: forge://container-build
 ```
 
 **Build Command:**
@@ -735,7 +735,7 @@ tool := mcp.Tool{
 - name: my-artifact
   src: ./source
   dest: ./output
-  builder: go://my-custom-engine
+  builder: forge://my-custom-engine
 ```
 
 ## Test Configuration
@@ -761,17 +761,17 @@ List of test stages. Each stage can have its own environment and runner.
 ```yaml
 test:
   - name: unit
-    runner: "go://go-test"
+    runner: "forge://go-test"
 
   - name: integration
     testenv: "alias://setup-integration"
-    runner: "go://go-test"
+    runner: "forge://go-test"
 
   - name: e2e
-    runner: "go://forge-e2e"
+    runner: "forge://forge-e2e"
 
   - name: lint
-    runner: "go://go-lint"
+    runner: "forge://go-lint"
 ```
 
 ## TestSpec Specification
@@ -810,26 +810,26 @@ Test environment engine URI. Omit this field for tests that don't need an enviro
 **Format:** `<protocol>://<engine-name>` or `alias://<alias-name>`
 
 **Available Engines:**
-- `"go://testenv"` - Complete test environment (Kind cluster + registry + helm)
-- `"go://testenv-kind"` - Kind cluster only
-- `"go://testenv-lcr"` - Local container registry only
+- `"forge://testenv"` - Complete test environment (Kind cluster + registry + helm)
+- `"forge://testenv-kind"` - Kind cluster only
+- `"forge://testenv-lcr"` - Local container registry only
 - `"alias://<name>"` - Custom engine alias from engines section
 
 **Example:**
 ```yaml
 # No environment needed (omit testenv field)
 name: unit
-runner: "go://go-test"
+runner: "forge://go-test"
 
 # Full test environment with cluster
 name: integration
-testenv: "go://testenv"
-runner: "go://go-test"
+testenv: "forge://testenv"
+runner: "forge://go-test"
 
 # Custom environment alias
 name: integration
 testenv: "alias://setup-integration"
-runner: "go://go-test"
+runner: "forge://go-test"
 ```
 
 #### `runner` (string, required)
@@ -839,25 +839,25 @@ Test runner engine URI specifying which test runner to use.
 **Format:** `<protocol>://<runner-name>`
 
 **Available Runners:**
-- `"go://go-test"` - Go test runner with coverage and JUnit reports
-- `"go://go-lint-tags"` - Verify all test files have build tags
-- `"go://generic-test-runner"` - Execute arbitrary commands as tests
-- `"go://go-lint"` - Golangci-lint runner
-- `"go://forge-e2e"` - Forge end-to-end test runner
+- `"forge://go-test"` - Go test runner with coverage and JUnit reports
+- `"forge://go-lint-tags"` - Verify all test files have build tags
+- `"forge://generic-test-runner"` - Execute arbitrary commands as tests
+- `"forge://go-lint"` - Golangci-lint runner
+- `"forge://forge-e2e"` - Forge end-to-end test runner
 
 **Example:**
 ```yaml
 # Run Go tests
-runner: "go://go-test"
+runner: "forge://go-test"
 
 # Verify build tags
-runner: "go://go-lint-tags"
+runner: "forge://go-lint-tags"
 
 # Run linter
-runner: "go://go-lint"
+runner: "forge://go-lint"
 
 # Execute custom commands
-runner: "go://generic-test-runner"
+runner: "forge://generic-test-runner"
 ```
 
 ### Complete TestSpec Examples
@@ -866,7 +866,7 @@ runner: "go://generic-test-runner"
 
 ```yaml
 - name: unit
-  runner: "go://go-test"
+  runner: "forge://go-test"
 ```
 
 **Usage:**
@@ -884,7 +884,7 @@ forge test unit run
 ```yaml
 - name: integration
   testenv: "alias://setup-integration"
-  runner: "go://go-test"
+  runner: "forge://go-test"
 ```
 
 **Usage:**
@@ -904,7 +904,7 @@ forge test integration delete  # Delete environment
 
 ```yaml
 - name: lint
-  runner: "go://go-lint"
+  runner: "forge://go-lint"
 ```
 
 **Usage:**
@@ -933,8 +933,8 @@ engines:
   - alias: setup-integration
     type: testenv
     testenv:
-      - engine: "go://testenv-kind"
-      - engine: "go://testenv-lcr"
+      - engine: "forge://testenv-kind"
+      - engine: "forge://testenv-lcr"
         spec:
           enabled: true
           autoPushImages: true
@@ -945,56 +945,56 @@ build:
   - name: my-cli
     src: ./cmd/my-cli
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
 
   - name: api-server
     src: ./cmd/api-server
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
 
   # Build tools (self-hosting)
   - name: go-build
     src: ./cmd/go-build
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
 
   - name: container-build
     src: ./cmd/container-build
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
 
   # Container images
   - name: api-server-image
     src: ./containers/api-server/Containerfile
     dest: localhost:5000
-    engine: go://container-build
+    engine: forge://container-build
 
   - name: worker
     src: ./containers/worker/Containerfile
-    engine: go://container-build
+    engine: forge://container-build
 
 # Test stages configuration
 test:
   # Verify build tags
   - name: verify-tags
-    runner: "go://go-lint-tags"
+    runner: "forge://go-lint-tags"
 
   # Unit tests - no environment needed
   - name: unit
-    runner: "go://go-test"
+    runner: "forge://go-test"
 
   # Integration tests - full test environment
   - name: integration
     testenv: "alias://setup-integration"
-    runner: "go://go-test"
+    runner: "forge://go-test"
 
   # E2E tests
   - name: e2e
-    runner: "go://forge-e2e"
+    runner: "forge://forge-e2e"
 
   # Linting
   - name: lint
-    runner: "go://go-lint"
+    runner: "forge://go-lint"
 
 # OpenAPI code generation (optional)
 oapiCodegenHelper: {}
@@ -1131,11 +1131,11 @@ dest: localhost:5000
 ```yaml
 # Go binaries: use go-build
 - name: my-binary
-  builder: go://go-build
+  builder: forge://go-build
 
 # Container images: use container-build
 - name: my-image
-  builder: go://container-build
+  builder: forge://container-build
 ```
 
 ### 5. Self-Hosting
@@ -1149,13 +1149,13 @@ build:
     - name: forge
       src: ./cmd/forge
       dest: ./build/bin
-      builder: go://go-build
+      builder: forge://go-build
 
     # go-build builds itself
     - name: go-build
       src: ./cmd/go-build
       dest: ./build/bin
-      builder: go://go-build
+      builder: forge://go-build
 ```
 
 ### 6. File Ignoring
@@ -1197,7 +1197,7 @@ If migrating from `.project.yaml`:
 2. **Update structure:**
    - Add `build.specs` array
    - Convert old build config to BuildSpec format
-   - Update engine references to use `go://` protocol
+   - Update engine references to use `forge://` protocol
 
 3. **Update references:**
    - Update documentation

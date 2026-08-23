@@ -36,12 +36,12 @@ build:
   - name: test-binary
     src: ./cmd/test
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
 
 test:
   - name: integration
-    testenv: go://testenv
-    runner: go://go-test
+    testenv: forge://testenv
+    runner: forge://go-test
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "forge.yaml"), []byte(forgeYAML), 0o644); err != nil {
 		t.Fatalf("Failed to create forge.yaml: %v", err)
@@ -93,25 +93,25 @@ test:
 	}{
 		{
 			name:      "go-build engine",
-			engineURI: "go://go-build",
+			engineURI: "forge://go-build",
 			wantType:  "mcp",
 			wantCmd:   "go",
 		},
 		{
 			name:      "testenv engine",
-			engineURI: "go://testenv",
+			engineURI: "forge://testenv",
 			wantType:  "mcp",
 			wantCmd:   "go",
 		},
 		{
 			name:      "testenv-kind engine",
-			engineURI: "go://testenv-kind",
+			engineURI: "forge://testenv-kind",
 			wantType:  "mcp",
 			wantCmd:   "go",
 		},
 		{
 			name:      "go-test engine",
-			engineURI: "go://go-test",
+			engineURI: "forge://go-test",
 			wantType:  "mcp",
 			wantCmd:   "go",
 		},
@@ -184,12 +184,12 @@ engines:
   - alias: my-builder
     type: builder
     builder:
-      - engine: go://go-build
+      - engine: forge://go-build
 
 test:
   - name: unit
     testenv: alias://my-testenv
-    runner: go://go-test
+    runner: forge://go-test
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "forge.yaml"), []byte(forgeYAML), 0o644); err != nil {
 		t.Fatalf("Failed to create forge.yaml: %v", err)
@@ -245,8 +245,8 @@ func TestEngineResolution_ErrorCases(t *testing.T) {
 			wantErr:   true,
 		},
 		{
-			name:      "empty go:// path",
-			engineURI: "go://",
+			name:      "empty forge:// path",
+			engineURI: "forge://",
 			wantErr:   true,
 		},
 		{

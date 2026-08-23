@@ -14,7 +14,7 @@ testenv --mcp
 
 Forge invokes this automatically via:
 ```yaml
-engine: go://testenv
+engine: forge://testenv
 ```
 
 ## Available Tools
@@ -90,8 +90,8 @@ In `forge.yaml`:
 test:
   - name: integration
     stage: integration
-    engine: go://testenv
-    runner: go://go-test
+    engine: forge://testenv
+    runner: forge://go-test
 ```
 
 Run with:

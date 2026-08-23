@@ -117,7 +117,7 @@ func TestGenerateWithSpecTypes(t *testing.T) {
 		input := mcptypes.BuildInput{
 			Name:   "my-engine",
 			Src:    engineDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		artifact, err := generate(ctx, input)
@@ -217,7 +217,7 @@ func TestGenerateWithSpecTypes(t *testing.T) {
 		input := mcptypes.BuildInput{
 			Name:   "legacy-engine",
 			Src:    engineDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		artifact, err := generate(ctx, input)
@@ -282,7 +282,7 @@ func TestGenerateWithSpecTypes(t *testing.T) {
 		input := mcptypes.BuildInput{
 			Name:   "nested-engine",
 			Src:    engineDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		artifact, err := generate(ctx, input)
@@ -341,7 +341,7 @@ func TestGenerateWithSpecTypes(t *testing.T) {
 		input := mcptypes.BuildInput{
 			Name:   "checksum-engine",
 			Src:    engineDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		// First run
@@ -397,7 +397,7 @@ func TestGenerateWithSpecTypes(t *testing.T) {
 		input := mcptypes.BuildInput{
 			Name:   "force-engine",
 			Src:    engineDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		// First run
@@ -424,7 +424,7 @@ func TestGenerateWithSpecTypes(t *testing.T) {
 		inputForce := mcptypes.BuildInput{
 			Name:   "force-engine",
 			Src:    engineDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 			Force:  true,
 		}
 
@@ -476,7 +476,7 @@ func TestGenerateWithSpecTypes(t *testing.T) {
 		input := mcptypes.BuildInput{
 			Name:   "multi-module-engine",
 			Src:    engineDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		artifact, err := generate(ctx, input)
@@ -522,7 +522,7 @@ func TestGenerateWithSpecTypes(t *testing.T) {
 		input := mcptypes.BuildInput{
 			Name:   "dotslash-engine",
 			Src:    engineDir,
-			Engine: "go://forge-dev",
+			Engine: "forge://forge-dev",
 		}
 
 		artifact, err := generate(ctx, input)
@@ -628,7 +628,7 @@ components:
 	input := mcptypes.BuildInput{
 		Name:   "nested-types-engine",
 		Src:    engineDir,
-		Engine: "go://forge-dev",
+		Engine: "forge://forge-dev",
 	}
 
 	artifact, err := generate(ctx, input)

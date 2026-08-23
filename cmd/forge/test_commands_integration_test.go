@@ -44,8 +44,8 @@ artifactStorePath: .ignore.artifact-store.yaml
 
 test:
   - name: unit
-    runner: go://go-test
-    testenv: go://test-report
+    runner: forge://go-test
+    testenv: forge://test-report
 `
 	if err := os.WriteFile(forgeYaml, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to create test forge.yaml: %v", err)
@@ -174,8 +174,8 @@ artifactStorePath: .ignore.artifact-store.yaml
 
 test:
   - name: unit
-    runner: go://go-test
-    testenv: go://test-report
+    runner: forge://go-test
+    testenv: forge://test-report
 `
 	if err := os.WriteFile(forgeYaml, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to create test forge.yaml: %v", err)
@@ -225,8 +225,8 @@ artifactStorePath: .ignore.artifact-store.yaml
 
 test:
   - name: unit
-    runner: go://go-test
-    testenv: go://test-report
+    runner: forge://go-test
+    testenv: forge://test-report
 `
 	if err := os.WriteFile(forgeYaml, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to create test forge.yaml: %v", err)
@@ -271,8 +271,8 @@ artifactStorePath: .ignore.artifact-store.yaml
 
 test:
   - name: unit
-    runner: go://go-test
-    testenv: go://test-report
+    runner: forge://go-test
+    testenv: forge://test-report
 `
 	if err := os.WriteFile(forgeYaml, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to create test forge.yaml: %v", err)
@@ -325,8 +325,8 @@ artifactStorePath: .ignore.artifact-store.yaml
 
 test:
   - name: unit
-    runner: go://go-test
-    testenv: go://test-report
+    runner: forge://go-test
+    testenv: forge://test-report
 `
 	if err := os.WriteFile(forgeYaml, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to create test forge.yaml: %v", err)
@@ -379,8 +379,8 @@ artifactStorePath: .ignore.artifact-store.yaml
 
 test:
   - name: unit
-    runner: go://go-test
-    testenv: go://test-report
+    runner: forge://go-test
+    testenv: forge://test-report
 `
 	if err := os.WriteFile(forgeYaml, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to create test forge.yaml: %v", err)
@@ -458,8 +458,8 @@ artifactStorePath: .ignore.artifact-store.yaml
 
 test:
   - name: unit
-    runner: go://go-test
-    testenv: go://test-report
+    runner: forge://go-test
+    testenv: forge://test-report
 `
 	if err := os.WriteFile(forgeYaml, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to create test forge.yaml: %v", err)
@@ -509,8 +509,8 @@ artifactStorePath: .ignore.artifact-store.yaml
 
 test:
   - name: unit
-    runner: go://go-test
-    testenv: go://test-report
+    runner: forge://go-test
+    testenv: forge://test-report
 `
 	if err := os.WriteFile(forgeYaml, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to create test forge.yaml: %v", err)
@@ -564,8 +564,8 @@ artifactStorePath: .ignore.artifact-store.yaml
 
 test:
   - name: unit
-    runner: go://go-test
-    testenv: go://test-report
+    runner: forge://go-test
+    testenv: forge://test-report
 `
 	if err := os.WriteFile(forgeYaml, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to create test forge.yaml: %v", err)

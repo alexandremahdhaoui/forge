@@ -17,7 +17,7 @@ generateOpenAPI:     # Root-level configuration (DEPRECATED)
 ```yaml
 build:               # Standard build section
   - name: my-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec: {...}
 ```
 
@@ -59,15 +59,15 @@ generateOpenAPI:
 ```yaml
 build:
   - name: example-api-v1    # One BuildSpec for v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec: {...}
 
   - name: example-api-v2    # One BuildSpec for v2
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec: {...}
 
   - name: example-api-v3    # One BuildSpec for v3
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec: {...}
 ```
 
@@ -90,13 +90,13 @@ generateOpenAPI:
 ```yaml
 build:
   - name: api1-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/api1.v1.yaml
       destinationDir: ./pkg/generated    # Explicit
 
   - name: api2-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/api2.v1.yaml
       destinationDir: ./pkg/generated    # Explicit
@@ -108,7 +108,7 @@ build:
 ```yaml
 build:
   - name: api1-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec: &common-config
       destinationDir: ./pkg/generated
       sourceFile: ./api/api1.v1.yaml
@@ -117,7 +117,7 @@ build:
         packageName: api1client
 
   - name: api2-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       <<: *common-config
       sourceFile: ./api/api2.v1.yaml
@@ -204,7 +204,7 @@ artifactStorePath: .ignore.artifact-store.yaml
 build:
   # Users API v1 - client only
   - name: users-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/users-api.v1.yaml
       destinationDir: ./pkg/generated
@@ -214,7 +214,7 @@ build:
 
   # Users API v2 - client only
   - name: users-api-v2
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/users-api.v2.yaml
       destinationDir: ./pkg/generated
@@ -224,7 +224,7 @@ build:
 
   # Products API v1 - both client and server
   - name: products-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/products-api.v1.yaml
       destinationDir: ./pkg/generated
@@ -246,7 +246,7 @@ artifactStorePath: .ignore.artifact-store.yaml
 build:
   # Users API v1
   - name: users-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       # Templated source file: {sourceDir}/{name}.{version}.yaml
       sourceDir: ./api
@@ -261,7 +261,7 @@ build:
 
   # Users API v2
   - name: users-api-v2
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceDir: ./api
       name: users-api
@@ -273,7 +273,7 @@ build:
 
   # Products API v1
   - name: products-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceDir: ./api
       name: products-api
@@ -313,7 +313,7 @@ Review your existing `generateOpenAPI` configuration and list out:
 For each combination of spec and version, create a new entry in the `build` section:
 
 1. **Set the name**: Use the pattern `{spec-name}-{version}` (e.g., `users-api-v1`)
-2. **Set the engine**: Always `go://go-gen-openapi`
+2. **Set the engine**: Always `forge://go-gen-openapi`
 3. **Configure the spec field**:
    - **sourceFile**: (Recommended) Use explicit path: `{defaults.sourceDir}/{spec.name}.{version}.yaml`
    - **OR sourceDir/name/version**: For templated pattern
@@ -412,7 +412,7 @@ generateOpenAPI:
 ```yaml
 build:
   - name: users-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/users-api.v1.yaml
       destinationDir: ./pkg/generated
@@ -421,7 +421,7 @@ build:
         packageName: usersclient
 
   - name: users-api-v2
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/users-api.v2.yaml
       destinationDir: ./pkg/generated
@@ -430,7 +430,7 @@ build:
         packageName: usersclientv2    # Different package name
 
   - name: users-api-v3
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/users-api.v3.yaml
       destinationDir: ./pkg/generated
@@ -467,7 +467,7 @@ generateOpenAPI:
 ```yaml
 build:
   - name: products-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/products-api.v1.yaml
       destinationDir: ./pkg/generated
@@ -514,7 +514,7 @@ generateOpenAPI:
 ```yaml
 build:
   - name: internal-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/internal-api.v1.yaml
       destinationDir: ./pkg/generated
@@ -526,7 +526,7 @@ build:
         packageName: internalserver
 
   - name: public-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/public-api.v1.yaml
       destinationDir: ./pkg/public    # Different destination
@@ -549,7 +549,7 @@ If you want to reduce duplication when you have many similar configurations, use
 build:
   # Define anchor with common configuration
   - name: api1-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec: &api-defaults
       destinationDir: ./pkg/generated
       sourceFile: ./api/api1.v1.yaml
@@ -559,7 +559,7 @@ build:
 
   # Reuse anchor and override specific fields
   - name: api2-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       <<: *api-defaults
       sourceFile: ./api/api2.v1.yaml
@@ -567,7 +567,7 @@ build:
         packageName: api2client
 
   - name: api3-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       <<: *api-defaults
       sourceFile: ./api/api3.v1.yaml

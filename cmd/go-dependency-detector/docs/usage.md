@@ -17,10 +17,10 @@ build:
   - name: myapp
     src: ./cmd/myapp
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     spec:
       dependsOn:
-        - engine: go://go-dependency-detector
+        - engine: forge://go-dependency-detector
           spec:
             filePath: ./cmd/myapp/main.go
             funcName: main

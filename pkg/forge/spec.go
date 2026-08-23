@@ -52,6 +52,9 @@ type Spec struct {
 	// Test holds the test stage configurations
 	Test []TestSpec `json:"test"`
 
+	// Run holds the runnable target configurations
+	Run []RunSpec `json:"run,omitempty"`
+
 	// Engines holds custom engine configurations with aliases
 	Engines []EngineConfig `json:"engines,omitempty"`
 
@@ -87,6 +90,12 @@ func (s *Spec) Validate() error {
 		if err := ts.Validate(); err != nil {
 			// Add context about which test spec failed
 			errs.AddErrorf("test[%d] (%s): %v", i, ts.Name, err)
+		}
+	}
+
+	for i, rs := range s.Run {
+		if err := rs.Validate(); err != nil {
+			errs.AddErrorf("run[%d] (%s): %v", i, rs.Name, err)
 		}
 	}
 
@@ -136,7 +145,7 @@ func ReadSpecFromPath(path string) (Spec, error) {
 	// Apply defaults to test specs
 	for i := range out.Test {
 		if out.Test[i].Testenv == "" {
-			out.Test[i].Testenv = "go://test-report"
+			out.Test[i].Testenv = "forge://test-report"
 		}
 	}
 

@@ -52,7 +52,7 @@ func TestBuildContainerDocker(t *testing.T) {
 	spec := forge.BuildSpec{
 		Name:   "test-docker-image",
 		Src:    "Containerfile",
-		Engine: "go://container-build",
+		Engine: "forge://container-build",
 	}
 
 	// Create artifact store
@@ -145,7 +145,7 @@ func TestBuildContainerKaniko(t *testing.T) {
 	spec := forge.BuildSpec{
 		Name:   "test-kaniko-image",
 		Src:    "Containerfile",
-		Engine: "go://container-build",
+		Engine: "forge://container-build",
 	}
 
 	// Create artifact store
@@ -240,7 +240,7 @@ func TestBuildContainerPodman(t *testing.T) {
 	spec := forge.BuildSpec{
 		Name:   "test-podman-image",
 		Src:    "Containerfile",
-		Engine: "go://container-build",
+		Engine: "forge://container-build",
 	}
 
 	// Create artifact store
@@ -322,7 +322,7 @@ func TestBuildContainerDispatcher(t *testing.T) {
 	spec := forge.BuildSpec{
 		Name:   "test-dispatcher-image",
 		Src:    "Containerfile",
-		Engine: "go://container-build",
+		Engine: "forge://container-build",
 	}
 
 	version := "test-version-dispatch"

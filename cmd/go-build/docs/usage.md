@@ -17,7 +17,7 @@ build:
   - name: myapp
     src: ./cmd/myapp
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
 ```
 
 Run the build:
@@ -45,7 +45,7 @@ build:
   - name: myapp-linux-amd64
     src: ./cmd/myapp
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     spec:
       env:
         GOOS: linux
@@ -61,7 +61,7 @@ Use the `args` field:
 build:
   - name: myapp
     src: ./cmd/myapp
-    engine: go://go-build
+    engine: forge://go-build
     spec:
       args:
         - "-tags=netgo"

@@ -77,10 +77,10 @@ func Delete(ctx context.Context, input engineframework.DeleteInput, spec *Spec) 
 test:
   - name: integration
     testenv:
-      engine: go://testenv
+      engine: forge://testenv
       subengines:
-        - go://testenv-kind
-        - go://testenv-postgres
+        - forge://testenv-kind
+        - forge://testenv-postgres
     spec:
       image: postgres:15
 ```

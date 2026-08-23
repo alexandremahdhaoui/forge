@@ -232,9 +232,9 @@ engines:
   - alias: setup-integration
     type: testenv
     testenv:
-      - engine: "go://testenv-kind"
+      - engine: "forge://testenv-kind"
         # spec: optional subengine-specific config
-      - engine: "go://testenv-lcr"
+      - engine: "forge://testenv-lcr"
         spec:
           autoPushImages: true
           enabled: true
@@ -242,7 +242,7 @@ engines:
 # Reference alias in test stages
 test:
   - name: integration
-    runner: "go://generic-test-runner"
+    runner: "forge://generic-test-runner"
     testenv: "alias://setup-integration"  # Uses the alias
 ```
 
@@ -321,9 +321,9 @@ Example: testenv-helm-install
      - alias: k8s-with-helm
        type: testenv
        testenv:
-         - engine: "go://testenv-kind"
-         - engine: "go://testenv-lcr"
-         - engine: "go://testenv-helm-install"
+         - engine: "forge://testenv-kind"
+         - engine: "forge://testenv-lcr"
+         - engine: "forge://testenv-helm-install"
            spec:
              chart: "my-chart"
              values: "values.yaml"
@@ -363,8 +363,8 @@ Example: testenv-helm-install
 # Old forge.yaml
 test:
   - name: integration
-    runner: "go://generic-test-runner"
-    setup: "go://testenv"
+    runner: "forge://generic-test-runner"
+    setup: "forge://testenv"
 ```
 
 ### New Approach
@@ -374,12 +374,12 @@ engines:
   - alias: setup-integration
     type: testenv
     testenv:
-      - engine: "go://testenv-kind"
-      - engine: "go://testenv-lcr"
+      - engine: "forge://testenv-kind"
+      - engine: "forge://testenv-lcr"
 
 test:
   - name: integration
-    runner: "go://generic-test-runner"
+    runner: "forge://generic-test-runner"
     testenv: "alias://setup-integration"
 ```
 

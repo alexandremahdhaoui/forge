@@ -56,8 +56,8 @@ func TestCaller_GetEngineResolver(t *testing.T) {
 func TestCaller_ResolveEngine_GoURI(t *testing.T) {
 	caller := NewCaller("v1.0.0")
 
-	// Test resolving a go:// URI
-	command, args, err := caller.ResolveEngine("go://go-build")
+	// Test resolving a forge:// URI
+	command, args, err := caller.ResolveEngine("forge://go-build")
 	require.NoError(t, err)
 	assert.Equal(t, "go", command)
 	assert.Contains(t, args, "run")
@@ -86,8 +86,8 @@ func TestCaller_ResolveEngine_InvalidURI(t *testing.T) {
 func TestCaller_ResolveEngine_EmptyGoPath(t *testing.T) {
 	caller := NewCaller("v1.0.0")
 
-	// Test that empty go:// path returns an error
-	_, _, err := caller.ResolveEngine("go://")
+	// Test that empty forge:// path returns an error
+	_, _, err := caller.ResolveEngine("forge://")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "empty engine path")
 }
@@ -138,7 +138,7 @@ func TestMockEngineResolver(t *testing.T) {
 	// Test that MockEngineResolver works as expected
 	mockResolver := MockEngineResolver("go", []string{"run", "pkg@v1.0.0"}, nil)
 
-	command, args, err := mockResolver("go://some-engine")
+	command, args, err := mockResolver("forge://some-engine")
 	require.NoError(t, err)
 	assert.Equal(t, "go", command)
 	assert.Equal(t, []string{"run", "pkg@v1.0.0"}, args)

@@ -15,17 +15,17 @@ Add a parallel build target to `forge.yaml`:
 ```yaml
 build:
   - name: cross-platform
-    engine: go://parallel-builder
+    engine: forge://parallel-builder
     spec:
       builders:
         - name: linux
-          engine: go://go-build
+          engine: forge://go-build
           spec:
             name: myapp-linux
             src: ./cmd/myapp
             env: { GOOS: linux, GOARCH: amd64 }
         - name: darwin
-          engine: go://go-build
+          engine: forge://go-build
           spec:
             name: myapp-darwin
             src: ./cmd/myapp
@@ -53,17 +53,17 @@ forge build
 ```yaml
 build:
   - name: all-binaries
-    engine: go://parallel-builder
+    engine: forge://parallel-builder
     spec:
       builders:
         - name: cli
-          engine: go://go-build
+          engine: forge://go-build
           spec: { name: mycli, src: ./cmd/cli }
         - name: server
-          engine: go://go-build
+          engine: forge://go-build
           spec: { name: myserver, src: ./cmd/server }
         - name: worker
-          engine: go://go-build
+          engine: forge://go-build
           spec: { name: myworker, src: ./cmd/worker }
 ```
 
@@ -72,17 +72,17 @@ build:
 ```yaml
 build:
   - name: all-artifacts
-    engine: go://parallel-builder
+    engine: forge://parallel-builder
     spec:
       builders:
         - name: binary
-          engine: go://go-build
+          engine: forge://go-build
           spec: { name: myapp, src: ./cmd/myapp }
         - name: mocks
-          engine: go://go-gen-mocks
+          engine: forge://go-gen-mocks
           spec: { name: generate-mocks }
         - name: format
-          engine: go://go-format
+          engine: forge://go-format
           spec: { name: format-code, src: . }
 ```
 

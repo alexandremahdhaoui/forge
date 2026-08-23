@@ -121,20 +121,20 @@ func callMCPEngine(command string, args []string, toolName string, params interf
 	return nil, nil
 }
 
-// resolveEngineURI resolves an engine URI (go://package) to command and args for execution.
+// resolveEngineURI resolves an engine URI (forge://package) to command and args for execution.
 // Returns command, args, and error.
 func resolveEngineURI(engineURI string) (string, []string, error) {
-	if !strings.HasPrefix(engineURI, "go://") {
-		return "", nil, fmt.Errorf("unsupported engine protocol: %s (must start with go://)", engineURI)
+	if !strings.HasPrefix(engineURI, "forge://") {
+		return "", nil, fmt.Errorf("unsupported engine protocol: %s (must start with forge://)", engineURI)
 	}
 
-	// Remove go:// prefix
-	packagePath := strings.TrimPrefix(engineURI, "go://")
+	// Remove forge:// prefix
+	packagePath := strings.TrimPrefix(engineURI, "forge://")
 	if packagePath == "" {
-		return "", nil, fmt.Errorf("empty engine path after go://")
+		return "", nil, fmt.Errorf("empty engine path after forge://")
 	}
 
-	// Extract version if present (go://testenv-kind@v1.0.0 -> testenv-kind, v1.0.0)
+	// Extract version if present (forge://testenv-kind@v1.0.0 -> testenv-kind, v1.0.0)
 	var version string
 	modulePath := packagePath
 	if idx := strings.Index(packagePath, "@"); idx != -1 {

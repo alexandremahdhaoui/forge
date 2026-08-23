@@ -61,12 +61,12 @@ type RunInput struct {
 	//     "runners": [
 	//       {
 	//         "name": "go-test",
-	//         "engine": "go://go-test",
+	//         "engine": "forge://go-test",
 	//         "spec": {}
 	//       },
 	//       {
 	//         "name": "go-lint",
-	//         "engine": "go://go-lint",
+	//         "engine": "forge://go-lint",
 	//         "spec": {}
 	//       }
 	//     ]
@@ -86,7 +86,7 @@ type BuildInput struct {
 	Src     string `json:"src,omitempty" jsonschema:"Source path relative to project root (e.g. ./cmd/myapp)"`
 	Dest    string `json:"dest,omitempty" jsonschema:"Destination path for build output (e.g. ./build/bin)"`
 	Context string `json:"context,omitempty" jsonschema:"Resolved absolute path to build context directory"`
-	Engine  string `json:"engine" jsonschema:"Engine URI that performs the build (e.g. go://go-build)"`
+	Engine  string `json:"engine" jsonschema:"Engine URI that performs the build (e.g. forge://go-build)"`
 	Force   bool   `json:"force,omitempty" jsonschema:"Force rebuild and skip dependency-based caching"`
 
 	// Generic engine specific fields (optional)

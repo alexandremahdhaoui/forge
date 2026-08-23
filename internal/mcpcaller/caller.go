@@ -106,13 +106,9 @@ func (c *Caller) CallMCP(command string, args []string, toolName string, params 
 	}
 	defer func() { _ = session.Close() }()
 
-	// Convert params to map[string]any for CallTool
-	var arguments map[string]any
-	switch p := params.(type) {
-	case map[string]any:
-		arguments = p
-	default:
-		arguments = params.(map[string]any)
+	arguments, err := toArguments(params)
+	if err != nil {
+		return nil, fmt.Errorf("encoding arguments for %s: %w", toolName, err)
 	}
 
 	// Call the tool
@@ -144,7 +140,7 @@ func (c *Caller) CallMCP(command string, args []string, toolName string, params 
 }
 
 // ResolveEngine implements EngineResolver - parses engine URI to command and args.
-// Note: This only handles go:// URIs. alias:// URIs are NOT supported here
+// Note: This only handles forge:// URIs. alias:// URIs are NOT supported here
 // because alias resolution requires forge.yaml spec access.
 func (c *Caller) ResolveEngine(engineURI string) (string, []string, error) {
 	engineType, command, args, err := engineresolver.ParseEngineURI(engineURI, c.forgeVersion)
@@ -153,7 +149,7 @@ func (c *Caller) ResolveEngine(engineURI string) (string, []string, error) {
 	}
 
 	if engineType == engineresolver.EngineTypeAlias {
-		return "", nil, fmt.Errorf("alias:// URIs not supported in parallel engines; use resolved go:// URIs")
+		return "", nil, fmt.Errorf("alias:// URIs not supported in parallel engines; use resolved forge:// URIs")
 	}
 
 	return command, args, nil

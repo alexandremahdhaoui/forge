@@ -92,8 +92,8 @@ message TestMessage {
 	}
 
 	// Verify artifact has DependencyDetectorEngine set
-	if artifact.DependencyDetectorEngine != "go://go-gen-protobuf" {
-		t.Errorf("artifact.DependencyDetectorEngine = %q, want %q", artifact.DependencyDetectorEngine, "go://go-gen-protobuf")
+	if artifact.DependencyDetectorEngine != "forge://go-gen-protobuf" {
+		t.Errorf("artifact.DependencyDetectorEngine = %q, want %q", artifact.DependencyDetectorEngine, "forge://go-gen-protobuf")
 	}
 
 	// Verify dependencies populated with .proto file

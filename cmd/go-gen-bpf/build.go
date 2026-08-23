@@ -162,7 +162,7 @@ func Build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.A
 		Location:                 input.Dest,
 		Timestamp:                time.Now().UTC().Format(time.RFC3339),
 		Dependencies:             deps,
-		DependencyDetectorEngine: "go://go-gen-bpf",
+		DependencyDetectorEngine: "forge://go-gen-bpf",
 	}
 
 	log.Printf("Successfully generated BPF code for %s", input.Name)

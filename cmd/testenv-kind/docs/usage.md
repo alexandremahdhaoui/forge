@@ -17,12 +17,12 @@ engines:
   - alias: k8s-testenv
     type: testenv
     testenv:
-      - engine: go://testenv-kind
+      - engine: forge://testenv-kind
 
 test:
   - name: integration
     testenv: alias://k8s-testenv
-    runner: go://go-test
+    runner: forge://go-test
 ```
 
 The cluster kubeconfig is automatically passed to subsequent subengines and test runners via the `KUBECONFIG` environment variable.

@@ -32,12 +32,12 @@ func TestExtractEngineURIs_BuildOnly(t *testing.T) {
 		Build: forge.Build{
 			{
 				Name:   "app1",
-				Engine: "go://go-build",
+				Engine: "forge://go-build",
 				Spec:   map[string]interface{}{"args": []string{"-v"}},
 			},
 			{
 				Name:   "app2",
-				Engine: "go://container-build",
+				Engine: "forge://container-build",
 				Spec:   nil,
 			},
 		},
@@ -53,7 +53,7 @@ func TestExtractEngineURIs_BuildOnly(t *testing.T) {
 	// Verify first build engine
 	found := false
 	for _, ref := range refs {
-		if ref.URI == "go://go-build" {
+		if ref.URI == "forge://go-build" {
 			found = true
 			if ref.SpecType != "build" {
 				t.Errorf("go-build ref.SpecType = %q, want %q", ref.SpecType, "build")
@@ -68,13 +68,13 @@ func TestExtractEngineURIs_BuildOnly(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("extractEngineURIs() did not return go://go-build")
+		t.Error("extractEngineURIs() did not return forge://go-build")
 	}
 
 	// Verify second build engine
 	found = false
 	for _, ref := range refs {
-		if ref.URI == "go://container-build" {
+		if ref.URI == "forge://container-build" {
 			found = true
 			if ref.SpecType != "build" {
 				t.Errorf("container-build ref.SpecType = %q, want %q", ref.SpecType, "build")
@@ -86,7 +86,7 @@ func TestExtractEngineURIs_BuildOnly(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("extractEngineURIs() did not return go://container-build")
+		t.Error("extractEngineURIs() did not return forge://container-build")
 	}
 }
 
@@ -96,13 +96,13 @@ func TestExtractEngineURIs_TestOnly(t *testing.T) {
 		Test: []forge.TestSpec{
 			{
 				Name:    "unit",
-				Runner:  "go://go-test",
+				Runner:  "forge://go-test",
 				Testenv: "", // Empty testenv should not be extracted
 				Spec:    map[string]interface{}{"packages": []string{"./..."}},
 			},
 			{
 				Name:    "lint",
-				Runner:  "go://go-lint",
+				Runner:  "forge://go-lint",
 				Testenv: "noop", // "noop" testenv should not be extracted
 				Spec:    nil,
 			},
@@ -119,7 +119,7 @@ func TestExtractEngineURIs_TestOnly(t *testing.T) {
 	// Verify go-test runner
 	found := false
 	for _, ref := range refs {
-		if ref.URI == "go://go-test" {
+		if ref.URI == "forge://go-test" {
 			found = true
 			if ref.SpecType != "test" {
 				t.Errorf("go-test ref.SpecType = %q, want %q", ref.SpecType, "test")
@@ -131,13 +131,13 @@ func TestExtractEngineURIs_TestOnly(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("extractEngineURIs() did not return go://go-test")
+		t.Error("extractEngineURIs() did not return forge://go-test")
 	}
 
 	// Verify go-lint runner
 	found = false
 	for _, ref := range refs {
-		if ref.URI == "go://go-lint" {
+		if ref.URI == "forge://go-lint" {
 			found = true
 			if ref.SpecType != "test" {
 				t.Errorf("go-lint ref.SpecType = %q, want %q", ref.SpecType, "test")
@@ -146,7 +146,7 @@ func TestExtractEngineURIs_TestOnly(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("extractEngineURIs() did not return go://go-lint")
+		t.Error("extractEngineURIs() did not return forge://go-lint")
 	}
 }
 
@@ -156,8 +156,8 @@ func TestExtractEngineURIs_TestWithTestenv(t *testing.T) {
 		Test: []forge.TestSpec{
 			{
 				Name:    "integration",
-				Runner:  "go://go-test",
-				Testenv: "go://testenv",
+				Runner:  "forge://go-test",
+				Testenv: "forge://testenv",
 				Spec:    map[string]interface{}{"tags": []string{"integration"}},
 			},
 		},
@@ -173,7 +173,7 @@ func TestExtractEngineURIs_TestWithTestenv(t *testing.T) {
 	// Verify runner
 	foundRunner := false
 	for _, ref := range refs {
-		if ref.URI == "go://go-test" {
+		if ref.URI == "forge://go-test" {
 			foundRunner = true
 			if ref.SpecType != "test" {
 				t.Errorf("go-test ref.SpecType = %q, want %q", ref.SpecType, "test")
@@ -185,13 +185,13 @@ func TestExtractEngineURIs_TestWithTestenv(t *testing.T) {
 		}
 	}
 	if !foundRunner {
-		t.Error("extractEngineURIs() did not return go://go-test")
+		t.Error("extractEngineURIs() did not return forge://go-test")
 	}
 
 	// Verify testenv
 	foundTestenv := false
 	for _, ref := range refs {
-		if ref.URI == "go://testenv" {
+		if ref.URI == "forge://testenv" {
 			foundTestenv = true
 			if ref.SpecType != "testenv" {
 				t.Errorf("testenv ref.SpecType = %q, want %q", ref.SpecType, "testenv")
@@ -207,7 +207,7 @@ func TestExtractEngineURIs_TestWithTestenv(t *testing.T) {
 		}
 	}
 	if !foundTestenv {
-		t.Error("extractEngineURIs() did not return go://testenv")
+		t.Error("extractEngineURIs() did not return forge://testenv")
 	}
 }
 
@@ -216,27 +216,27 @@ func TestExtractEngineURIs_Deduplication(t *testing.T) {
 		Build: forge.Build{
 			{
 				Name:   "app1",
-				Engine: "go://go-build",
+				Engine: "forge://go-build",
 			},
 			{
 				Name:   "app2",
-				Engine: "go://go-build", // Same engine
+				Engine: "forge://go-build", // Same engine
 			},
 			{
 				Name:   "app3",
-				Engine: "go://go-build", // Same engine again
+				Engine: "forge://go-build", // Same engine again
 			},
 		},
 		Test: []forge.TestSpec{
 			{
 				Name:    "unit",
-				Runner:  "go://go-test",
-				Testenv: "go://testenv",
+				Runner:  "forge://go-test",
+				Testenv: "forge://testenv",
 			},
 			{
 				Name:    "integration",
-				Runner:  "go://go-test", // Same runner
-				Testenv: "go://testenv", // Same testenv
+				Runner:  "forge://go-test", // Same runner
+				Testenv: "forge://testenv", // Same testenv
 			},
 		},
 	}
@@ -261,7 +261,7 @@ func TestExtractEngineURIs_Deduplication(t *testing.T) {
 	}
 
 	// Verify expected URIs are present
-	expectedURIs := []string{"go://go-build", "go://go-test", "go://testenv"}
+	expectedURIs := []string{"forge://go-build", "forge://go-test", "forge://testenv"}
 	for _, expectedURI := range expectedURIs {
 		if _, ok := uriCounts[expectedURI]; !ok {
 			t.Errorf("Expected URI %q not found in refs", expectedURI)
@@ -314,7 +314,7 @@ func TestAggregateResults_AllValid(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI:      "go://go-build",
+				URI:      "forge://go-build",
 				SpecType: "build",
 				SpecName: "app1",
 			},
@@ -326,7 +326,7 @@ func TestAggregateResults_AllValid(t *testing.T) {
 		},
 		{
 			Ref: engineReference{
-				URI:      "go://go-test",
+				URI:      "forge://go-test",
 				SpecType: "test",
 				SpecName: "unit",
 			},
@@ -355,7 +355,7 @@ func TestAggregateResults_SomeInvalid(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI:      "go://go-build",
+				URI:      "forge://go-build",
 				SpecType: "build",
 				SpecName: "app1",
 			},
@@ -365,7 +365,7 @@ func TestAggregateResults_SomeInvalid(t *testing.T) {
 		},
 		{
 			Ref: engineReference{
-				URI:      "go://go-test",
+				URI:      "forge://go-test",
 				SpecType: "test",
 				SpecName: "unit",
 			},
@@ -401,7 +401,7 @@ func TestAggregateResults_InfraError(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI:      "go://unknown-engine",
+				URI:      "forge://unknown-engine",
 				SpecType: "build",
 				SpecName: "app1",
 			},
@@ -429,8 +429,8 @@ func TestAggregateResults_InfraError(t *testing.T) {
 	if err.Message != "failed to spawn engine process: executable not found" {
 		t.Errorf("infraError converted to ValidationError.Message = %q, want original infra error", err.Message)
 	}
-	if err.Engine != "go://unknown-engine" {
-		t.Errorf("infraError converted to ValidationError.Engine = %q, want %q", err.Engine, "go://unknown-engine")
+	if err.Engine != "forge://unknown-engine" {
+		t.Errorf("infraError converted to ValidationError.Engine = %q, want %q", err.Engine, "forge://unknown-engine")
 	}
 	if err.SpecType != "build" {
 		t.Errorf("infraError converted to ValidationError.SpecType = %q, want %q", err.SpecType, "build")
@@ -444,7 +444,7 @@ func TestAggregateResults_MergesWarnings(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI:      "go://go-build",
+				URI:      "forge://go-build",
 				SpecType: "build",
 				SpecName: "app1",
 			},
@@ -457,7 +457,7 @@ func TestAggregateResults_MergesWarnings(t *testing.T) {
 		},
 		{
 			Ref: engineReference{
-				URI:      "go://go-test",
+				URI:      "forge://go-test",
 				SpecType: "test",
 				SpecName: "unit",
 			},
@@ -489,7 +489,7 @@ func TestAggregateResults_SetsEngineContext(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI:      "go://go-build",
+				URI:      "forge://go-build",
 				SpecType: "build",
 				SpecName: "my-app",
 			},
@@ -520,8 +520,8 @@ func TestAggregateResults_SetsEngineContext(t *testing.T) {
 
 	// Verify context was set on the error
 	err := combined.Errors[0]
-	if err.Engine != "go://go-build" {
-		t.Errorf("aggregateResults() set Engine = %q, want %q", err.Engine, "go://go-build")
+	if err.Engine != "forge://go-build" {
+		t.Errorf("aggregateResults() set Engine = %q, want %q", err.Engine, "forge://go-build")
 	}
 	if err.SpecType != "build" {
 		t.Errorf("aggregateResults() set SpecType = %q, want %q", err.SpecType, "build")
@@ -544,7 +544,7 @@ func TestAggregateResults_PreservesExistingEngineContext(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI:      "go://testenv",
+				URI:      "forge://testenv",
 				SpecType: "testenv",
 				SpecName: "integration",
 			},
@@ -554,7 +554,7 @@ func TestAggregateResults_PreservesExistingEngineContext(t *testing.T) {
 					{
 						Field:    "kindenv.image",
 						Message:  "invalid image reference",
-						Engine:   "go://testenv-kind", // Already set by recursive orchestrator
+						Engine:   "forge://testenv-kind", // Already set by recursive orchestrator
 						SpecType: "",
 						SpecName: "",
 					},
@@ -571,8 +571,8 @@ func TestAggregateResults_PreservesExistingEngineContext(t *testing.T) {
 
 	err := combined.Errors[0]
 	// Engine should NOT be overwritten since it was already set
-	if err.Engine != "go://testenv-kind" {
-		t.Errorf("aggregateResults() overwrote Engine = %q, want %q (should preserve existing)", err.Engine, "go://testenv-kind")
+	if err.Engine != "forge://testenv-kind" {
+		t.Errorf("aggregateResults() overwrote Engine = %q, want %q (should preserve existing)", err.Engine, "forge://testenv-kind")
 	}
 	// But SpecType and SpecName should still be set
 	if err.SpecType != "testenv" {
@@ -587,7 +587,7 @@ func TestAggregateResults_NilOutput(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI:      "go://go-build",
+				URI:      "forge://go-build",
 				SpecType: "build",
 				SpecName: "app1",
 			},
@@ -595,7 +595,7 @@ func TestAggregateResults_NilOutput(t *testing.T) {
 		},
 		{
 			Ref: engineReference{
-				URI:      "go://go-test",
+				URI:      "forge://go-test",
 				SpecType: "test",
 				SpecName: "unit",
 			},
@@ -636,7 +636,7 @@ func TestAggregateResults_MultipleErrorsFromSingleEngine(t *testing.T) {
 	results := []validationResult{
 		{
 			Ref: engineReference{
-				URI:      "go://go-build",
+				URI:      "forge://go-build",
 				SpecType: "build",
 				SpecName: "app1",
 			},
@@ -662,8 +662,8 @@ func TestAggregateResults_MultipleErrorsFromSingleEngine(t *testing.T) {
 
 	// All errors should have context set
 	for i, err := range combined.Errors {
-		if err.Engine != "go://go-build" {
-			t.Errorf("combined.Errors[%d].Engine = %q, want %q", i, err.Engine, "go://go-build")
+		if err.Engine != "forge://go-build" {
+			t.Errorf("combined.Errors[%d].Engine = %q, want %q", i, err.Engine, "forge://go-build")
 		}
 		if err.SpecType != "build" {
 			t.Errorf("combined.Errors[%d].SpecType = %q, want %q", i, err.SpecType, "build")

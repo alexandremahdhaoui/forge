@@ -17,7 +17,7 @@ engines:
   - alias: golangci
     type: test-runner
     testRunner:
-      - engine: go://generic-test-runner
+      - engine: forge://generic-test-runner
         spec:
           command: "golangci-lint"
           args: ["run", "./..."]
@@ -46,9 +46,9 @@ Run with: `forge test lint run`
 ## When should I use a built-in runner instead?
 
 Use built-in runners when available:
-- **Go tests**: `go://go-test`
-- **Go linting**: `go://go-lint`
-- **Build tag verification**: `go://go-lint-tags`
+- **Go tests**: `forge://go-test`
+- **Go linting**: `forge://go-lint`
+- **Build tag verification**: `forge://go-lint-tags`
 
 Use generic-test-runner when no built-in exists for your tool.
 
@@ -60,7 +60,7 @@ engines:
   - alias: gosec
     type: test-runner
     testRunner:
-      - engine: go://generic-test-runner
+      - engine: forge://generic-test-runner
         spec:
           command: "gosec"
           args: ["-quiet", "./..."]
@@ -76,7 +76,7 @@ engines:
   - alias: shellcheck
     type: test-runner
     testRunner:
-      - engine: go://generic-test-runner
+      - engine: forge://generic-test-runner
         spec:
           command: "shellcheck"
           args: ["scripts/*.sh"]
@@ -92,7 +92,7 @@ engines:
   - alias: pytest
     type: test-runner
     testRunner:
-      - engine: go://generic-test-runner
+      - engine: forge://generic-test-runner
         spec:
           command: "pytest"
           args: ["--verbose", "tests/"]

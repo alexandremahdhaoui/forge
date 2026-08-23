@@ -33,7 +33,7 @@ func TestParseEngine(t *testing.T) {
 	}{
 		{
 			name:        "simple go-build",
-			engineURI:   "go://go-build",
+			engineURI:   "forge://go-build",
 			wantType:    "mcp",
 			wantCommand: "go",
 			wantArgs:    []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-build@v0.9.0"},
@@ -41,7 +41,7 @@ func TestParseEngine(t *testing.T) {
 		},
 		{
 			name:        "simple container-build",
-			engineURI:   "go://container-build",
+			engineURI:   "forge://container-build",
 			wantType:    "mcp",
 			wantCommand: "go",
 			wantArgs:    []string{"run", "github.com/alexandremahdhaoui/forge/cmd/container-build@v0.9.0"},
@@ -49,7 +49,7 @@ func TestParseEngine(t *testing.T) {
 		},
 		{
 			name:        "full path",
-			engineURI:   "go://github.com/alexandremahdhaoui/forge/cmd/go-build",
+			engineURI:   "forge://github.com/alexandremahdhaoui/forge/cmd/go-build",
 			wantType:    "mcp",
 			wantCommand: "go",
 			wantArgs:    []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-build@v0.9.0"},
@@ -65,7 +65,7 @@ func TestParseEngine(t *testing.T) {
 		},
 		{
 			name:        "empty after protocol",
-			engineURI:   "go://",
+			engineURI:   "forge://",
 			wantType:    "",
 			wantCommand: "",
 			wantArgs:    nil,
@@ -103,7 +103,7 @@ func TestParseEngine(t *testing.T) {
 					if idx := strings.LastIndex(toolName, "/"); idx >= 0 {
 						toolName = toolName[idx+1:]
 					}
-					toolName = strings.TrimPrefix(toolName, "go://")
+					toolName = strings.TrimPrefix(toolName, "forge://")
 					if strings.Contains(arg, toolName) {
 						hasToolName = true
 					}

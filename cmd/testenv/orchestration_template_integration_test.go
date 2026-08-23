@@ -81,7 +81,7 @@ func TestTemplateExpansionInOrchestration(t *testing.T) {
 							{
 								// Sub-engine with template referencing UNDEFINED variable
 								// This should fail during template expansion BEFORE calling the engine
-								Engine: "go://testenv-mock",
+								Engine: "forge://testenv-mock",
 								Spec: map[string]interface{}{
 									"templatedField": "{{.Env.UNDEFINED_VAR}}",
 								},
@@ -105,7 +105,7 @@ func TestTemplateExpansionInOrchestration(t *testing.T) {
 						Type:  "testenv",
 						Testenv: []forge.TestenvEngineSpec{
 							{
-								Engine: "go://testenv-plain",
+								Engine: "forge://testenv-plain",
 								Spec: map[string]interface{}{
 									"plainField": "plain_value",
 									"nested": map[string]interface{}{
@@ -275,7 +275,7 @@ func TestDeferTemplatesInOrchestration(t *testing.T) {
 						Type:  "testenv",
 						Testenv: []forge.TestenvEngineSpec{
 							{
-								Engine:         "go://testenv-mock",
+								Engine:         "forge://testenv-mock",
 								DeferTemplates: true, // Skip forge template expansion
 								Spec: map[string]interface{}{
 									// This would FAIL if expanded by forge (UNDEFINED_VAR not in env)
@@ -316,7 +316,7 @@ func TestDeferTemplatesInOrchestration(t *testing.T) {
 						Type:  "testenv",
 						Testenv: []forge.TestenvEngineSpec{
 							{
-								Engine:         "go://testenv-mock",
+								Engine:         "forge://testenv-mock",
 								DeferTemplates: false, // Explicitly set to false
 								Spec: map[string]interface{}{
 									"templatedField": "{{.Env.UNDEFINED_VAR}}",
@@ -341,7 +341,7 @@ func TestDeferTemplatesInOrchestration(t *testing.T) {
 						Type:  "testenv",
 						Testenv: []forge.TestenvEngineSpec{
 							{
-								Engine: "go://testenv-mock",
+								Engine: "forge://testenv-mock",
 								// DeferTemplates omitted - should default to false
 								Spec: map[string]interface{}{
 									"templatedField": "{{.Env.MISSING_VAR}}",
@@ -366,7 +366,7 @@ func TestDeferTemplatesInOrchestration(t *testing.T) {
 						Type:  "testenv",
 						Testenv: []forge.TestenvEngineSpec{
 							{
-								Engine:         "go://testenv-mock",
+								Engine:         "forge://testenv-mock",
 								DeferTemplates: false,
 								Spec: map[string]interface{}{
 									// No templates - should pass through without error
@@ -404,7 +404,7 @@ func TestDeferTemplatesInOrchestration(t *testing.T) {
 						Type:  "testenv",
 						Testenv: []forge.TestenvEngineSpec{
 							{
-								Engine:         "go://testenv-mock-first",
+								Engine:         "forge://testenv-mock-first",
 								DeferTemplates: false,
 								Spec: map[string]interface{}{
 									// No templates - will pass expansion phase
@@ -412,7 +412,7 @@ func TestDeferTemplatesInOrchestration(t *testing.T) {
 								},
 							},
 							{
-								Engine:         "go://testenv-mock-second",
+								Engine:         "forge://testenv-mock-second",
 								DeferTemplates: true,
 								Spec: map[string]interface{}{
 									// Uses undefined variable but should NOT fail

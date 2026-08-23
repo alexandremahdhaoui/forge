@@ -59,7 +59,7 @@ Forge solves this with an MCP-first architecture. Every component speaks JSON-RP
 | +---------------+ |  MCP: JSON-RPC 2.0 handlers
 | | Shared Logic  | |  buildAll(), runTestAll()
 | | Config Parser | |  Reads forge.yaml
-| | Engine Mgr    | |  Resolves go:// and alias:// URIs
+| | Engine Mgr    | |  Resolves forge:// and alias:// URIs
 | | Artifact Store| |  Tracks builds in .forge/artifact-store.yaml
 | | Test Orchestr | |  Manages test lifecycle
 | +---------------+ |
@@ -135,7 +135,7 @@ build:
   - name: forge-ws-controller-image
     src: ./containers/forge-ws-controller/Containerfile
     context: git@github.com:alexandremahdhaoui/forge-station.git
-    engine: go://container-build
+    engine: forge://container-build
 ```
 
 ### Workspace Resolution
@@ -171,8 +171,8 @@ parseGlobalFlags -> apply --cwd -> resolveWorkspace -> changeToProjectDir -> sou
 
 Forge resolves engine URIs to executable MCP server processes:
 
-- `go://engine-name` resolves to `go run github.com/alexandremahdhaoui/forge/cmd/engine-name@version --mcp`
-- `alias://name` looks up the `engines` section in `forge.yaml`, then resolves each entry to `go://` engines
+- `forge://engine-name` resolves to `go run github.com/alexandremahdhaoui/forge/cmd/engine-name@version --mcp`
+- `alias://name` looks up the `engines` section in `forge.yaml`, then resolves each entry to `forge://` engines
 - Local development mode (`FORGE_RUN_LOCAL_ENABLED=true`) resolves to `go run ./cmd/engine-name --mcp`
 
 ### Testenv Chain Composition
@@ -350,7 +350,7 @@ All 12 MCP tool inputs accept an optional `cwd` field (JSON tag `"cwd"`) that ov
       "src": "./cmd/forge",
       "dest": "./build/bin",
       "context": "/abs/path/to/project",
-      "engine": "go://go-build"
+      "engine": "forge://go-build"
     }
   }
 }
@@ -444,7 +444,7 @@ All 12 MCP tool inputs accept an optional `cwd` field (JSON tag `"cwd"`) that ov
 | Package | Location | Purpose |
 |---------|----------|---------|
 | cmdutil | `internal/cmdutil` | Command execution utilities |
-| engineresolver | `internal/engineresolver` | Engine URI resolution (go://, alias://) |
+| engineresolver | `internal/engineresolver` | Engine URI resolution (forge://, alias://) |
 | enginetest | `internal/enginetest` | Test helpers for engine development |
 | forgepath | `internal/forgepath` | Forge path resolution and directory utilities |
 | gitutil | `internal/gitutil` | Git operations: commit SHA, version, dirty state |
@@ -466,7 +466,7 @@ All 12 MCP tool inputs accept an optional `cwd` field (JSON tag `"cwd"`) that ov
 
 5. **Error Aggregation.** `flaterrors.Join` collects errors from multi-step operations (e.g., teardown) instead of failing on the first error. All errors surface to the caller.
 
-6. **Engine URI Convention.** `go://name` references built-in engines. `alias://name` references user-defined engine chains in `forge.yaml`. This two-tier scheme separates distribution from composition.
+6. **Engine URI Convention.** `forge://name` references built-in engines. `alias://name` references user-defined engine chains in `forge.yaml`. This two-tier scheme separates distribution from composition.
 
 7. **Code Generation.** `forge-dev` scaffolds new engines from OpenAPI specs using `engineframework` for type-safe MCP tool registration. Generated code follows `zz_generated` naming convention.
 
@@ -527,13 +527,13 @@ engines:
   - alias: setup-e2e-stub
     type: testenv
     testenv:
-      - engine: "go://testenv-stub"
+      - engine: "forge://testenv-stub"
 
   - alias: setup-integration
     type: testenv
     testenv:
-      - engine: "go://testenv-kind"
-      - engine: "go://testenv-lcr"
+      - engine: "forge://testenv-kind"
+      - engine: "forge://testenv-lcr"
         spec:
           enabled: true
           images:
@@ -541,7 +541,7 @@ engines:
           imagePullSecretNamespaces:
             - default
             - test-podinfo
-      - engine: "go://testenv-helm-install"
+      - engine: "forge://testenv-helm-install"
         spec:
           charts:
             - name: podinfo-release
@@ -554,20 +554,20 @@ engines:
 
 test:
   - name: lint-tags
-    runner: "go://go-lint-tags"
+    runner: "forge://go-lint-tags"
   - name: lint-license
-    runner: "go://go-lint-licenses"
+    runner: "forge://go-lint-licenses"
   - name: lint
-    runner: "go://go-lint"
+    runner: "forge://go-lint"
   - name: unit
-    runner: "go://go-test"
+    runner: "forge://go-test"
   - name: integration
-    runner: "go://go-test"
+    runner: "forge://go-test"
     testenv: "alias://setup-integration"
   - name: e2e
-    runner: "go://forge-e2e"
+    runner: "forge://forge-e2e"
   - name: e2e-decl
-    runner: "go://go-test"
+    runner: "forge://go-test"
     spec:
       tags:
         - e2e
@@ -578,36 +578,36 @@ test:
         - "-run"
         - "TestE2EDeclarative"
   - name: e2e-stub
-    runner: "go://go-test"
+    runner: "forge://go-test"
     testenv: "alias://setup-e2e-stub"
 
 build:
   - name: forge
     src: ./cmd/forge
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: go-build
     src: ./cmd/go-build
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: container-build
     src: ./cmd/container-build
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: testenv
     src: ./cmd/testenv
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
   - name: forge-dev
     src: ./cmd/forge-dev
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     spec:
       ldflags: "-X main.Version={{.GitVersion}}"
   # Cross-repo container build with context
   - name: forge-ws-controller-image
     src: ./containers/forge-ws-controller/Containerfile
     context: git@github.com:alexandremahdhaoui/forge-station.git
-    engine: go://container-build
+    engine: forge://container-build
   # ... 23 more build targets
 ```

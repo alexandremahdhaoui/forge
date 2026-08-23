@@ -81,7 +81,7 @@ build:
   - name: test-openapi-artifact
     src: ./cmd/go-format
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
 `
 	testForgeYamlPath := "forge-test-lazy-openapi.yaml"
 	if err := os.WriteFile(testForgeYamlPath, []byte(testForgeYaml), 0o644); err != nil {
@@ -131,7 +131,7 @@ build:
 			Timestamp: specInfo.ModTime().UTC().Format(time.RFC3339),
 		},
 	}
-	artifact.DependencyDetectorEngine = "go://go-gen-openapi-dep-detector"
+	artifact.DependencyDetectorEngine = "forge://go-gen-openapi-dep-detector"
 	forge.AddOrUpdateArtifact(&store, artifact)
 
 	if err := forge.WriteArtifactStore(artifactStorePath, store); err != nil {
@@ -197,7 +197,7 @@ build:
 			Timestamp: specInfo.ModTime().UTC().Format(time.RFC3339),
 		},
 	}
-	artifact.DependencyDetectorEngine = "go://go-gen-openapi-dep-detector"
+	artifact.DependencyDetectorEngine = "forge://go-gen-openapi-dep-detector"
 	forge.AddOrUpdateArtifact(&store, artifact)
 	if err := forge.WriteArtifactStore(artifactStorePath, store); err != nil {
 		t.Fatalf("Failed to write artifact store: %v", err)

@@ -298,7 +298,7 @@ go run ./cmd/go-build --mcp <<EOF
       "name": "my-cli",
       "src": "./cmd/my-cli",
       "dest": "./build/bin",
-      "builder": "go://go-build"
+      "builder": "forge://go-build"
     }
   }
 }
@@ -349,13 +349,13 @@ build:
     # Format code first
     - name: format-code
       src: .
-      builder: go://go-format
+      builder: forge://go-format
 
     # Then build binaries
     - name: my-app
       src: ./cmd/my-app
       dest: ./build/bin
-      builder: go://go-build
+      builder: forge://go-build
 ```
 
 #### How It Works
@@ -369,9 +369,9 @@ When you run `forge build`:
 **Example output:**
 ```bash
 $ forge build
-Building 1 artifact(s) with go://go-format...
+Building 1 artifact(s) with forge://go-format...
 Formatted Go code at .
-Building 13 artifact(s) with go://go-build...
+Building 13 artifact(s) with forge://go-build...
 Built binary: my-app (version: abc123)
 ```
 
@@ -411,7 +411,7 @@ Add a lint test stage:
 test:
   - name: lint
     engine: "noop"  # No environment needed
-    runner: "go://go-lint"
+    runner: "forge://go-lint"
 ```
 
 #### Run Linter
@@ -535,34 +535,34 @@ Define test stages in `forge.yaml`:
 test:
   # Unit tests - test-report only (no environment)
   - name: unit
-    testenv: "go://test-report"
-    runner: "go://go-test"
+    testenv: "forge://test-report"
+    runner: "forge://go-test"
 
   # Integration tests - creates Kind cluster automatically
   - name: integration
-    testenv: "go://testenv"
-    runner: "go://go-test"
+    testenv: "forge://testenv"
+    runner: "forge://go-test"
 
   # E2E tests
   - name: e2e
-    testenv: "go://test-report"
-    runner: "go://forge-e2e"
+    testenv: "forge://test-report"
+    runner: "forge://forge-e2e"
 
   # Linting as a test stage
   - name: lint
-    testenv: "go://test-report"
-    runner: "go://go-lint"
+    testenv: "forge://test-report"
+    runner: "forge://go-lint"
 ```
 
 **Test Environment Types:**
-- `go://test-report` - Test report storage only (no persistent environment)
+- `forge://test-report` - Test report storage only (no persistent environment)
   - Use for unit tests, linting, and other tests that don't need infrastructure
   - Shows synthetic "default" environment in `list-env`
   - Rejects `create-env` and `delete-env` operations
-- `go://testenv` - Full test environment orchestrator
+- `forge://testenv` - Full test environment orchestrator
   - Creates Kind clusters, registries, and other infrastructure
   - Supports persistent environments for debugging
-- `noop` or empty - Legacy option (equivalent to `go://test-report`)
+- `noop` or empty - Legacy option (equivalent to `forge://test-report`)
 
 ### Run Tests
 
@@ -733,7 +733,7 @@ forge test get-env integration <ENV_ID>
 forge test delete-env integration <ENV_ID>
 ```
 
-**Note:** Stages using `go://test-report` (like unit, lint) don't support environment management. They show a synthetic "default" environment and reject create/delete operations.
+**Note:** Stages using `forge://test-report` (like unit, lint) don't support environment management. They show a synthetic "default" environment and reject create/delete operations.
 
 ### Test Workflow Example
 
@@ -1145,7 +1145,7 @@ build:
     - name: my-app
       src: ./cmd/my-app
       dest: ./build/bin
-      builder: go://go-build
+      builder: forge://go-build
 ```
 
 ### Custom Test Environment Configuration
@@ -1156,8 +1156,8 @@ Configure test stages in forge.yaml:
 # forge.yaml
 test:
   - name: integration
-    engine: "go://testenv"
-    runner: "go://go-test"
+    engine: "forge://testenv"
+    runner: "forge://go-test"
     config:
       registry:
         enabled: true

@@ -14,7 +14,7 @@ go-gen-protobuf --mcp
 
 Forge invokes this automatically via:
 ```yaml
-engine: go://go-gen-protobuf
+engine: forge://go-gen-protobuf
 ```
 
 ## Available Tools
@@ -47,7 +47,7 @@ Generate Go code from Protocol Buffer files.
 | `name` | Yes | Artifact identifier for the artifact store |
 | `src` | Yes | Root directory to search for .proto files (recursive) |
 | `dest` | Yes | Output directory for generated Go files |
-| `engine` | Yes | Must be `go://go-gen-protobuf` |
+| `engine` | Yes | Must be `forge://go-gen-protobuf` |
 | `spec.go_opt` | No | Value for `--go_opt` (default: `paths=source_relative`) |
 | `spec.go-grpc_opt` | No | Value for `--go-grpc_opt` (default: `paths=source_relative`) |
 | `spec.proto_path` | No | Additional proto import paths (single string or array) |
@@ -68,7 +68,7 @@ Generate Go code from Protocol Buffer files.
       "timestamp": "string (RFC3339)"
     }
   ],
-  "dependencyDetectorEngine": "go://go-gen-protobuf"
+  "dependencyDetectorEngine": "forge://go-gen-protobuf"
 }
 ```
 
@@ -93,7 +93,7 @@ Generate Go code from Protocol Buffer files.
       "name": "api-protobuf",
       "src": "./api",
       "dest": "./api",
-      "engine": "go://go-gen-protobuf",
+      "engine": "forge://go-gen-protobuf",
       "spec": {
         "go_opt": "paths=source_relative",
         "go-grpc_opt": "paths=source_relative"
@@ -137,7 +137,7 @@ build:
   - name: protobuf
     src: ./proto
     dest: ./proto
-    engine: go://go-gen-protobuf
+    engine: forge://go-gen-protobuf
 ```
 
 Run with:
@@ -152,7 +152,7 @@ build:
   - name: api-protobuf
     src: ./api
     dest: ./api
-    engine: go://go-gen-protobuf
+    engine: forge://go-gen-protobuf
     spec:
       go_opt: "paths=source_relative"
       go-grpc_opt: "paths=source_relative"
@@ -173,12 +173,12 @@ build:
   - name: api-protobuf
     src: ./api/proto
     dest: ./api/proto
-    engine: go://go-gen-protobuf
+    engine: forge://go-gen-protobuf
 
   - name: internal-protobuf
     src: ./internal/proto
     dest: ./internal/proto
-    engine: go://go-gen-protobuf
+    engine: forge://go-gen-protobuf
 ```
 
 ## Implementation Details

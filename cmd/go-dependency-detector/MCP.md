@@ -14,7 +14,7 @@ go-dependency-detector --mcp
 
 Forge invokes this automatically via:
 ```yaml
-engine: go://go-dependency-detector
+engine: forge://go-dependency-detector
 ```
 
 ## Available Tools
@@ -71,9 +71,9 @@ build:
   - name: myapp
     src: ./cmd/myapp
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     spec:
-      dependencyDetector: go://go-dependency-detector
+      dependencyDetector: forge://go-dependency-detector
       entrypoint:
         file: ./cmd/myapp/main.go
         function: main

@@ -21,11 +21,11 @@ build:
   - name: my-app
     src: ./cmd/my-app
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
 
 test:
   - name: unit
-    runner: go://go-test
+    runner: forge://go-test
 ```
 
 ## How do I build and test?

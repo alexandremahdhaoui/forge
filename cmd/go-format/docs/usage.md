@@ -16,7 +16,7 @@ Add a build target to `forge.yaml`:
 build:
   - name: format-code
     src: .
-    engine: go://go-format
+    engine: forge://go-format
 ```
 
 Run the formatter:
@@ -38,11 +38,11 @@ forge build
 build:
   - name: format-pkg
     src: ./pkg
-    engine: go://go-format
+    engine: forge://go-format
 
   - name: format-cmd
     src: ./cmd
-    engine: go://go-format
+    engine: forge://go-format
 ```
 
 ## How do I format directories in parallel?
@@ -50,14 +50,14 @@ build:
 ```yaml
 build:
   - name: format-all
-    engine: go://parallel-builder
+    engine: forge://parallel-builder
     spec:
       builders:
         - name: cmd
-          engine: go://go-format
+          engine: forge://go-format
           spec: { name: cmd, src: ./cmd }
         - name: internal
-          engine: go://go-format
+          engine: forge://go-format
           spec: { name: internal, src: ./internal }
 ```
 

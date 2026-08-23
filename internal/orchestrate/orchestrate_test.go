@@ -126,7 +126,7 @@ func TestBuilderOrchestrator_SingleEngine(t *testing.T) {
 		command string
 		args    []string
 	}{
-		"go://go-build": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-build"}},
+		"forge://go-build": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-build"}},
 	})
 
 	// Create orchestrator
@@ -135,7 +135,7 @@ func TestBuilderOrchestrator_SingleEngine(t *testing.T) {
 	// Prepare specs
 	builderSpecs := []forge.BuilderEngineSpec{
 		{
-			Engine: "go://go-build",
+			Engine: "forge://go-build",
 			Spec:   forge.EngineSpec{},
 		},
 	}
@@ -183,8 +183,8 @@ func TestBuilderOrchestrator_MultipleEngines(t *testing.T) {
 		command string
 		args    []string
 	}{
-		"go://go-build":        {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-build"}},
-		"go://generic-builder": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/generic-builder"}},
+		"forge://go-build":        {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-build"}},
+		"forge://generic-builder": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/generic-builder"}},
 	})
 
 	// Create orchestrator
@@ -192,9 +192,9 @@ func TestBuilderOrchestrator_MultipleEngines(t *testing.T) {
 
 	// Prepare specs - 3 builders
 	builderSpecs := []forge.BuilderEngineSpec{
-		{Engine: "go://go-build", Spec: forge.EngineSpec{}},
-		{Engine: "go://generic-builder", Spec: forge.EngineSpec{Command: "echo"}},
-		{Engine: "go://go-build", Spec: forge.EngineSpec{}},
+		{Engine: "forge://go-build", Spec: forge.EngineSpec{}},
+		{Engine: "forge://generic-builder", Spec: forge.EngineSpec{Command: "echo"}},
+		{Engine: "forge://go-build", Spec: forge.EngineSpec{}},
 	}
 	buildSpecs := []map[string]any{
 		{"name": "test-app", "src": "./cmd/test-app"},
@@ -245,8 +245,8 @@ func TestBuilderOrchestrator_EngineFailure(t *testing.T) {
 		command string
 		args    []string
 	}{
-		"go://go-build":        {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-build"}},
-		"go://generic-builder": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/generic-builder"}},
+		"forge://go-build":        {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-build"}},
+		"forge://generic-builder": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/generic-builder"}},
 	})
 
 	// Create orchestrator
@@ -254,9 +254,9 @@ func TestBuilderOrchestrator_EngineFailure(t *testing.T) {
 
 	// Prepare specs - 3 builders (should stop at 2nd)
 	builderSpecs := []forge.BuilderEngineSpec{
-		{Engine: "go://go-build", Spec: forge.EngineSpec{}},
-		{Engine: "go://generic-builder", Spec: forge.EngineSpec{}},
-		{Engine: "go://go-build", Spec: forge.EngineSpec{}}, // Should not be called
+		{Engine: "forge://go-build", Spec: forge.EngineSpec{}},
+		{Engine: "forge://generic-builder", Spec: forge.EngineSpec{}},
+		{Engine: "forge://go-build", Spec: forge.EngineSpec{}}, // Should not be called
 	}
 	buildSpecs := []map[string]any{
 		{"name": "test-app", "src": "./cmd/test-app"},
@@ -289,7 +289,7 @@ func TestBuilderOrchestrator_ConfigInjection(t *testing.T) {
 		command string
 		args    []string
 	}{
-		"go://generic-builder": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/generic-builder"}},
+		"forge://generic-builder": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/generic-builder"}},
 	})
 
 	// Create orchestrator
@@ -298,7 +298,7 @@ func TestBuilderOrchestrator_ConfigInjection(t *testing.T) {
 	// Prepare specs with config
 	builderSpecs := []forge.BuilderEngineSpec{
 		{
-			Engine: "go://generic-builder",
+			Engine: "forge://generic-builder",
 			Spec: forge.EngineSpec{
 				Command: "custom-command",
 				Args:    []string{"arg1", "arg2"},
@@ -350,7 +350,7 @@ func TestTestRunnerOrchestrator_SingleRunner(t *testing.T) {
 		command string
 		args    []string
 	}{
-		"go://go-test": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-test"}},
+		"forge://go-test": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-test"}},
 	})
 
 	// Create orchestrator
@@ -359,7 +359,7 @@ func TestTestRunnerOrchestrator_SingleRunner(t *testing.T) {
 	// Prepare specs
 	runnerSpecs := []forge.TestRunnerSpec{
 		{
-			Engine: "go://go-test",
+			Engine: "forge://go-test",
 			Spec:   forge.EngineSpec{},
 		},
 	}
@@ -402,8 +402,8 @@ func TestTestRunnerOrchestrator_MultipleRunners(t *testing.T) {
 		command string
 		args    []string
 	}{
-		"go://go-test": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-test"}},
-		"go://go-lint": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-lint"}},
+		"forge://go-test": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-test"}},
+		"forge://go-lint": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-lint"}},
 	})
 
 	// Create orchestrator
@@ -411,8 +411,8 @@ func TestTestRunnerOrchestrator_MultipleRunners(t *testing.T) {
 
 	// Prepare specs
 	runnerSpecs := []forge.TestRunnerSpec{
-		{Engine: "go://go-test", Spec: forge.EngineSpec{}},
-		{Engine: "go://go-lint", Spec: forge.EngineSpec{}},
+		{Engine: "forge://go-test", Spec: forge.EngineSpec{}},
+		{Engine: "forge://go-lint", Spec: forge.EngineSpec{}},
 	}
 	params := map[string]any{
 		"stage": "unit",
@@ -459,8 +459,8 @@ func TestTestRunnerOrchestrator_RunnerFailure(t *testing.T) {
 		command string
 		args    []string
 	}{
-		"go://go-test": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-test"}},
-		"go://go-lint": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-lint"}},
+		"forge://go-test": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-test"}},
+		"forge://go-lint": {command: "go", args: []string{"run", "github.com/alexandremahdhaoui/forge/cmd/go-lint"}},
 	})
 
 	// Create orchestrator
@@ -468,8 +468,8 @@ func TestTestRunnerOrchestrator_RunnerFailure(t *testing.T) {
 
 	// Prepare specs
 	runnerSpecs := []forge.TestRunnerSpec{
-		{Engine: "go://go-test", Spec: forge.EngineSpec{}},
-		{Engine: "go://go-lint", Spec: forge.EngineSpec{}}, // Should not be called
+		{Engine: "forge://go-test", Spec: forge.EngineSpec{}},
+		{Engine: "forge://go-lint", Spec: forge.EngineSpec{}}, // Should not be called
 	}
 	params := map[string]any{"stage": "unit"}
 

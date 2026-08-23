@@ -18,6 +18,7 @@ package portalloc
 
 import (
 	"encoding/json"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -419,6 +420,12 @@ func TestAllocate_InvalidID(t *testing.T) {
 }
 
 func TestAllocate_IPv6(t *testing.T) {
+	probe, err := net.Listen("tcp", "[::1]:0")
+	if err != nil {
+		t.Skipf("the host has no IPv6 loopback: %v", err)
+	}
+	_ = probe.Close()
+
 	dir := t.TempDir()
 	path := filepath.Join(dir, "state.json")
 

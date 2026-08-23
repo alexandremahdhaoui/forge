@@ -82,7 +82,7 @@ build:
   - name: test-mocks-artifact
     src: ./cmd/go-lint
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
 `
 	testForgeYamlPath := "forge-test-lazy-mocks.yaml"
 	if err := os.WriteFile(testForgeYamlPath, []byte(testForgeYaml), 0o644); err != nil {
@@ -146,7 +146,7 @@ build:
 			Timestamp: interfaceInfo.ModTime().UTC().Format(time.RFC3339),
 		},
 	}
-	artifact.DependencyDetectorEngine = "go://go-gen-mocks-dep-detector"
+	artifact.DependencyDetectorEngine = "forge://go-gen-mocks-dep-detector"
 	forge.AddOrUpdateArtifact(&store, artifact)
 
 	if err := forge.WriteArtifactStore(artifactStorePath, store); err != nil {
@@ -218,7 +218,7 @@ build:
 			Timestamp: interfaceInfo.ModTime().UTC().Format(time.RFC3339),
 		},
 	}
-	artifact.DependencyDetectorEngine = "go://go-gen-mocks-dep-detector"
+	artifact.DependencyDetectorEngine = "forge://go-gen-mocks-dep-detector"
 	forge.AddOrUpdateArtifact(&store, artifact)
 	if err := forge.WriteArtifactStore(artifactStorePath, store); err != nil {
 		t.Fatalf("Failed to write artifact store: %v", err)

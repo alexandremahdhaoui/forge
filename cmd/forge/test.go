@@ -118,7 +118,7 @@ func findTestSpec(specs []forge.TestSpec, name string) *forge.TestSpec {
 // IsTestReportStage returns true if the stage uses test-report (default testenv).
 // This means the stage stores test reports only and does not create persistent environments.
 func IsTestReportStage(testSpec *forge.TestSpec) bool {
-	return testSpec.Testenv == "go://test-report"
+	return testSpec.Testenv == "forge://test-report"
 }
 
 // testCreateEnv creates a test environment via the engine.
@@ -732,7 +732,7 @@ func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) (strin
 			}
 		}
 	} else {
-		// Direct go:// URI - single engine, pass testSpec so it can inject testSpec.Spec
+		// Direct forge:// URI - single engine, pass testSpec so it can inject testSpec.Spec
 		result, err = runWithSingleTestRunner(runnerCommand, runnerArgs, params, nil, testSpec, testID)
 		if err != nil {
 			return testID, err
@@ -827,7 +827,7 @@ func runWithSingleTestRunner(
 		}
 	}
 
-	// Also inject testSpec.Spec fields (for both direct go:// URIs and aliases)
+	// Also inject testSpec.Spec fields (for both direct forge:// URIs and aliases)
 	// This allows test stage-level spec to override engine-level spec
 	if testSpec != nil && testSpec.Spec != nil {
 		for k, v := range testSpec.Spec {

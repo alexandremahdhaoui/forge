@@ -35,7 +35,7 @@ func TestParseDependsOn(t *testing.T) {
 			spec: map[string]interface{}{
 				"dependsOn": []interface{}{
 					map[string]interface{}{
-						"engine": "go://go-dependency-detector",
+						"engine": "forge://go-dependency-detector",
 						"spec": map[string]interface{}{
 							"pattern": "*.go",
 						},
@@ -44,7 +44,7 @@ func TestParseDependsOn(t *testing.T) {
 			},
 			want: []DependsOnSpec{
 				{
-					Engine: "go://go-dependency-detector",
+					Engine: "forge://go-dependency-detector",
 					Spec: map[string]interface{}{
 						"pattern": "*.go",
 					},
@@ -120,13 +120,13 @@ func TestParseDependsOn(t *testing.T) {
 			spec: map[string]interface{}{
 				"dependsOn": []interface{}{
 					map[string]interface{}{
-						"engine": "go://detector-one",
+						"engine": "forge://detector-one",
 						"spec": map[string]interface{}{
 							"config": "value1",
 						},
 					},
 					map[string]interface{}{
-						"engine": "go://detector-two",
+						"engine": "forge://detector-two",
 						"spec": map[string]interface{}{
 							"config": "value2",
 						},
@@ -135,13 +135,13 @@ func TestParseDependsOn(t *testing.T) {
 			},
 			want: []DependsOnSpec{
 				{
-					Engine: "go://detector-one",
+					Engine: "forge://detector-one",
 					Spec: map[string]interface{}{
 						"config": "value1",
 					},
 				},
 				{
-					Engine: "go://detector-two",
+					Engine: "forge://detector-two",
 					Spec: map[string]interface{}{
 						"config": "value2",
 					},
@@ -155,13 +155,13 @@ func TestParseDependsOn(t *testing.T) {
 			spec: map[string]interface{}{
 				"dependsOn": []interface{}{
 					map[string]interface{}{
-						"engine": "go://simple-detector",
+						"engine": "forge://simple-detector",
 					},
 				},
 			},
 			want: []DependsOnSpec{
 				{
-					Engine: "go://simple-detector",
+					Engine: "forge://simple-detector",
 					Spec:   nil,
 				},
 			},
@@ -270,7 +270,7 @@ func TestBuildSpec_Validate_WithContext(t *testing.T) {
 	spec := BuildSpec{
 		Name:    "test-artifact",
 		Src:     "./cmd/test",
-		Engine:  "go://go-build",
+		Engine:  "forge://go-build",
 		Context: "git@github.com:user/repo.git",
 	}
 	err := spec.Validate()
@@ -284,7 +284,7 @@ func TestBuildSpec_Validate_EmptyContext(t *testing.T) {
 	spec := BuildSpec{
 		Name:   "test-artifact",
 		Src:    "./cmd/test",
-		Engine: "go://go-build",
+		Engine: "forge://go-build",
 	}
 	err := spec.Validate()
 	if err != nil {

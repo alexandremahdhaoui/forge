@@ -47,7 +47,7 @@ func resolveEngineAlias(alias string, spec *forge.Spec) (string, error) {
 
 	// For testenv type, return the testenv orchestrator
 	if config.Type == forge.TestenvEngineConfigType {
-		return "go://testenv", nil
+		return "forge://testenv", nil
 	}
 
 	// For builder type, check if there's exactly one builder engine
@@ -104,7 +104,7 @@ func resolveEngine(engineURI string, spec *forge.Spec) (string, []string, error)
 			return "", nil, fmt.Errorf("multi-engine alias %s cannot be resolved to a single engine", aliasName)
 		}
 
-		// Recursively parse the resolved URI (it should be go://)
+		// Recursively parse the resolved URI (it should be forge://)
 		engineType, command, args, err := parseEngine(resolvedURI, getVersion())
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to parse resolved engine URI %s for alias %s: %w", resolvedURI, aliasName, err)

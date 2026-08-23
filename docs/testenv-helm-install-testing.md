@@ -116,10 +116,10 @@ go build -o ./build/bin/testenv-lcr ./cmd/testenv-lcr
 #
 # test:
 #   - name: integration
-#     testenv: go://testenv
+#     testenv: forge://testenv
 #     subengines:
-#       - go://testenv-kind
-#       - go://testenv-lcr  # Adds OCI registry support
+#       - forge://testenv-kind
+#       - forge://testenv-lcr  # Adds OCI registry support
 ```
 
 testenv-lcr provides:
@@ -198,8 +198,8 @@ For integration tests, you can use public Git repositories:
 # Example forge.yaml test configuration
 test:
   - name: integration
-    runner: go://go-test
-    testenv: go://testenv
+    runner: forge://go-test
+    testenv: forge://testenv
     env:
       GIT_CHART_REPO: "https://github.com/example/charts.git"
       GIT_CHART_PATH: "charts/my-chart"

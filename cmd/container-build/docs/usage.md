@@ -16,7 +16,7 @@ Add a build target to `forge.yaml`:
 build:
   - name: my-app
     src: ./Containerfile
-    engine: go://container-build
+    engine: forge://container-build
 ```
 
 Run the build:
@@ -56,10 +56,10 @@ BUILD_ARGS="VERSION=1.0.0,COMMIT=abc123" CONTAINER_BUILD_ENGINE=docker forge bui
 build:
   - name: my-app
     src: ./Containerfile
-    engine: go://container-build
+    engine: forge://container-build
     spec:
       dependsOn:
-        - engine: go://go-dependency-detector
+        - engine: forge://go-dependency-detector
           spec:
             filePath: ./cmd/myapp/main.go
             funcName: main

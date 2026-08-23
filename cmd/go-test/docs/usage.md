@@ -14,7 +14,7 @@ Go's built-in test runner outputs plain text that's hard to parse for CI systems
 test:
   - name: unit
     stage: unit
-    runner: go://go-test
+    runner: forge://go-test
 ```
 
 Run with:

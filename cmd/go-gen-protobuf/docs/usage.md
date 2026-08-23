@@ -17,7 +17,7 @@ build:
   - name: protobuf
     src: ./proto
     dest: ./proto
-    engine: go://go-gen-protobuf
+    engine: forge://go-gen-protobuf
 ```
 
 Run the generator:
@@ -46,7 +46,7 @@ build:
   - name: api-protobuf
     src: ./api
     dest: ./api
-    engine: go://go-gen-protobuf
+    engine: forge://go-gen-protobuf
     spec:
       go_opt: "paths=source_relative"
       go-grpc_opt: "paths=source_relative"
@@ -62,12 +62,12 @@ build:
   - name: api-protobuf
     src: ./api/proto
     dest: ./api/proto
-    engine: go://go-gen-protobuf
+    engine: forge://go-gen-protobuf
 
   - name: internal-protobuf
     src: ./internal/proto
     dest: ./internal/proto
-    engine: go://go-gen-protobuf
+    engine: forge://go-gen-protobuf
 ```
 
 ## What prerequisites are required?

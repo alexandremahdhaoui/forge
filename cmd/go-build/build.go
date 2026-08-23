@@ -152,7 +152,7 @@ func detectDependenciesForArtifact(src string, artifact *forge.Artifact) error {
 
 	// Step 2: Resolve detector URI to command and args
 	// Use GetEffectiveVersion to handle both ldflags version and go run @version
-	cmd, args, err := engineframework.ResolveDetector("go://go-dependency-detector", engineversion.GetEffectiveVersion(Version))
+	cmd, args, err := engineframework.ResolveDetector("forge://go-dependency-detector", engineversion.GetEffectiveVersion(Version))
 	if err != nil {
 		// Resolution failed - graceful degradation
 		log.Printf("WARNING: failed to resolve detector: %v", err)
@@ -187,7 +187,7 @@ func detectDependenciesForArtifact(src string, artifact *forge.Artifact) error {
 
 	// Step 5: Update artifact with dependencies
 	artifact.Dependencies = dependencies
-	artifact.DependencyDetectorEngine = "go://go-dependency-detector"
+	artifact.DependencyDetectorEngine = "forge://go-dependency-detector"
 	artifact.DependencyDetectorSpec = make(map[string]interface{})
 
 	log.Printf("Detected %d dependencies for %s", len(dependencies), artifact.Name)

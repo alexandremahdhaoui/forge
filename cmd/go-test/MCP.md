@@ -14,7 +14,7 @@ go-test --mcp
 
 Forge invokes this via:
 ```yaml
-runner: go://go-test
+runner: forge://go-test
 ```
 
 ## Available Tools
@@ -81,13 +81,13 @@ In `forge.yaml`:
 test:
   - name: unit
     stage: unit
-    engine: go://testenv
-    runner: go://go-test
+    engine: forge://testenv
+    runner: forge://go-test
 
   - name: integration
     stage: integration
-    engine: go://testenv
-    runner: go://go-test
+    engine: forge://testenv
+    runner: forge://go-test
 ```
 
 Run with:

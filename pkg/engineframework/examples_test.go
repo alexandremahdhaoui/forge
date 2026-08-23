@@ -317,7 +317,7 @@ func Example_builderWithSpecExtraction() {
 
 	_, _ = buildFunc(context.Background(), mcptypes.BuildInput{
 		Name:   "my-app",
-		Engine: "go://advanced-builder",
+		Engine: "forge://advanced-builder",
 		Spec:   spec,
 	})
 

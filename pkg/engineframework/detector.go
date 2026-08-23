@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/alexandremahdhaoui/forge/internal/engineresolver"
 	"github.com/alexandremahdhaoui/forge/internal/forgepath"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
@@ -30,10 +31,10 @@ import (
 )
 
 // ResolveDetector parses a detector URI and returns the command and args to execute it.
-// Detectors only support go:// URIs.
+// Detectors only support forge:// URIs.
 //
 // Parameters:
-//   - detectorURI: URI of the detector (e.g., "go://go-dependency-detector")
+//   - detectorURI: URI of the detector (e.g., "forge://go-dependency-detector")
 //   - forgeVersion: Version of forge to use (e.g., "v0.9.0")
 //
 // Returns:
@@ -43,19 +44,23 @@ import (
 //
 // Example usage:
 //
-//	cmd, args, err := ResolveDetector("go://go-dependency-detector", "v0.9.0")
+//	cmd, args, err := ResolveDetector("forge://go-dependency-detector", "v0.9.0")
 //	// cmd = "go"
 //	// args = ["run", "github.com/alexandremahdhaoui/forge/cmd/go-dependency-detector@v0.9.0"]
 func ResolveDetector(detectorURI, forgeVersion string) (cmd string, args []string, err error) {
-	// Validate URI starts with go://
-	if !strings.HasPrefix(detectorURI, "go://") {
-		return "", nil, fmt.Errorf("unsupported detector protocol: %s (must start with go://)", detectorURI)
+	if strings.HasPrefix(detectorURI, "go://") {
+		return "", nil, fmt.Errorf("%s: %s", detectorURI, engineresolver.GoSchemeError)
+	}
+
+	// Validate URI starts with forge://
+	if !strings.HasPrefix(detectorURI, "forge://") {
+		return "", nil, fmt.Errorf("unsupported detector protocol: %s (must start with forge://)", detectorURI)
 	}
 
 	// Extract detector name from URI
-	detectorName := strings.TrimPrefix(detectorURI, "go://")
+	detectorName := strings.TrimPrefix(detectorURI, "forge://")
 	if detectorName == "" {
-		return "", nil, fmt.Errorf("empty detector name after go://")
+		return "", nil, fmt.Errorf("empty detector name after forge://")
 	}
 
 	// Build the go run command using forgepath

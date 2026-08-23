@@ -17,7 +17,7 @@ build:
   - name: my-bpf-program
     src: ./bpf/program.c
     dest: ./pkg/bpf
-    engine: go://go-gen-bpf
+    engine: forge://go-gen-bpf
     spec:
       ident: myProgram
 ```
@@ -50,7 +50,7 @@ build:
   - name: advanced-bpf
     src: ./bpf/advanced.c
     dest: ./pkg/bpf
-    engine: go://go-gen-bpf
+    engine: forge://go-gen-bpf
     spec:
       ident: advancedProgram
       bpf2goVersion: "v0.12.0"

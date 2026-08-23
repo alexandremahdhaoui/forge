@@ -65,21 +65,21 @@ build:
 
 test:
   - name: unit
-    runner: go://go-test
+    runner: forge://go-test
 
 engines:
   - alias: test-multi-build
     type: builder
     builder:
-      - engine: go://generic-builder
+      - engine: forge://generic-builder
         spec:
           command: "sh"
           args: ["-c", "echo 'Step 1: First builder' && mkdir -p ` + tmpDir + ` && touch ` + tmpDir + `/step1.txt"]
-      - engine: go://generic-builder
+      - engine: forge://generic-builder
         spec:
           command: "sh"
           args: ["-c", "echo 'Step 2: Second builder' && touch ` + tmpDir + `/step2.txt"]
-      - engine: go://generic-builder
+      - engine: forge://generic-builder
         spec:
           command: "sh"
           args: ["-c", "echo 'Step 3: Third builder' && touch ` + tmpDir + `/step3.txt"]
@@ -199,13 +199,13 @@ func TestTestAll_WithSingleEngineBuilder(t *testing.T) {
 		t.Fatalf("Failed to create .envrc: %v", err)
 	}
 
-	// Create a minimal forge.yaml with a single-engine builder (direct go:// URI)
+	// Create a minimal forge.yaml with a single-engine builder (direct forge:// URI)
 	forgeYAML := `name: test-single-engine-project
 artifactStorePath: .ignore.artifact-store.yaml
 
 test:
   - name: unit
-    runner: go://go-test
+    runner: forge://go-test
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "forge.yaml"), []byte(forgeYAML), 0o644); err != nil {
 		t.Fatalf("Failed to create forge.yaml: %v", err)
@@ -309,7 +309,7 @@ func TestTestAll_FailFast(t *testing.T) {
 	}
 
 	// Create forge.yaml with 3 stages: pass, fail, should-not-run
-	// Using direct go:// URIs with spec fields at test level
+	// Using direct forge:// URIs with spec fields at test level
 	forgeYAML := `name: test-fail-fast
 artifactStorePath: .forge/artifact-store.yaml
 
@@ -317,23 +317,23 @@ build:
   - name: dummy-build
     src: .
     dest: ./build
-    engine: go://generic-builder
+    engine: forge://generic-builder
     spec:
       command: "true"
 
 test:
   - name: stage1-pass
-    runner: go://generic-test-runner
+    runner: forge://generic-test-runner
     spec:
       command: "true"
 
   - name: stage2-fail
-    runner: go://generic-test-runner
+    runner: forge://generic-test-runner
     spec:
       command: "false"
 
   - name: stage3-should-not-run
-    runner: go://generic-test-runner
+    runner: forge://generic-test-runner
     spec:
       command: "true"
 `

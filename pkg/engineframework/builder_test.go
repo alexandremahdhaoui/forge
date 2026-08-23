@@ -56,7 +56,7 @@ func TestMakeBuildHandler_Success(t *testing.T) {
 	req := &mcp.CallToolRequest{}
 	input := mcptypes.BuildInput{
 		Name:   "my-app",
-		Engine: "go://test-builder",
+		Engine: "forge://test-builder",
 	}
 
 	result, artifact, err := handler(ctx, req, input)
@@ -115,7 +115,7 @@ func TestMakeBuildHandler_BuildFuncError(t *testing.T) {
 	req := &mcp.CallToolRequest{}
 	input := mcptypes.BuildInput{
 		Name:   "my-app",
-		Engine: "go://test-builder",
+		Engine: "forge://test-builder",
 	}
 
 	result, artifact, err := handler(ctx, req, input)
@@ -157,7 +157,7 @@ func TestMakeBuildHandler_MissingName(t *testing.T) {
 	req := &mcp.CallToolRequest{}
 	input := mcptypes.BuildInput{
 		Name:   "", // Missing name
-		Engine: "go://test-builder",
+		Engine: "forge://test-builder",
 	}
 
 	result, artifact, err := handler(ctx, req, input)
@@ -223,9 +223,9 @@ func TestMakeBatchBuildHandler_AllSuccess(t *testing.T) {
 	req := &mcp.CallToolRequest{}
 	input := mcptypes.BatchBuildInput{
 		Specs: []mcptypes.BuildInput{
-			{Name: "app1", Engine: "go://test-builder"},
-			{Name: "app2", Engine: "go://test-builder"},
-			{Name: "app3", Engine: "go://test-builder"},
+			{Name: "app1", Engine: "forge://test-builder"},
+			{Name: "app2", Engine: "forge://test-builder"},
+			{Name: "app3", Engine: "forge://test-builder"},
 		},
 	}
 
@@ -289,10 +289,10 @@ func TestMakeBatchBuildHandler_MixedResults(t *testing.T) {
 	req := &mcp.CallToolRequest{}
 	input := mcptypes.BatchBuildInput{
 		Specs: []mcptypes.BuildInput{
-			{Name: "app1", Engine: "go://test-builder"},         // Success
-			{Name: "fail-app", Engine: "go://test-builder"},     // Failure (name contains "fail")
-			{Name: "app3", Engine: "go://test-builder"},         // Success
-			{Name: "another-fail", Engine: "go://test-builder"}, // Failure
+			{Name: "app1", Engine: "forge://test-builder"},         // Success
+			{Name: "fail-app", Engine: "forge://test-builder"},     // Failure (name contains "fail")
+			{Name: "app3", Engine: "forge://test-builder"},         // Success
+			{Name: "another-fail", Engine: "forge://test-builder"}, // Failure
 		},
 	}
 
@@ -364,8 +364,8 @@ func TestMakeBatchBuildHandler_AllFailures(t *testing.T) {
 	req := &mcp.CallToolRequest{}
 	input := mcptypes.BatchBuildInput{
 		Specs: []mcptypes.BuildInput{
-			{Name: "app1", Engine: "go://test-builder"},
-			{Name: "app2", Engine: "go://test-builder"},
+			{Name: "app1", Engine: "forge://test-builder"},
+			{Name: "app2", Engine: "forge://test-builder"},
 		},
 	}
 
@@ -467,7 +467,7 @@ func TestRegisterBuilderTools_IntegrationTest(t *testing.T) {
 	req := &mcp.CallToolRequest{}
 	buildInput := mcptypes.BuildInput{
 		Name:   "integration-test",
-		Engine: "go://test-builder",
+		Engine: "forge://test-builder",
 	}
 
 	buildResult, buildArtifact, buildErr := buildHandler(ctx, req, buildInput)
@@ -521,7 +521,7 @@ func TestBuilderFunc_ContextPropagation(t *testing.T) {
 	req := &mcp.CallToolRequest{}
 	input := mcptypes.BuildInput{
 		Name:   "test-app",
-		Engine: "go://test-builder",
+		Engine: "forge://test-builder",
 	}
 
 	_, _, err := handler(ctx, req, input)

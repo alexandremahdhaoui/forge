@@ -86,7 +86,7 @@ func Run(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestR
 ```yaml
 test:
   - name: unit
-    runner: go://my-runner
+    runner: forge://my-runner
     spec:
       testDir: ./tests
       timeout: 300

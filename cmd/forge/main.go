@@ -157,6 +157,16 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+	case "run":
+		if err := runRun(cmdArgs); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "clone":
+		if err := runClone(cmdArgs); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	case "docs":
 		if err := runDocs(cmdArgs); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -276,6 +286,8 @@ Commands:
   build [artifact-name]              Build all artifacts
   test <subcommand> <stage> [args...]  Test operations (run, list, manage environments)
   test-all                           Build all artifacts and run all test stages
+  run <target> [-- args...]          Run a runnable target: a name, a ./path, or a module path
+  clone <factory-url> [dir]          Bootstrap a whole factory workspace
   list [build|test]                  List available build targets and test stages
   docs <list|get> [name]             Fetch project documentation
   config <subcommand>                Configuration management

@@ -34,8 +34,8 @@ type BuildSpec struct {
 	// Context is the build context directory or git URL. Empty defaults to "."
 	Context string `json:"context,omitempty"`
 	// Engine that will build this artifact, e.g.:
-	// - go://container-build (go://github.com/alexandremahdhaoui/forge/cmd/container-build)
-	// - go://go-build        (go://github.com/alexandremahdhaoui/forge/cmd/go-build)
+	// - forge://container-build (forge://github.com/alexandremahdhaoui/forge/cmd/container-build)
+	// - forge://go-build        (forge://github.com/alexandremahdhaoui/forge/cmd/go-build)
 	Engine string `json:"engine"`
 	// Spec contains engine-specific configuration (free-form)
 	// Supports fields like: command, args, env, envFile, context
@@ -47,7 +47,7 @@ type BuildSpec struct {
 
 // DependsOnSpec defines a dependency detector configuration
 type DependsOnSpec struct {
-	// Engine is the URI of the dependency-detector engine (e.g., "go://go-dependency-detector")
+	// Engine is the URI of the dependency-detector engine (e.g., "forge://go-dependency-detector")
 	Engine string `json:"engine"`
 
 	// Spec contains engine-specific configuration for the dependency detector

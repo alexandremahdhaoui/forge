@@ -32,12 +32,12 @@ Configure stages in `forge.yaml`:
 ```yaml
 test:
   - name: unit
-    runner: "go://go-test"
+    runner: "forge://go-test"
   - name: integration
-    testenv: "go://testenv"
-    runner: "go://go-test"
+    testenv: "forge://testenv"
+    runner: "forge://go-test"
   - name: lint
-    runner: "go://go-lint"
+    runner: "forge://go-lint"
 ```
 
 **Key fields:** `runner` (test executor), `testenv` (environment manager - omit for unit tests).
@@ -56,7 +56,7 @@ forge test run integration <ENV_ID>         # Run tests in existing env
 forge test delete-env integration <ENV_ID>  # Clean up when done
 ```
 
-For stages with `testenv: "go://testenv"`, forge creates:
+For stages with `testenv: "forge://testenv"`, forge creates:
 - Kind cluster with unique name
 - Local container registry (TLS-enabled)
 - Kubeconfig at `.forge/<env-id>/kubeconfig`
@@ -75,7 +75,7 @@ kubectl get nodes
 |------------|---------|----------|
 | Unit tests | (omit) | Fast, isolated tests |
 | Lint | (omit) | Code quality checks |
-| Integration | `go://testenv` | Tests needing Kubernetes |
+| Integration | `forge://testenv` | Tests needing Kubernetes |
 
 **Custom testenv alias** for more control:
 
@@ -84,8 +84,8 @@ engines:
   - alias: setup-integration
     type: testenv
     testenv:
-      - engine: "go://testenv-kind"
-      - engine: "go://testenv-lcr"
+      - engine: "forge://testenv-kind"
+      - engine: "forge://testenv-lcr"
         spec:
           enabled: true
           autoPushImages: true
@@ -93,7 +93,7 @@ engines:
 test:
   - name: integration
     testenv: "alias://setup-integration"
-    runner: "go://go-test"
+    runner: "forge://go-test"
 ```
 
 ## How do I get test reports?

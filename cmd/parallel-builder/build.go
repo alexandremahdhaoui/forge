@@ -38,7 +38,7 @@ type ParallelBuilderSpec struct {
 type BuilderConfig struct {
 	// Name is the optional name for this builder (used in logs/errors).
 	Name string `json:"name,omitempty"`
-	// Engine is the engine URI (e.g., "go://build-go", "go://generic-builder").
+	// Engine is the engine URI (e.g., "forge://build-go", "forge://generic-builder").
 	Engine string `json:"engine"`
 	// Spec contains the build specification passed to the sub-builder.
 	Spec map[string]any `json:"spec"`

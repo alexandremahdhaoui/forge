@@ -575,12 +575,12 @@ engines:
   - alias: k8s-with-helm
     type: testenv
     testenv:
-      - engine: "go://testenv-kind"
-      - engine: "go://testenv-lcr"
+      - engine: "forge://testenv-kind"
+      - engine: "forge://testenv-lcr"
         spec:
           enabled: true
           autoPushImages: true
-      - engine: "go://testenv-helm-install"
+      - engine: "forge://testenv-helm-install"
         spec:
           charts:
             - name: cert-manager-release

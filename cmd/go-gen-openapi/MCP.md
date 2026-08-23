@@ -14,7 +14,7 @@ go-gen-openapi --mcp
 
 Forge invokes this automatically via:
 ```yaml
-engine: go://go-gen-openapi
+engine: forge://go-gen-openapi
 ```
 
 ## Available Tools
@@ -27,7 +27,7 @@ Generate OpenAPI client and server code from a specification file.
 ```json
 {
   "name": "string (required)",        // Build artifact name (e.g., "example-api-v1")
-  "engine": "string (required)",      // Engine reference (e.g., "go://go-gen-openapi")
+  "engine": "string (required)",      // Engine reference (e.g., "forge://go-gen-openapi")
   "spec": {
     // Source file specification (EITHER sourceFile OR sourceDir+name+version)
     "sourceFile": "string",           // Explicit path to OpenAPI spec (RECOMMENDED)
@@ -86,7 +86,7 @@ Generate OpenAPI client and server code from a specification file.
     "name": "build",
     "arguments": {
       "name": "example-api-v1",
-      "engine": "go://go-gen-openapi",
+      "engine": "forge://go-gen-openapi",
       "spec": {
         "sourceFile": "./api/example-api.v1.yaml",
         "destinationDir": "./pkg/generated",
@@ -108,7 +108,7 @@ Generate OpenAPI client and server code from a specification file.
     "name": "build",
     "arguments": {
       "name": "products-api-v2",
-      "engine": "go://go-gen-openapi",
+      "engine": "forge://go-gen-openapi",
       "spec": {
         "sourceDir": "./api",
         "name": "products-api",
@@ -180,7 +180,7 @@ Generate OpenAPI client and server code for multiple specifications in batch.
       "specs": [
         {
           "name": "example-api-v1",
-          "engine": "go://go-gen-openapi",
+          "engine": "forge://go-gen-openapi",
           "spec": {
             "sourceFile": "./api/example-api.v1.yaml",
             "destinationDir": "./pkg/generated",
@@ -192,7 +192,7 @@ Generate OpenAPI client and server code for multiple specifications in batch.
         },
         {
           "name": "products-api-v2",
-          "engine": "go://go-gen-openapi",
+          "engine": "forge://go-gen-openapi",
           "spec": {
             "sourceFile": "./api/products-api.v2.yaml",
             "destinationDir": "./pkg/generated",
@@ -219,7 +219,7 @@ In `forge.yaml`:
 build:
   # One BuildSpec per API version
   - name: example-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/example-api.v1.yaml
       destinationDir: ./pkg/generated
@@ -238,7 +238,7 @@ forge build
 ```yaml
 build:
   - name: products-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/products-api.v1.yaml
       destinationDir: ./pkg/generated
@@ -261,7 +261,7 @@ Each API version requires a separate BuildSpec:
 ```yaml
 build:
   - name: example-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/example-api.v1.yaml
       destinationDir: ./pkg/generated
@@ -270,7 +270,7 @@ build:
         packageName: exampleclient
 
   - name: example-api-v2
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./api/example-api.v2.yaml
       destinationDir: ./pkg/generated
@@ -286,7 +286,7 @@ For backward compatibility, you can use the templated pattern:
 ```yaml
 build:
   - name: users-api-v1
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceDir: ./api
       name: users-api
@@ -320,7 +320,7 @@ build:
 
 **Error:** "engine is required"
 - **Cause:** BuildInput.Engine is missing
-- **Solution:** Provide `engine: go://go-gen-openapi` in BuildSpec
+- **Solution:** Provide `engine: forge://go-gen-openapi` in BuildSpec
 
 ### Invalid Source Specification
 

@@ -51,7 +51,7 @@ Configure in your AI agent's MCP settings for local development:
 }
 ```
 
-Set `FORGE_RUN_LOCAL_ENABLED=true` so forge resolves `go://` engine URIs against the Go workspace (`go.work`) instead of downloading published module versions. When enabled, forge checks if an engine module path matches a workspace member and uses the local copy.
+Set `FORGE_RUN_LOCAL_ENABLED=true` so forge resolves `forge://` engine URIs against the Go workspace (`go.work`) instead of downloading published module versions. When enabled, forge checks if an engine module path matches a workspace member and uses the local copy.
 
 ## Available Tools
 
@@ -171,7 +171,7 @@ Returns the full `Artifact` object for the most recent build of the given name:
         "semver": "v1.6.0"
       }
     ],
-    "dependencyDetectorEngine": "go://go-dependency-detector"
+    "dependencyDetectorEngine": "forge://go-dependency-detector"
   }
 }
 ```
@@ -773,15 +773,15 @@ artifactStorePath: .forge/artifacts.yaml
 build:
   - name: myapp
     src: ./cmd/myapp
-    engine: go://go-build      # Invokes go-build MCP server
+    engine: forge://go-build      # Invokes go-build MCP server
 
   - name: myimage
     src: ./Containerfile
-    engine: go://container-build  # Invokes container-build MCP server
+    engine: forge://container-build  # Invokes container-build MCP server
 ```
 
 When you call the forge `build` tool, it:
-1. Parses the engine URIs (e.g., `go://go-build`)
+1. Parses the engine URIs (e.g., `forge://go-build`)
 2. Launches the corresponding MCP server binary
 3. Calls the appropriate tool on that server
 4. Aggregates results

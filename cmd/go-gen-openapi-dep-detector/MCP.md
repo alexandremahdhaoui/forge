@@ -6,7 +6,7 @@ Dependency detector for OpenAPI code generation. This MCP server tracks OpenAPI 
 
 The `go-gen-openapi-dep-detector` is an MCP server that detects file dependencies for OpenAPI code generation. It is called by `go-gen-openapi` after code generation to track which specification files affect the generated code, enabling forge's lazy rebuild system to skip unnecessary rebuilds when spec files haven't changed.
 
-**URI:** `go://go-gen-openapi-dep-detector`
+**URI:** `forge://go-gen-openapi-dep-detector`
 
 ## Tools
 
@@ -217,7 +217,7 @@ forge build <name> --force
 ```yaml
 build:
   - name: api-client
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       specs:
         - source: ./api/petstore.yaml

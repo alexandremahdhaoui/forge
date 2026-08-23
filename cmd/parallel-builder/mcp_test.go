@@ -281,7 +281,7 @@ func TestMapToStruct_ValidMap(t *testing.T) {
 		"builders": []any{
 			map[string]any{
 				"name":   "builder-1",
-				"engine": "go://go-build",
+				"engine": "forge://go-build",
 				"spec": map[string]any{
 					"src":  "./cmd/app",
 					"dest": "./build/bin",
@@ -289,7 +289,7 @@ func TestMapToStruct_ValidMap(t *testing.T) {
 			},
 			map[string]any{
 				"name":   "builder-2",
-				"engine": "go://go-build",
+				"engine": "forge://go-build",
 				"spec": map[string]any{
 					"src":  "./cmd/tool",
 					"dest": "./build/bin",
@@ -305,12 +305,12 @@ func TestMapToStruct_ValidMap(t *testing.T) {
 	require.Len(t, spec.Builders, 2)
 
 	assert.Equal(t, "builder-1", spec.Builders[0].Name)
-	assert.Equal(t, "go://go-build", spec.Builders[0].Engine)
+	assert.Equal(t, "forge://go-build", spec.Builders[0].Engine)
 	assert.Equal(t, "./cmd/app", spec.Builders[0].Spec["src"])
 	assert.Equal(t, "./build/bin", spec.Builders[0].Spec["dest"])
 
 	assert.Equal(t, "builder-2", spec.Builders[1].Name)
-	assert.Equal(t, "go://go-build", spec.Builders[1].Engine)
+	assert.Equal(t, "forge://go-build", spec.Builders[1].Engine)
 	assert.Equal(t, "./cmd/tool", spec.Builders[1].Spec["src"])
 	assert.Equal(t, "./build/bin", spec.Builders[1].Spec["dest"])
 }
@@ -331,7 +331,7 @@ func TestMapToStruct_BuilderWithoutName(t *testing.T) {
 	input := map[string]any{
 		"builders": []any{
 			map[string]any{
-				"engine": "go://go-build",
+				"engine": "forge://go-build",
 				"spec": map[string]any{
 					"src": "./cmd/app",
 				},
@@ -345,14 +345,14 @@ func TestMapToStruct_BuilderWithoutName(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, spec.Builders, 1)
 	assert.Empty(t, spec.Builders[0].Name)
-	assert.Equal(t, "go://go-build", spec.Builders[0].Engine)
+	assert.Equal(t, "forge://go-build", spec.Builders[0].Engine)
 }
 
 func TestMapToStruct_InvalidTarget(t *testing.T) {
 	input := map[string]any{
 		"builders": []any{
 			map[string]any{
-				"engine": "go://go-build",
+				"engine": "forge://go-build",
 			},
 		},
 	}
@@ -371,7 +371,7 @@ func TestMapToStruct_BuilderConfig(t *testing.T) {
 		"builders": []any{
 			map[string]any{
 				"name":   "test-builder",
-				"engine": "go://parallel-builder",
+				"engine": "forge://parallel-builder",
 				"spec": map[string]any{
 					"nested": map[string]any{
 						"key": "value",
@@ -390,7 +390,7 @@ func TestMapToStruct_BuilderConfig(t *testing.T) {
 
 	builder := spec.Builders[0]
 	assert.Equal(t, "test-builder", builder.Name)
-	assert.Equal(t, "go://parallel-builder", builder.Engine)
+	assert.Equal(t, "forge://parallel-builder", builder.Engine)
 
 	// Check nested spec values
 	nested, ok := builder.Spec["nested"].(map[string]any)

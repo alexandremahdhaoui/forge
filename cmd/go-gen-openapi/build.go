@@ -113,7 +113,7 @@ func Build(ctx context.Context, input mcptypes.BuildInput, _ *Spec) (*forge.Arti
 		config.Specs[0].DestinationDir,
 	)
 	artifact.Dependencies = deps
-	artifact.DependencyDetectorEngine = "go://go-gen-openapi-dep-detector"
+	artifact.DependencyDetectorEngine = "forge://go-gen-openapi-dep-detector"
 	return artifact, nil
 }
 
@@ -122,7 +122,7 @@ func Build(ctx context.Context, input mcptypes.BuildInput, _ *Spec) (*forge.Arti
 func detectOpenAPIDependencies(ctx context.Context, specPaths []string, rootDir string) ([]forge.ArtifactDependency, error) {
 	// Resolve detector URI to command and args
 	// Use GetEffectiveVersion to handle both ldflags version and go run @version
-	cmd, args, err := engineframework.ResolveDetector("go://go-gen-openapi-dep-detector", engineversion.GetEffectiveVersion(Version))
+	cmd, args, err := engineframework.ResolveDetector("forge://go-gen-openapi-dep-detector", engineversion.GetEffectiveVersion(Version))
 	if err != nil {
 		return nil, err
 	}

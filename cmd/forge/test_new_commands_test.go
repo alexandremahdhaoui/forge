@@ -36,7 +36,7 @@ func TestIsTestReportStage(t *testing.T) {
 			name: "test-report stage",
 			testSpec: &forge.TestSpec{
 				Name:    "unit",
-				Testenv: "go://test-report",
+				Testenv: "forge://test-report",
 			},
 			want: true,
 		},
@@ -44,7 +44,7 @@ func TestIsTestReportStage(t *testing.T) {
 			name: "non test-report stage",
 			testSpec: &forge.TestSpec{
 				Name:    "integration",
-				Testenv: "go://testenv",
+				Testenv: "forge://testenv",
 			},
 			want: false,
 		},
@@ -182,9 +182,9 @@ func TestParseOutputFormat(t *testing.T) {
 // TestFindTestSpec tests finding test specs by name
 func TestFindTestSpec(t *testing.T) {
 	specs := []forge.TestSpec{
-		{Name: "unit", Testenv: "go://test-report"},
-		{Name: "integration", Testenv: "go://testenv"},
-		{Name: "e2e", Testenv: "go://test-report"},
+		{Name: "unit", Testenv: "forge://test-report"},
+		{Name: "integration", Testenv: "forge://testenv"},
+		{Name: "e2e", Testenv: "forge://test-report"},
 	}
 
 	tests := []struct {
@@ -321,11 +321,11 @@ artifactStorePath: .ignore.artifact-store.yaml
 
 test:
   - name: unit
-    runner: go://go-test
-    testenv: go://test-report
+    runner: forge://go-test
+    testenv: forge://test-report
   - name: integration
-    runner: go://go-test
-    testenv: go://testenv
+    runner: forge://go-test
+    testenv: forge://testenv
 `
 	if err := os.WriteFile(forgeYaml, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to create test forge.yaml: %v", err)
@@ -371,7 +371,7 @@ test:
 func TestTestCreateEnvRejectsTestReport(t *testing.T) {
 	testSpec := &forge.TestSpec{
 		Name:    "unit",
-		Testenv: "go://test-report",
+		Testenv: "forge://test-report",
 	}
 
 	err := testCreateEnv(testSpec)
@@ -398,7 +398,7 @@ func TestTestCreateEnvRejectsTestReport(t *testing.T) {
 func TestTestDeleteEnvRejectsTestReport(t *testing.T) {
 	testSpec := &forge.TestSpec{
 		Name:    "unit",
-		Testenv: "go://test-report",
+		Testenv: "forge://test-report",
 	}
 
 	err := testDeleteEnv(testSpec, []string{"default"})
@@ -424,7 +424,7 @@ func TestTestDeleteEnvRejectsTestReport(t *testing.T) {
 func TestTestDeleteEnvRequiresEnvID(t *testing.T) {
 	testSpec := &forge.TestSpec{
 		Name:    "integration",
-		Testenv: "go://testenv",
+		Testenv: "forge://testenv",
 	}
 
 	err := testDeleteEnv(testSpec, []string{})

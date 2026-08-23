@@ -77,7 +77,7 @@ build:
   - name: test-api-v1
     src: ./test-api.v1.yaml
     dest: ./generated
-    engine: go://go-gen-openapi
+    engine: forge://go-gen-openapi
     spec:
       sourceFile: ./test-api.v1.yaml
       destinationDir: ./generated

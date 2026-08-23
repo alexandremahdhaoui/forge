@@ -7,8 +7,8 @@ The `build-container` engine has been renamed to `container-build` to follow nam
 ## What Changed
 
 ### Engine URI
-- **Before:** `go://build-container`
-- **After:** `go://container-build`
+- **Before:** `forge://build-container`
+- **After:** `forge://container-build`
 
 ### Binary Name
 - **Before:** `build-container`
@@ -54,7 +54,7 @@ Find all build specs using the old engine URI:
 build:
   - name: my-app
     src: ./containers/my-app/Containerfile
-    engine: go://build-container  # OLD
+    engine: forge://build-container  # OLD
 ```
 
 Change to:
@@ -63,7 +63,7 @@ Change to:
 build:
   - name: my-app
     src: ./containers/my-app/Containerfile
-    engine: go://container-build  # NEW
+    engine: forge://container-build  # NEW
 ```
 
 ### 2. Update Environment Variables
@@ -106,7 +106,7 @@ Update any project-specific documentation referencing `build-container` to use `
 
 ## Backward Compatibility
 
-**The old URI `go://build-container` still works** via automatic aliasing in the forge orchestrator. When the old URI is used:
+**The old URI `forge://build-container` still works** via automatic aliasing in the forge orchestrator. When the old URI is used:
 - A deprecation warning is printed to stderr
 - The build proceeds using the new `container-build` engine
 - Your builds will NOT break
@@ -116,16 +116,16 @@ This allows gradual migration across teams and projects without immediate breaki
 ### Example Deprecation Warning
 
 ```
-⚠️  DEPRECATED: go://build-container is deprecated, use go://container-build instead (in spec: my-app)
+⚠️  DEPRECATED: forge://build-container is deprecated, use forge://container-build instead (in spec: my-app)
 ```
 
 ## Deprecation Timeline
 
 | Version | Status | Description |
 |---------|--------|-------------|
-| v0.x.x (current) | **Alias Active** | `go://build-container` works with deprecation warning |
+| v0.x.x (current) | **Alias Active** | `forge://build-container` works with deprecation warning |
 | v0.y.0 (next minor) | **Deprecation Notice** | Warning includes version when alias will be removed |
-| v1.0.0 (planned) | **Alias Removed** | Must use `go://container-build`, old URI returns error |
+| v1.0.0 (planned) | **Alias Removed** | Must use `forge://container-build`, old URI returns error |
 
 ### Important Dates
 - **Now - v1.0.0:** Migrate at your convenience, builds won't break
@@ -134,15 +134,15 @@ This allows gradual migration across teams and projects without immediate breaki
 
 ### What Happens After v1.0.0?
 
-If you use `go://build-container` after v1.0.0:
-- Build will FAIL with error: "Unknown engine: go://build-container (renamed to container-build in v0.x.0)"
-- Migration is simple: Update `forge.yaml` to use `go://container-build` and set `CONTAINER_BUILD_ENGINE` environment variable
+If you use `forge://build-container` after v1.0.0:
+- Build will FAIL with error: "Unknown engine: forge://build-container (renamed to container-build in v0.x.0)"
+- Migration is simple: Update `forge.yaml` to use `forge://container-build` and set `CONTAINER_BUILD_ENGINE` environment variable
 
 ## Migration Checklist
 
 Use this checklist to ensure complete migration:
 
-- [ ] Update all `forge.yaml` files to use `go://container-build`
+- [ ] Update all `forge.yaml` files to use `forge://container-build`
 - [ ] Update environment variable from `CONTAINER_ENGINE` to `CONTAINER_BUILD_ENGINE`
 - [ ] Choose a build mode: `docker`, `kaniko`, or `podman`
 - [ ] Update CI/CD scripts if they invoke the binary directly
@@ -197,7 +197,7 @@ If you see deprecation warnings after updating `forge.yaml`, check:
 1. You saved the `forge.yaml` file
 2. You're in the correct directory
 3. You're not using a cached copy of the config
-4. Search your project for any remaining `go://build-container` references
+4. Search your project for any remaining `forge://build-container` references
 
 ## Questions?
 

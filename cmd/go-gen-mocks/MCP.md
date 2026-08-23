@@ -14,7 +14,7 @@ go-gen-mocks --mcp
 
 Forge invokes this automatically via:
 ```yaml
-engine: go://go-gen-mocks
+engine: forge://go-gen-mocks
 ```
 
 ## Available Tools
@@ -63,7 +63,7 @@ In `forge.yaml`:
 ```yaml
 build:
   - name: go-gen-mocks
-    engine: go://go-gen-mocks
+    engine: forge://go-gen-mocks
 ```
 
 Run with:

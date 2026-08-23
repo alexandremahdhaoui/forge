@@ -58,7 +58,7 @@ artifactStorePath: .ignore.artifact-store.yaml
 
 test:
   - name: unit
-    runner: go://go-test
+    runner: forge://go-test
 `
 	forgeYAMLPath := filepath.Join(tmpDir, "forge.yaml")
 	if err := os.WriteFile(forgeYAMLPath, []byte(forgeYAML), 0o644); err != nil {
@@ -183,7 +183,7 @@ build:
   - name: testapp
     src: ./cmd/testapp
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "forge.yaml"), []byte(forgeYAML), 0o644); err != nil {
 		t.Fatalf("Failed to create forge.yaml: %v", err)

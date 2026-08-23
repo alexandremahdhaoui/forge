@@ -14,7 +14,7 @@ go-lint-tags --mcp
 
 Forge invokes this via:
 ```yaml
-runner: go://go-lint-tags
+runner: forge://go-lint-tags
 ```
 
 ## Available Tools
@@ -70,7 +70,7 @@ In `forge.yaml`:
 test:
   - name: verify-tags
     stage: verify-tags
-    runner: go://go-lint-tags
+    runner: forge://go-lint-tags
 ```
 
 Run with:

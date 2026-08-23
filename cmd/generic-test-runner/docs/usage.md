@@ -14,7 +14,7 @@ Not every test tool produces structured output. generic-test-runner executes any
 test:
   - name: security
     stage: security
-    runner: go://generic-test-runner
+    runner: forge://generic-test-runner
     spec:
       command: gosec
       args: ["./..."]
@@ -49,7 +49,7 @@ Security scanner:
 ```yaml
 test:
   - name: security
-    runner: go://generic-test-runner
+    runner: forge://generic-test-runner
     spec:
       command: gosec
       args: ["-fmt=json", "./..."]
@@ -59,7 +59,7 @@ Custom test script:
 ```yaml
 test:
   - name: custom
-    runner: go://generic-test-runner
+    runner: forge://generic-test-runner
     spec:
       command: ./run-tests.sh
       args: ["--verbose"]
@@ -71,7 +71,7 @@ Compliance checker:
 ```yaml
 test:
   - name: compliance
-    runner: go://generic-test-runner
+    runner: forge://generic-test-runner
     spec:
       command: compliance-checker
       context: ./compliance

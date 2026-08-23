@@ -213,6 +213,12 @@ func BuildGoRunCommand(packageName, forgeVersion string) ([]string, error) {
 	return []string{"run", fmt.Sprintf("%s/cmd/%s@%s", forgeModule, packageName, moduleVersion)}, nil
 }
 
+// IsForgeModulePath reports whether a full module path points inside the
+// forge repository itself, e.g. github.com/alexandremahdhaoui/forge/cmd/go-build.
+func IsForgeModulePath(path string) bool {
+	return path == forgeModule || strings.HasPrefix(path, forgeModule+"/")
+}
+
 // IsExternalModule determines if a module path refers to an external module
 // (i.e., not part of the forge repository).
 //

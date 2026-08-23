@@ -51,7 +51,7 @@ func TestGenerateForDir(t *testing.T) {
 	input := mcptypes.BuildInput{
 		Name:   "generate",
 		Src:    srcDir,
-		Engine: "go://forge-dev",
+		Engine: "forge://forge-dev",
 	}
 
 	artifact, err := generate(context.Background(), input)

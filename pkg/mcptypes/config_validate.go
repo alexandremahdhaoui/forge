@@ -151,7 +151,7 @@ func (e ValidationError) FullPath() string {
 }
 
 // Location returns a human-readable location string.
-// Example: "[go://testenv-helm-install] engines[2].testenv[1].spec.charts[0].name"
+// Example: "[forge://testenv-helm-install] engines[2].testenv[1].spec.charts[0].name"
 func (e ValidationError) Location() string {
 	path := e.FullPath()
 	if e.Engine != "" {
@@ -164,7 +164,7 @@ func (e ValidationError) Location() string {
 }
 
 // String returns a formatted error message with full context.
-// Example: "[go://testenv-helm-install] engines[2].testenv[1].spec.charts[0].name: required field is missing"
+// Example: "[forge://testenv-helm-install] engines[2].testenv[1].spec.charts[0].name: required field is missing"
 func (e ValidationError) String() string {
 	loc := e.Location()
 	if loc != "" {

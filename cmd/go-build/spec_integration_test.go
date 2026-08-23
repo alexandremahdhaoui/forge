@@ -64,7 +64,7 @@ build:
   - name: testbinary
     src: .
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     spec:
       args:
         - "-ldflags=-w -s"
@@ -183,7 +183,7 @@ build:
   - name: testbinary
     src: .
     dest: ./build/bin
-    engine: go://go-build
+    engine: forge://go-build
     spec:
       env:
         CGO_ENABLED: "0"

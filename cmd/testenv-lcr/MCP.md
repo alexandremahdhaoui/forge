@@ -276,7 +276,7 @@ engines:
   - alias: my-testenv
     type: testenv
     testenv:
-      - engine: go://testenv-lcr
+      - engine: forge://testenv-lcr
         spec:
           enabled: true
           namespace: custom-namespace  # Override default
@@ -332,7 +332,7 @@ engines:
   - alias: testenv-integration
     type: testenv
     testenv:
-      - engine: go://testenv-lcr
+      - engine: forge://testenv-lcr
         spec:
           images:
             - name: local://myapp:latest
@@ -376,12 +376,12 @@ engines:
   - alias: setup-integration
     type: testenv
     testenv:
-      - engine: go://testenv-kind
-      - engine: go://testenv-lcr
+      - engine: forge://testenv-kind
+      - engine: forge://testenv-lcr
         spec:
           enabled: true
           namespace: testenv-lcr
-      - engine: go://testenv-helm-install
+      - engine: forge://testenv-helm-install
         spec:
           charts:
             - name: my-app
