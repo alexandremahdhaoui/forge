@@ -64,12 +64,12 @@ func ResolveDetector(detectorURI, forgeVersion string) (cmd string, args []strin
 	}
 
 	// Build the go run command using forgepath
-	runArgs, err := forgepath.BuildGoRunCommand(detectorName, forgeVersion)
+	cmd, runArgs, err := forgepath.EngineCommand(detectorName, forgeVersion)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to build go run command for detector %s: %w", detectorName, err)
+		return "", nil, fmt.Errorf("failed to resolve detector command for %s: %w", detectorName, err)
 	}
 
-	return "go", runArgs, nil
+	return cmd, runArgs, nil
 }
 
 // FindDetector locates a dependency detector binary by name.

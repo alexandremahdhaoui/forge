@@ -28,6 +28,10 @@ import (
 // This is a regression test for the bug where resolveEngine() failed with
 // "cannot be resolved to a single engine" error.
 func TestResolveEngine_MultiEngineAlias(t *testing.T) {
+	// The assertions pin the production go run form, so the local dev
+	// mode a developer .envrc enables must not leak in.
+	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "")
+
 	spec := &forge.Spec{
 		Engines: []forge.EngineConfig{
 			{

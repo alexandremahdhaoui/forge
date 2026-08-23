@@ -90,14 +90,14 @@ func Run(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestR
 
 		// Build detailed error message
 		var details strings.Builder
-		details.WriteString(fmt.Sprintf("Found %d test file(s) without build tags out of %d total files", len(filesWithoutTags), totalFiles))
+		fmt.Fprintf(&details, "Found %d test file(s) without build tags out of %d total files", len(filesWithoutTags), totalFiles)
 		details.WriteString("\n\nFiles missing build tags:\n")
 		for _, file := range filesWithoutTags {
-			details.WriteString(fmt.Sprintf("  - %s\n", file))
+			fmt.Fprintf(&details, "  - %s\n", file)
 		}
 		details.WriteString("\nTest files must have one of these build tags:\n")
 		for _, tag := range expectedTags {
-			details.WriteString(fmt.Sprintf("  //go:build %s\n", tag))
+			fmt.Fprintf(&details, "  //go:build %s\n", tag)
 		}
 
 		report.ErrorMessage = details.String()

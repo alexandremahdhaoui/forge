@@ -315,15 +315,56 @@ func cwdHasModuleContext() bool {
 	}
 }
 
-// isWorkspaceModule checks if modulePath belongs to a module listed in the
-// nearest go.work file. It parses the go.work use directives and reads each
-// member's go.mod to extract module paths.
+// EngineCommand answers how to launch one of forge's own engines. In local
+// development mode it builds the engine from the forge checkout into a cached
+// binary and answers that path, because `go run` can neither cross module
+// boundaries with an absolute path nor keep the caller's working directory
+// with -C - and engines resolve their inputs against the caller's cwd. In
+// production it answers the versioned `go run` form.
+func EngineCommand(packageName, forgeVersion string) (string, []string, error) {
+	if os.Getenv("FORGE_RUN_LOCAL_ENABLED") != "true" {
+		args, err := BuildGoRunCommand(packageName, forgeVersion)
+		if err != nil {
+			return "", nil, err
+		}
+
+		return "go", args, nil
+	}
+
+	baseDir := os.Getenv("FORGE_RUN_LOCAL_BASEDIR")
+	if baseDir == "" {
+		baseDir = os.Getenv(forgeRepoEnvVar)
+	}
+	if baseDir == "" {
+		found, err := FindForgeRepo()
+		if err != nil {
+			return "", nil, fmt.Errorf("FORGE_RUN_LOCAL_ENABLED=true but no forge repository found: %w", err)
+		}
+		baseDir = found
+	}
+
+	bin := filepath.Join(baseDir, "build", "local-engines", packageName)
+
+	build := exec.Command("go", "build", "-o", bin, "./cmd/"+packageName)
+	build.Dir = baseDir
+	build.Env = append(os.Environ(), "GOWORK=off")
+
+	if out, err := build.CombinedOutput(); err != nil {
+		return "", nil, fmt.Errorf("building local engine %s: %w: %s", packageName, err, string(out))
+	}
+
+	return bin, nil, nil
+}
+
 // IsWorkspaceModule reports whether the enclosing go.work carries the module,
 // which is the engine-resolution twin of run's rule 2: the workspace wins.
 func IsWorkspaceModule(modulePath string) bool {
 	return isWorkspaceModule(modulePath)
 }
 
+// isWorkspaceModule checks if modulePath belongs to a module listed in the
+// nearest go.work file. It parses the go.work use directives and reads each
+// member's go.mod to extract module paths.
 func isWorkspaceModule(modulePath string) bool {
 	goWorkDir := findGoWork()
 	if goWorkDir == "" {

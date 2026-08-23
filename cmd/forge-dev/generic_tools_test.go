@@ -86,28 +86,34 @@ func TestEveryToolFieldIsChecked(t *testing.T) {
 		message string
 	}{
 		{
-			"no name", ToolConfig{Description: "x", Input: "In"},
+			"no name",
+			ToolConfig{Description: "x", Input: "In"},
 			"generate.tools[0].name", "required field is missing",
 		},
 		{
-			"name is not an identifier", ToolConfig{Name: "1bad", Description: "x", Input: "In"},
+			"name is not an identifier",
+			ToolConfig{Name: "1bad", Description: "x", Input: "In"},
 			"generate.tools[0].name",
 			"must be alphanumeric with hyphens or underscores, starting with a letter",
 		},
 		{
-			"name is reserved", ToolConfig{Name: "config-validate", Description: "x", Input: "In"},
+			"name is reserved",
+			ToolConfig{Name: "config-validate", Description: "x", Input: "In"},
 			"generate.tools[0].name", `"config-validate" is reserved and registered automatically`,
 		},
 		{
-			"no description", ToolConfig{Name: "get", Input: "In"},
+			"no description",
+			ToolConfig{Name: "get", Input: "In"},
 			"generate.tools[0].description", "required field is missing",
 		},
 		{
-			"no input", ToolConfig{Name: "get", Description: "x"},
+			"no input",
+			ToolConfig{Name: "get", Description: "x"},
 			"generate.tools[0].input", "required field is missing",
 		},
 		{
-			"input is not a schema name", ToolConfig{Name: "get", Description: "x", Input: "notCamel"},
+			"input is not a schema name",
+			ToolConfig{Name: "get", Description: "x", Input: "notCamel"},
 			"generate.tools[0].input",
 			"must be a schema name from components.schemas, CamelCase starting with an uppercase letter",
 		},

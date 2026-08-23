@@ -22,6 +22,10 @@ import (
 )
 
 func TestParseEngineURI_GoProtocol(t *testing.T) {
+	// The assertions pin the production go run form, so the local dev
+	// mode a developer .envrc enables must not leak in.
+	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "")
+
 	tests := []struct {
 		name             string
 		engineURI        string
@@ -87,11 +91,11 @@ func TestParseEngineURI_GoProtocol(t *testing.T) {
 			wantErr:          false,
 		},
 		{
-			name:             "the removed go scheme fails with the migration message",
-			engineURI:        "go://go-build",
-			forgeVersion:     "v1.0.0",
-			wantErr:          true,
-			wantErrContains:  "the go:// scheme is removed; use forge://",
+			name:            "the removed go scheme fails with the migration message",
+			engineURI:       "go://go-build",
+			forgeVersion:    "v1.0.0",
+			wantErr:         true,
+			wantErrContains: "the go:// scheme is removed; use forge://",
 		},
 		{
 			name:             "internal short name ignores embedded version (uses forgeVersion)",

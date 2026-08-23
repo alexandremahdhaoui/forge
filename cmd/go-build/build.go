@@ -215,22 +215,30 @@ func findMainPackageFile(src string) (bool, string, error) {
 	}
 
 	// Parse all .go files in directory
-	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, searchDir, func(fi os.FileInfo) bool {
-		return filepath.Ext(fi.Name()) == ".go" && !strings.HasSuffix(fi.Name(), "_test.go")
-	}, parser.ParseComments)
+	entries, err := os.ReadDir(searchDir)
 	if err != nil {
-		return false, "", fmt.Errorf("failed to parse directory %s: %w", searchDir, err)
+		return false, "", fmt.Errorf("failed to read directory %s: %w", searchDir, err)
 	}
 
-	// Check for main package
-	mainPkg, hasMainPkg := pkgs["main"]
-	if !hasMainPkg {
-		return false, "", nil
-	}
+	fset := token.NewFileSet()
 
-	// Find file with main() function
-	for filePath, file := range mainPkg.Files {
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || filepath.Ext(name) != ".go" || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+
+		filePath := filepath.Join(searchDir, name)
+
+		file, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
+		if err != nil {
+			return false, "", fmt.Errorf("failed to parse %s: %w", filePath, err)
+		}
+
+		if file.Name.Name != "main" {
+			continue
+		}
+
 		if hasMainFunc(file) {
 			absPath, err := filepath.Abs(filePath)
 			if err != nil {

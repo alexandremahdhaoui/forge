@@ -81,10 +81,10 @@ func Run(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestR
 
 		// Build detailed error message
 		var details strings.Builder
-		details.WriteString(fmt.Sprintf("Found %d file(s) without license headers out of %d total files", len(filesWithoutLicense), totalFiles))
+		fmt.Fprintf(&details, "Found %d file(s) without license headers out of %d total files", len(filesWithoutLicense), totalFiles)
 		details.WriteString("\n\nFiles missing license headers:\n")
 		for _, file := range filesWithoutLicense {
-			details.WriteString(fmt.Sprintf("  - %s\n", file))
+			fmt.Fprintf(&details, "  - %s\n", file)
 		}
 		details.WriteString("\nGo files must have one of these license header patterns:\n")
 		details.WriteString("  // Copyright ...\n")

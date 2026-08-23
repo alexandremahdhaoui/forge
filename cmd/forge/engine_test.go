@@ -22,6 +22,10 @@ import (
 )
 
 func TestParseEngine(t *testing.T) {
+	// The assertions pin the production go run form, so the local dev
+	// mode a developer .envrc enables must not leak in.
+	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "")
+
 	testVersion := "v0.9.0"
 	tests := []struct {
 		name        string

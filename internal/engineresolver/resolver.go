@@ -110,10 +110,10 @@ func ParseEngineURI(engineURI, forgeVersion string) (engineType string, command 
 		return "", "", nil, fmt.Errorf("could not extract package name from engine URI: %s", engineURI)
 	}
 
-	runArgs, err := forgepath.BuildGoRunCommand(packageName, forgeVersion)
+	engineCmd, runArgs, err := forgepath.EngineCommand(packageName, forgeVersion)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to build go run command for %s: %w", packageName, err)
+		return "", "", nil, fmt.Errorf("failed to resolve engine command for %s: %w", packageName, err)
 	}
 
-	return EngineTypeMCP, "go", runArgs, nil
+	return EngineTypeMCP, engineCmd, runArgs, nil
 }

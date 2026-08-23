@@ -20,7 +20,6 @@ import (
 
 // parseEngine parses an engine URI and returns the engine type, command, and args for execution.
 // Supports forge:// and alias:// protocols; see engineresolver.ParseEngineURI.
-//
 func parseEngine(engineURI, forgeVersion string) (engineType string, command string, args []string, err error) {
 	return engineresolver.ParseEngineURI(engineURI, forgeVersion)
 }

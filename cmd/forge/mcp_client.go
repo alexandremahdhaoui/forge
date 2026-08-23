@@ -33,7 +33,6 @@ func callMCPEngine(command string, args []string, toolName string, params interf
 	// Append --mcp flag to the args
 	cmdArgs := append(args, "--mcp")
 	cmd := exec.Command(command, cmdArgs...)
-
 	// Inherit environment variables from parent process
 	cmd.Env = os.Environ()
 

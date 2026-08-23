@@ -54,6 +54,10 @@ func TestCaller_GetEngineResolver(t *testing.T) {
 }
 
 func TestCaller_ResolveEngine_GoURI(t *testing.T) {
+	// The assertions pin the production go run form, so the local dev
+	// mode a developer .envrc enables must not leak in.
+	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "")
+
 	caller := NewCaller("v1.0.0")
 
 	// Test resolving a forge:// URI

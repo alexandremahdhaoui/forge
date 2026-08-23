@@ -16,13 +16,13 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
-	"net/url"
 )
 
 // ConfigFileName is the expected name of the forge-dev configuration file.
