@@ -78,12 +78,18 @@ func ParseEngineURI(engineURI, forgeVersion string) (engineType string, command 
 		return "", "", nil, fmt.Errorf("empty engine path after forge://")
 	}
 
-	// A member form names a repo by URL-ish module path. forge-factory owns
-	// materializing it: clone, resolve its factory and register, sync, build.
-	// The run cache makes warm starts a plain exec. Forge's own module path
-	// stays a built-in: forge must resolve itself with no factory in play.
+	// A member form names a repo by URL-ish module path. The enclosing Go
+	// workspace wins when it carries the module - the engine twin of run's
+	// rule 2 - and go run uses the local copy. Otherwise forge-factory owns
+	// materializing it: clone, resolve its factory and register, sync,
+	// build; the run cache makes warm starts a plain exec. Forge's own
+	// module path stays a built-in: forge resolves itself with no factory.
 	bare := strings.SplitN(path, "@", 2)[0]
 	if forgepath.IsExternalModule(bare) && !forgepath.IsForgeModulePath(bare) {
+		if forgepath.IsWorkspaceModule(bare) {
+			return EngineTypeMCP, "go", []string{"run", bare}, nil
+		}
+
 		return EngineTypeMCP, "forge-factory", []string{"run", "--quiet", path, "--", "--mcp"}, nil
 	}
 

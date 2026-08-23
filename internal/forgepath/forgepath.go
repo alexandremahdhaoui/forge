@@ -318,6 +318,12 @@ func cwdHasModuleContext() bool {
 // isWorkspaceModule checks if modulePath belongs to a module listed in the
 // nearest go.work file. It parses the go.work use directives and reads each
 // member's go.mod to extract module paths.
+// IsWorkspaceModule reports whether the enclosing go.work carries the module,
+// which is the engine-resolution twin of run's rule 2: the workspace wins.
+func IsWorkspaceModule(modulePath string) bool {
+	return isWorkspaceModule(modulePath)
+}
+
 func isWorkspaceModule(modulePath string) bool {
 	goWorkDir := findGoWork()
 	if goWorkDir == "" {
