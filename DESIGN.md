@@ -171,9 +171,68 @@ parseGlobalFlags -> apply --cwd -> resolveWorkspace -> changeToProjectDir -> sou
 
 Forge resolves engine URIs to executable MCP server processes:
 
-- `forge://engine-name` resolves to `go run github.com/alexandremahdhaoui/forge/cmd/engine-name@version --mcp`
+- `forge://engine-name` is one of forge's own engines at the running forge
+  version, executed via `go run github.com/alexandremahdhaoui/forge/cmd/engine-name@version --mcp`
+- `forge://<module-path>[@rev]` is a factory member. The enclosing Go
+  workspace wins when it carries the module and `go run` uses the local
+  copy. Otherwise forge-factory materialises it and the engine starts as
+  `forge-factory run --quiet <module-path> -- --mcp`. The run cache makes a
+  warm engine start one exec.
 - `alias://name` looks up the `engines` section in `forge.yaml`, then resolves each entry to `forge://` engines
-- Local development mode (`FORGE_RUN_LOCAL_ENABLED=true`) resolves to `go run ./cmd/engine-name --mcp`
+- Local development mode (`FORGE_RUN_LOCAL_ENABLED=true`) builds the engine
+  from the forge checkout into `build/local-engines/` and execs the binary,
+  because `go run` can neither cross module boundaries nor keep the
+  caller's working directory
+- `go://` is removed. It fails with one line naming `forge://`.
+
+### Run
+
+`forge run` executes a repo's declarative run targets beside build and
+test. forge-factory decides WHAT context a run resolves in; forge decides
+HOW the target executes. The boundary is one exec: forge-factory
+materialises a directory and calls `forge run <name> -- args` inside it,
+marked by `FORGE_RUN_MATERIALIZED=1`.
+
+```yaml
+run:
+  - name: my-tool
+    src: ./cmd/my-tool
+    engine: forge://generic-runner   # omitted: the built artifact execs
+    factory: git@github.com:x/some-factory.git
+    spec: { command: sh, args: [run.sh] }
+```
+
+`name` and `src` and `factory` are required. The factory is the trust
+boundary in every mode: a repo outside its repos list never runs. The
+generated half is `zz_generated.runnable.yaml`, emitted by forge-dev from
+the engine's typed sources; its `inputs` name the env vars and files a run
+needs, checked before any build, with no defaults.
+
+Address forms:
+
+```
+forge run my-tool [-- args]                       name form
+forge run ./cmd/my-tool [-- args]                 path form
+forge run github.com/x/repo my-tool [-- args]     remote form
+forge run github.com/x/repo/cmd/tool@REV [...]    remote dev form
+forge clone <factory-url>[@rev] [dir]             bootstrap
+```
+
+No revision is typed outside the dev form. Dependency context rules,
+ordered, first match wins, one stderr line names the rule:
+
+1. `--factory url[@rev]` overrides everything.
+2. The enclosing workspace, when its factory claims the repo.
+3. The runnable's own `factory:`. Mandatory, so nothing falls through.
+
+The remote sequence, one stderr line per step: clone (full clone, one per
+repo URL, worktrees per resolved tuple, never shallow), resolve-target,
+resolve-factory, trust gate, resolve-version (the register's internal
+track), pin (the provenance revision record beats tags), checkout, sync
+`--only`, inputs, build, exec. A warm cache enters at inputs. A dev `@rev`
+skips resolve-version and is marked UNPROVEN on stderr. Exit codes and
+stdio pass through untouched; the built-in `forge://generic-runner` runs
+in process because `go run` swallows exit codes.
 
 ### Testenv Chain Composition
 

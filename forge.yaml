@@ -211,6 +211,18 @@ test:
     runner: "forge://go-test"
     testenv: "alias://setup-e2e-stub"
 
+  # -- e2e-run - the run system end to end: real git repos, a real factory,
+  # a real register with provenance, real binaries. Needs the forge-factory
+  # sibling checkout and no cluster.
+  - name: e2e-run
+    runner: "forge://go-test"
+    spec:
+      tags:
+        - e2erun
+      packages:
+        - ./test/e2erun/...
+      timeout: "20m"
+
 # -- build defines the artifacts to build
 build:
   # Format code before building

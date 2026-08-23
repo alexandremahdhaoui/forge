@@ -39,8 +39,8 @@ func runRun(args []string) error {
 		return fmt.Errorf("run needs a target: a runnable name, a ./path, or a module path")
 	}
 
-	if os.Getenv(materializedEnvVar) == "" && !strings.HasPrefix(target, "./") {
-		if forgepath.IsExternalModule(target) || specHasNoTarget(target) {
+	if os.Getenv(materializedEnvVar) == "" {
+		if forgepath.IsExternalModule(target) || targetNeedsContext(target) {
 			return delegateToForgeFactory(append([]string{"run"}, args...))
 		}
 	}
@@ -70,15 +70,23 @@ func splitRunArgs(args []string) (string, []string) {
 	return args[0], args[1:]
 }
 
-func specHasNoTarget(target string) bool {
+// targetNeedsContext decides whether forge-factory must materialise a
+// dependency context first. A declared run target always does: the context
+// rules fire and one stderr line says which one. A bare build artifact is
+// the zero-config case and runs in place; so does an unknown target, whose
+// local error names what exists.
+func targetNeedsContext(target string) bool {
 	spec, err := forge.ReadSpec()
 	if err != nil {
 		return true
 	}
 
-	_, _, err = resolveTarget(spec, target)
+	runSpec, _, err := resolveTarget(spec, target)
+	if err != nil {
+		return !strings.HasPrefix(target, "./") && !strings.HasPrefix(target, "../")
+	}
 
-	return err != nil
+	return runSpec != nil
 }
 
 func runLocalTarget(target string, extra []string) error {
@@ -98,7 +106,11 @@ func runLocalTarget(target string, extra []string) error {
 
 	location, err := artifactLocation(spec, buildSpec.Name)
 	if err != nil {
-		return err
+		if runSpec == nil || runSpec.Engine == "" {
+			return err
+		}
+
+		location = buildSpec.Src
 	}
 
 	if runSpec == nil || runSpec.Engine == "" {
@@ -136,9 +148,24 @@ func resolveTarget(spec forge.Spec, target string) (*forge.RunSpec, *forge.Build
 		target, names(runNames(spec)), names(buildNames(spec)))
 }
 
+// buildSpecFor picks the artifact a run target builds: an exact name wins,
+// then the src match that produces a binary, then any src match. Several
+// artifacts can share a src when one generates and another compiles.
 func buildSpecFor(spec forge.Spec, r forge.RunSpec) (*forge.BuildSpec, error) {
 	for i, b := range spec.Build {
-		if path.Clean(b.Src) == path.Clean(r.Src) || b.Name == r.Name {
+		if b.Name == r.Name {
+			return &spec.Build[i], nil
+		}
+	}
+
+	for i, b := range spec.Build {
+		if path.Clean(b.Src) == path.Clean(r.Src) && b.Dest != "" {
+			return &spec.Build[i], nil
+		}
+	}
+
+	for i, b := range spec.Build {
+		if path.Clean(b.Src) == path.Clean(r.Src) {
 			return &spec.Build[i], nil
 		}
 	}
