@@ -1,5 +1,6 @@
 name: rust-license-header
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.1.0
 description: >
   Adds an Apache License 2.0 header to Rust source files that don't already

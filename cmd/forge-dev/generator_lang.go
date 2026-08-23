@@ -54,7 +54,7 @@ func langTemplateData(config *Config, schema *SpecSchema, checksum string) LangT
 		Name:        config.Name,
 		Version:     config.Version,
 		Description: config.Description,
-		Tools:       config.Generate.Tools,
+		Tools:       config.tools(),
 	}
 
 	if schema != nil {

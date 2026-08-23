@@ -49,9 +49,9 @@ func BuildGenericTools(config *Config, specTypesCtx *SpecTypesContext) []Generic
 		prefix = specTypesCtx.Prefix
 	}
 
-	out := make([]GenericTool, 0, len(config.Generate.Tools))
+	out := make([]GenericTool, 0, len(config.tools()))
 
-	for _, t := range config.Generate.Tools {
+	for _, t := range config.tools() {
 		goName := camel(t.Name)
 
 		tool := GenericTool{
@@ -77,7 +77,7 @@ func BuildGenericTools(config *Config, specTypesCtx *SpecTypesContext) []Generic
 // the OpenAPI spec actually produced. ValidateConfig cannot do this, because it
 // runs before the spec is parsed.
 func ValidateGenericTools(config *Config, types []ForgeTypeDefinition) []ValidationError {
-	if config.Type != EngineTypeGeneric {
+	if config.engineType() != EngineTypeGeneric {
 		return nil
 	}
 
@@ -90,8 +90,8 @@ func ValidateGenericTools(config *Config, types []ForgeTypeDefinition) []Validat
 
 	generated := map[string]string{}
 
-	for i, t := range config.Generate.Tools {
-		field := fmt.Sprintf("generate.tools[%d]", i)
+	for i, t := range config.tools() {
+		field := fmt.Sprintf("surface.tools[%d]", i)
 
 		errors = append(errors, requireObjectSchema(field+".input", t.Input, known)...)
 
@@ -123,7 +123,7 @@ func ValidateGenericTools(config *Config, types []ForgeTypeDefinition) []Validat
 
 	if _, clash := known["Handlers"]; clash {
 		errors = append(errors, ValidationError{
-			Field:   "generate.tools",
+			Field:   "surface.tools",
 			Message: `a schema named "Handlers" collides with the generated Handlers struct`,
 		})
 	}

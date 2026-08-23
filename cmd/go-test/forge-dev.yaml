@@ -1,5 +1,6 @@
 name: go-test
-type: test-runner
+kind: mcp-server
+profile: test-runner
 version: 0.15.0
 description: Go test runner with coverage and JUnit reporting
 openapi:

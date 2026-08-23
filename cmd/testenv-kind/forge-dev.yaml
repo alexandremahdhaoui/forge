@@ -1,5 +1,6 @@
 name: testenv-kind
-type: testenv-subengine
+kind: mcp-server
+profile: testenv-subengine
 version: 0.15.0
 description: Kind (Kubernetes IN Docker) cluster manager for test environments
 

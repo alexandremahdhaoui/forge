@@ -48,13 +48,13 @@ func GenerateMCPFile(config *Config, checksum string, specTypesCtx *SpecTypesCon
 		PackageName:      config.Generate.PackageName,
 		ChecksumHeader:   ChecksumHeader(checksum),
 		EngineName:       config.Name,
-		EngineType:       config.Type,
+		EngineType:       config.engineType(),
 		SpecTypesContext: specTypesCtx,
 		Tools:            BuildGenericTools(config, specTypesCtx),
 	}
 
 	// Select template based on engine type
-	templateName, err := mcpTemplateName(config.Type)
+	templateName, err := mcpTemplateName(config.engineType())
 	if err != nil {
 		return nil, err
 	}

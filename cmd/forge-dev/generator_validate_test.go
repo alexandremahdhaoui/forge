@@ -44,7 +44,7 @@ func TestGenerateValidateFile(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -69,7 +69,7 @@ func TestGenerateValidateFile(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -86,7 +86,7 @@ func TestGenerateValidateFile(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -112,7 +112,7 @@ func TestGenerateValidateFile(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -199,7 +199,7 @@ func TestGenerateValidateFile_Compiles(t *testing.T) {
 
 	config := &Config{
 		Name: "complex-engine",
-		Type: EngineTypeBuilder,
+		Kind: KindMCPServer, Profile: "builder",
 		Generate: GenerateConfig{
 			PackageName: "main",
 		},

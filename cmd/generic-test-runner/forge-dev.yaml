@@ -1,5 +1,6 @@
 name: generic-test-runner
-type: test-runner
+kind: mcp-server
+profile: test-runner
 version: 0.15.0
 description: Execute any command as a test step
 openapi:

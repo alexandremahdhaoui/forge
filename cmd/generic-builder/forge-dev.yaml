@@ -1,5 +1,6 @@
 name: generic-builder
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.15.0
 description: Execute any command as a build step
 openapi:

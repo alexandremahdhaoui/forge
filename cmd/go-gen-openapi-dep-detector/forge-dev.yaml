@@ -1,5 +1,6 @@
 name: go-gen-openapi-dep-detector
-type: dependency-detector
+kind: mcp-server
+profile: dependency-detector
 version: 0.15.0
 description: Dependency detector for OpenAPI code generation
 openapi:

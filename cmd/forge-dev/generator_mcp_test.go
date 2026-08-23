@@ -25,8 +25,8 @@ import (
 
 func TestGenerateMCPFile_Builder(t *testing.T) {
 	config := &Config{
-		Name:    "test-builder",
-		Type:    EngineTypeBuilder,
+		Name: "test-builder",
+		Kind: KindMCPServer, Profile: "builder",
 		Version: "1.0.0",
 		Generate: GenerateConfig{
 			PackageName: "main",
@@ -70,8 +70,8 @@ func TestGenerateMCPFile_Builder(t *testing.T) {
 
 func TestGenerateMCPFile_TestRunner(t *testing.T) {
 	config := &Config{
-		Name:    "test-runner",
-		Type:    EngineTypeTestRunner,
+		Name: "test-runner",
+		Kind: KindMCPServer, Profile: "test-runner",
 		Version: "1.0.0",
 		Generate: GenerateConfig{
 			PackageName: "main",
@@ -115,8 +115,8 @@ func TestGenerateMCPFile_TestRunner(t *testing.T) {
 
 func TestGenerateMCPFile_TestEnvSubengine(t *testing.T) {
 	config := &Config{
-		Name:    "testenv-kind",
-		Type:    EngineTypeTestEnvSubengine,
+		Name: "testenv-kind",
+		Kind: KindMCPServer, Profile: "testenv-subengine",
 		Version: "1.0.0",
 		Generate: GenerateConfig{
 			PackageName: "main",
@@ -165,8 +165,8 @@ func TestGenerateMCPFile_TestEnvSubengine(t *testing.T) {
 
 func TestGenerateMCPFile_DependencyDetector(t *testing.T) {
 	config := &Config{
-		Name:    "go-dependency-detector",
-		Type:    EngineTypeDependencyDetector,
+		Name: "go-dependency-detector",
+		Kind: KindMCPServer, Profile: "dependency-detector",
 		Version: "1.0.0",
 		Generate: GenerateConfig{
 			PackageName: "main",
@@ -215,7 +215,8 @@ func TestGenerateMCPFile_DependencyDetector(t *testing.T) {
 func TestGenerateMCPFile_InvalidType(t *testing.T) {
 	config := &Config{
 		Name:    "invalid-engine",
-		Type:    EngineType("invalid"),
+		Kind:    KindMCPServer,
+		Profile: "invalid",
 		Version: "1.0.0",
 		Generate: GenerateConfig{
 			PackageName: "main",

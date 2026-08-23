@@ -15,7 +15,8 @@ name: my-engine
 
 # Required: Engine type
 # Values: builder, test-runner, testenv-subengine
-type: builder
+kind: mcp-server
+profile: builder
 
 # Required: Engine version (semver format: x.y.z)
 version: 0.15.0
@@ -39,7 +40,10 @@ generate:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | Yes | Engine name. Must be lowercase alphanumeric with hyphens, starting with a letter. Max 64 characters. |
-| `type` | enum | Yes | Engine type. One of: `builder`, `test-runner`, `testenv-subengine` |
+| `kind` | string | Yes | What the program is. One of `mcp-server`, `rest-api`, `cli`, `binary`, or a custom kind owned by a `generator:` |
+| `profile` | enum | No | mcp-server preset. One of `builder`, `test-runner`, `testenv-subengine`, `dependency-detector`. Absent means generic: declare `surface.tools` |
+| `generator` | string | No | A `forge://` engine that emits this kind and language cell instead of a builtin |
+| `surface` | object | No | The kind vocabulary: `tools` for mcp-server, `commands` for cli, anything for a custom kind |
 | `version` | string | Yes | Semantic version in format `x.y.z` |
 | `description` | string | No | Human-readable description of the engine |
 | `openapi.specPath` | string | Yes | Relative path to the OpenAPI spec file |
@@ -236,7 +240,8 @@ Contains:
 **forge-dev.yaml:**
 ```yaml
 name: simple-engine
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.1.0
 openapi:
   specPath: ./spec.openapi.yaml
@@ -261,7 +266,8 @@ components:
 **forge-dev.yaml:**
 ```yaml
 name: advanced-engine
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.15.0
 description: An advanced build engine with many options
 openapi:
@@ -344,7 +350,7 @@ generate:
 It must be an absolute http or https URL with no trailing slash, because every
 consumer joins it with a slash already.
 
-## type: generic
+## kind: mcp-server
 
 Every other engine type has its tools fixed by its family. A builder has
 `build`. A test runner has `run`. A generic engine declares its own, so a
@@ -352,7 +358,7 @@ sibling repository can generate an engine forge has never heard of.
 
 ```yaml
 name: ci-state-git
-type: generic
+kind: mcp-server
 version: 0.1.0
 description: Read and write CI state in a git repo.
 openapi:

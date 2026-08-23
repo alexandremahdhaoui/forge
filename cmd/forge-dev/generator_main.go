@@ -60,7 +60,7 @@ func GenerateMainFile(config *Config, checksum string, specTypesCtx *SpecTypesCo
 		PackageName:      config.Generate.PackageName,
 		ChecksumHeader:   ChecksumHeader(checksum),
 		EngineName:       config.Name,
-		EngineType:       string(config.Type),
+		EngineType:       string(config.engineType()),
 		Tools:            BuildGenericTools(config, specTypesCtx),
 		HandlersFunc:     config.GetHandlersFunc(),
 		Version:          config.Version,

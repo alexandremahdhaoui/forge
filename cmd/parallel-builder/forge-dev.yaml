@@ -1,5 +1,6 @@
 name: parallel-builder
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.15.0
 description: Parallel builder that runs multiple sub-builders concurrently
 openapi:

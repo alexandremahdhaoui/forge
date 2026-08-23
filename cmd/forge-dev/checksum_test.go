@@ -30,7 +30,7 @@ func TestComputeSourceChecksum(t *testing.T) {
 		configPath := filepath.Join(dir, "forge-dev.yaml")
 		specPath := filepath.Join(dir, "spec.openapi.yaml")
 
-		configContent := "name: test\ntype: builder\n"
+		configContent := "name: test\nkind: mcp-server\nprofile: builder\n"
 		specContent := "openapi: 3.0.3\ninfo:\n  title: Test\n"
 
 		if err := os.WriteFile(configPath, []byte(configContent), 0o644); err != nil {

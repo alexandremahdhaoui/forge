@@ -1,5 +1,6 @@
 name: go-lint
-type: test-runner
+kind: mcp-server
+profile: test-runner
 version: 0.15.0
 description: Run golangci-lint for Go code linting
 openapi:

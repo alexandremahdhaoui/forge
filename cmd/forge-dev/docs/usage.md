@@ -25,10 +25,11 @@ runtime:
     - config.yaml
 ```
 
-A `language:` key on a `generic` engine selects the template set: absent
-means go; `rust`, `python` and `typescript` emit a minimal MCP stdio
-server dispatching to a hand-written handlers file next to it. The other
-engine types stay go.
+A `language:` key selects the template set: absent means go; `rust`,
+`python` and `typescript` emit a minimal MCP stdio server dispatching to
+a hand-written handlers file next to it. Profiles stay go. `docs/model.md`
+is the full two axis model: kinds, languages, profiles, and the
+`generator:` door for custom cells.
 
 ## How do I use forge-dev?
 
@@ -36,7 +37,8 @@ engine types stay go.
 
 ```yaml
 name: my-engine
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.15.0
 description: My custom build engine
 openapi:

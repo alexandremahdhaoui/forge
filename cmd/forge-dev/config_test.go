@@ -28,7 +28,8 @@ func TestReadConfig(t *testing.T) {
 		// Create temp directory with config file
 		dir := t.TempDir()
 		configContent := `name: go-build
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.15.0
 description: Go binary builder with git versioning
 openapi:
@@ -48,8 +49,8 @@ generate:
 		if config.Name != "go-build" {
 			t.Errorf("Name = %q, want %q", config.Name, "go-build")
 		}
-		if config.Type != EngineTypeBuilder {
-			t.Errorf("Type = %q, want %q", config.Type, EngineTypeBuilder)
+		if config.engineType() != EngineTypeBuilder {
+			t.Errorf("Type = %q, want %q", config.engineType(), EngineTypeBuilder)
 		}
 		if config.Version != "0.15.0" {
 			t.Errorf("Version = %q, want %q", config.Version, "0.15.0")
@@ -68,7 +69,8 @@ generate:
 	t.Run("test-runner type", func(t *testing.T) {
 		dir := t.TempDir()
 		configContent := `name: go-test
-type: test-runner
+kind: mcp-server
+profile: test-runner
 version: 0.15.0
 openapi:
   specPath: ./spec.openapi.yaml
@@ -84,15 +86,16 @@ generate:
 			t.Fatalf("ReadConfig failed: %v", err)
 		}
 
-		if config.Type != EngineTypeTestRunner {
-			t.Errorf("Type = %q, want %q", config.Type, EngineTypeTestRunner)
+		if config.engineType() != EngineTypeTestRunner {
+			t.Errorf("Type = %q, want %q", config.engineType(), EngineTypeTestRunner)
 		}
 	})
 
 	t.Run("testenv-subengine type", func(t *testing.T) {
 		dir := t.TempDir()
 		configContent := `name: testenv-kind
-type: testenv-subengine
+kind: mcp-server
+profile: testenv-subengine
 version: 0.15.0
 openapi:
   specPath: ./spec.openapi.yaml
@@ -108,15 +111,16 @@ generate:
 			t.Fatalf("ReadConfig failed: %v", err)
 		}
 
-		if config.Type != EngineTypeTestEnvSubengine {
-			t.Errorf("Type = %q, want %q", config.Type, EngineTypeTestEnvSubengine)
+		if config.engineType() != EngineTypeTestEnvSubengine {
+			t.Errorf("Type = %q, want %q", config.engineType(), EngineTypeTestEnvSubengine)
 		}
 	})
 
 	t.Run("dependency-detector type", func(t *testing.T) {
 		dir := t.TempDir()
 		configContent := `name: go-dependency-detector
-type: dependency-detector
+kind: mcp-server
+profile: dependency-detector
 version: 0.15.0
 openapi:
   specPath: ./spec.openapi.yaml
@@ -132,15 +136,16 @@ generate:
 			t.Fatalf("ReadConfig failed: %v", err)
 		}
 
-		if config.Type != EngineTypeDependencyDetector {
-			t.Errorf("Type = %q, want %q", config.Type, EngineTypeDependencyDetector)
+		if config.engineType() != EngineTypeDependencyDetector {
+			t.Errorf("Type = %q, want %q", config.engineType(), EngineTypeDependencyDetector)
 		}
 	})
 
 	t.Run("config with specTypes enabled", func(t *testing.T) {
 		dir := t.TempDir()
 		configContent := `name: my-engine
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.15.0
 openapi:
   specPath: ./spec.openapi.yaml
@@ -177,7 +182,8 @@ generate:
 	t.Run("config without specTypes - backward compatible", func(t *testing.T) {
 		dir := t.TempDir()
 		configContent := `name: go-build
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.15.0
 openapi:
   specPath: ./spec.openapi.yaml
@@ -223,8 +229,8 @@ generate:
 func TestValidateConfig(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -242,7 +248,7 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("missing name", func(t *testing.T) {
 		config := &Config{
-			Type:    EngineTypeBuilder,
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -260,8 +266,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("invalid name format - uppercase", func(t *testing.T) {
 		config := &Config{
-			Name:    "Go-Build",
-			Type:    EngineTypeBuilder,
+			Name: "Go-Build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -279,8 +285,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("invalid name format - starts with number", func(t *testing.T) {
 		config := &Config{
-			Name:    "1go-build",
-			Type:    EngineTypeBuilder,
+			Name: "1go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -298,8 +304,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("invalid name format - special characters", func(t *testing.T) {
 		config := &Config{
-			Name:    "go_build",
-			Type:    EngineTypeBuilder,
+			Name: "go_build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -317,8 +323,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("name too long", func(t *testing.T) {
 		config := &Config{
-			Name:    strings.Repeat("a", 65),
-			Type:    EngineTypeBuilder,
+			Name: strings.Repeat("a", 65),
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -334,7 +340,7 @@ func TestValidateConfig(t *testing.T) {
 		}
 	})
 
-	t.Run("missing type", func(t *testing.T) {
+	t.Run("missing kind", func(t *testing.T) {
 		config := &Config{
 			Name:    "go-build",
 			Version: "0.15.0",
@@ -347,15 +353,17 @@ func TestValidateConfig(t *testing.T) {
 		}
 
 		errors := ValidateConfig(config)
-		if !hasErrorForField(errors, "type") {
-			t.Error("Expected error for missing type")
+		if !hasErrorForField(errors, "kind") {
+			t.Error("Expected error for missing kind")
 		}
 	})
 
-	t.Run("invalid type", func(t *testing.T) {
+	t.Run("stale type key", func(t *testing.T) {
 		config := &Config{
 			Name:    "go-build",
-			Type:    "invalid-type",
+			Kind:    KindMCPServer,
+			Profile: "builder",
+			Type:    "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -374,7 +382,7 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("missing version", func(t *testing.T) {
 		config := &Config{
 			Name: "go-build",
-			Type: EngineTypeBuilder,
+			Kind: KindMCPServer, Profile: "builder",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
 			},
@@ -391,8 +399,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("invalid version format", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "v0.15.0", // Invalid: has 'v' prefix
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -410,8 +418,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("invalid version format - not semver", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "1.0", // Invalid: missing patch version
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -429,8 +437,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("missing openapi.specPath", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			Generate: GenerateConfig{
 				PackageName: "main",
@@ -445,8 +453,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("missing generate.packageName", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -461,8 +469,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("invalid generate.packageName - uppercase", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -480,8 +488,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("invalid generate.packageName - starts with number", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -509,8 +517,8 @@ func TestValidateConfig(t *testing.T) {
 	// SpecTypes validation tests
 	t.Run("specTypes enabled with missing outputPath", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -532,8 +540,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("specTypes enabled with missing packageName", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -555,8 +563,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("specTypes enabled with invalid packageName", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -579,8 +587,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("specTypes enabled with absolute outputPath", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -603,8 +611,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("specTypes enabled with escaping outputPath", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -627,8 +635,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("specTypes enabled with current directory outputPath", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -651,8 +659,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("specTypes enabled with valid config", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -682,8 +690,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("specTypes disabled - no validation", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",
@@ -705,8 +713,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("specTypes nil - backward compatible", func(t *testing.T) {
 		config := &Config{
-			Name:    "go-build",
-			Type:    EngineTypeBuilder,
+			Name: "go-build",
+			Kind: KindMCPServer, Profile: "builder",
 			Version: "0.15.0",
 			OpenAPI: OpenAPIConfig{
 				SpecPath: "./spec.openapi.yaml",

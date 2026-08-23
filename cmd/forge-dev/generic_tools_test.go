@@ -23,9 +23,11 @@ import (
 )
 
 func genericConfigWith(tools ...ToolConfig) *Config {
-	c := &Config{Name: "ci-state-git", Type: EngineTypeGeneric, Version: "0.1.0"}
+	c := &Config{Name: "ci-state-git", Kind: KindMCPServer, Version: "0.1.0"}
 	c.Generate.PackageName = "main"
-	c.Generate.Tools = tools
+	if len(tools) > 0 {
+		c.Surface = &SurfaceConfig{Tools: tools}
+	}
 
 	return c
 }
@@ -47,34 +49,38 @@ func hasError(errs []ValidationError, field, message string) bool {
 func TestGenericRequiresAtLeastOneTool(t *testing.T) {
 	errs := ValidateConfig(genericConfigWith())
 
-	if !hasError(errs, "generate.tools", `at least one tool is required when type is "generic"`) {
+	if !hasError(errs, "surface.tools", "at least one tool is required for an mcp-server without a profile") {
 		t.Errorf("a generic engine with no tools was accepted: %v", errs)
 	}
 }
 
-func TestToolsAreRejectedOnEveryOtherType(t *testing.T) {
-	for _, typ := range []EngineType{
-		EngineTypeBuilder, EngineTypeTestRunner,
-		EngineTypeTestEnvSubengine, EngineTypeDependencyDetector,
-	} {
+func TestToolsAreRejectedOnEveryProfile(t *testing.T) {
+	for _, profile := range ValidProfiles {
 		c := genericConfigWith(validTool())
-		c.Type = typ
+		c.Profile = string(profile)
 
-		if !hasError(ValidateConfig(c), "generate.tools", `only valid when type is "generic"`) {
-			t.Errorf("%s accepted a tools block", typ)
+		if !hasError(ValidateConfig(c), "surface.tools", "only an mcp-server without a profile declares tools") {
+			t.Errorf("%s accepted a tools block", profile)
 		}
 	}
 }
 
-func TestGenericIsAValidEngineType(t *testing.T) {
-	if !isValidEngineType(EngineTypeGeneric) {
-		t.Error("generic is not accepted as an engine type")
-	}
-
+func TestTheOldTypeKeyFailsLoudNamingTheMigration(t *testing.T) {
 	c := genericConfigWith(validTool())
+	c.Type = "builder"
 
-	if hasError(ValidateConfig(c), "type", "") {
-		t.Error("a valid generic config was rejected on its type")
+	if !hasError(ValidateConfig(c), "type", "removed; use kind: mcp-server with profile: builder, and surface.tools for generic") {
+		t.Errorf("a stale type: key did not fail with the migration line: %v", ValidateConfig(c))
+	}
+}
+
+func TestTheOldGenerateToolsKeyFailsLoud(t *testing.T) {
+	c := &Config{Name: "x", Kind: KindMCPServer, Version: "0.1.0"}
+	c.Generate.PackageName = "main"
+	c.Generate.Tools = []ToolConfig{validTool()}
+
+	if !hasError(ValidateConfig(c), "generate.tools", "moved; declare the tools under surface.tools") {
+		t.Errorf("a stale generate.tools block did not fail with the move line: %v", ValidateConfig(c))
 	}
 }
 
@@ -88,39 +94,39 @@ func TestEveryToolFieldIsChecked(t *testing.T) {
 		{
 			"no name",
 			ToolConfig{Description: "x", Input: "In"},
-			"generate.tools[0].name", "required field is missing",
+			"surface.tools[0].name", "required field is missing",
 		},
 		{
 			"name is not an identifier",
 			ToolConfig{Name: "1bad", Description: "x", Input: "In"},
-			"generate.tools[0].name",
+			"surface.tools[0].name",
 			"must be alphanumeric with hyphens or underscores, starting with a letter",
 		},
 		{
 			"name is reserved",
 			ToolConfig{Name: "config-validate", Description: "x", Input: "In"},
-			"generate.tools[0].name", `"config-validate" is reserved and registered automatically`,
+			"surface.tools[0].name", `"config-validate" is reserved and registered automatically`,
 		},
 		{
 			"no description",
 			ToolConfig{Name: "get", Input: "In"},
-			"generate.tools[0].description", "required field is missing",
+			"surface.tools[0].description", "required field is missing",
 		},
 		{
 			"no input",
 			ToolConfig{Name: "get", Description: "x"},
-			"generate.tools[0].input", "required field is missing",
+			"surface.tools[0].input", "required field is missing",
 		},
 		{
 			"input is not a schema name",
 			ToolConfig{Name: "get", Description: "x", Input: "notCamel"},
-			"generate.tools[0].input",
+			"surface.tools[0].input",
 			"must be a schema name from components.schemas, CamelCase starting with an uppercase letter",
 		},
 		{
 			"output is not a schema name",
 			ToolConfig{Name: "get", Description: "x", Input: "In", Output: "notCamel"},
-			"generate.tools[0].output",
+			"surface.tools[0].output",
 			"must be a schema name from components.schemas, CamelCase starting with an uppercase letter",
 		},
 	} {
@@ -135,7 +141,7 @@ func TestEveryToolFieldIsChecked(t *testing.T) {
 func TestDuplicateToolNamesAreRejected(t *testing.T) {
 	errs := ValidateConfig(genericConfigWith(validTool(), validTool()))
 
-	if !hasError(errs, "generate.tools[1].name", `duplicate tool name "get"`) {
+	if !hasError(errs, "surface.tools[1].name", `duplicate tool name "get"`) {
 		t.Errorf("two tools named get were accepted: %v", errs)
 	}
 }
@@ -191,7 +197,7 @@ func TestCrossReferenceFindsAMissingSchema(t *testing.T) {
 
 	errs := ValidateGenericTools(c, knownTypes("Spec", "StateGetInput"))
 
-	if !hasError(errs, "generate.tools[0].output", `schema "StateGetOutput" not found in components.schemas`) {
+	if !hasError(errs, "surface.tools[0].output", `schema "StateGetOutput" not found in components.schemas`) {
 		t.Errorf("a tool naming a missing output schema was accepted: %v", errs)
 	}
 }
@@ -218,7 +224,7 @@ func TestCrossReferenceCatchesAGeneratedNameCollision(t *testing.T) {
 
 	errs := ValidateGenericTools(c, knownTypes("In", "GetFunc"))
 
-	if !hasError(errs, "generate.tools[0].name",
+	if !hasError(errs, "surface.tools[0].name",
 		`tool name "get" generates type "GetFunc", which collides with a schema of that name`) {
 		t.Errorf("a tool colliding with a schema was accepted: %v", errs)
 	}
@@ -232,7 +238,7 @@ func TestCrossReferenceCatchesTwoToolsGeneratingOneType(t *testing.T) {
 
 	errs := ValidateGenericTools(c, knownTypes("In"))
 
-	if !hasError(errs, "generate.tools[1].name",
+	if !hasError(errs, "surface.tools[1].name",
 		`tool names "state-get" and "state_get" both generate type "StateGetFunc"`) {
 		t.Errorf("two tools generating one type were accepted: %v", errs)
 	}
@@ -243,15 +249,15 @@ func TestCrossReferenceRejectsASchemaNamedHandlers(t *testing.T) {
 
 	errs := ValidateGenericTools(c, knownTypes("In", "Handlers"))
 
-	if !hasError(errs, "generate.tools",
+	if !hasError(errs, "surface.tools",
 		`a schema named "Handlers" collides with the generated Handlers struct`) {
 		t.Errorf("a schema named Handlers was accepted: %v", errs)
 	}
 }
 
-func TestCrossReferenceIgnoresEveryOtherEngineType(t *testing.T) {
+func TestCrossReferenceIgnoresEveryProfile(t *testing.T) {
 	c := genericConfigWith(validTool())
-	c.Type = EngineTypeBuilder
+	c.Profile = string(EngineTypeBuilder)
 
 	if errs := ValidateGenericTools(c, nil); errs != nil {
 		t.Errorf("cross reference ran on a builder: %v", errs)

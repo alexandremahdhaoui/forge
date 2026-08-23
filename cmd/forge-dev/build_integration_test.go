@@ -47,7 +47,8 @@ func createTestEngineDir(t *testing.T, projectRoot, engineName string, specTypes
 
 	// Create forge-dev.yaml with optional specTypes config
 	configContent := `name: ` + engineName + `
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.1.0
 description: Test engine for integration tests
 openapi:
@@ -559,7 +560,8 @@ func TestGenerateWithSpecTypes_NestedTypes(t *testing.T) {
 
 	// Create forge-dev.yaml with specTypes
 	configContent := `name: nested-types-engine
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.1.0
 description: Test engine with nested types
 openapi:
