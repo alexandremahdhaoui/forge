@@ -8,6 +8,28 @@
 
 Every forge engine needs a typed Spec struct, validation logic, and MCP server boilerplate. forge-dev generates all three from an OpenAPI schema, ensuring consistency and reducing boilerplate.
 
+## The runnable contract and other languages
+
+Every generation also emits `zz_generated.runnable.yaml`: the engine's
+inputs, derived from the spec's required keys plus an optional `runtime:`
+block in `forge-dev.yaml` naming env vars and files. forge-factory checks
+these before any build; a missing input fails naming it. The word
+requires appears nowhere and there are no defaults. Editing the yaml by
+hand is the same offense as editing any zz_generated file.
+
+```yaml
+runtime:
+  env:
+    - DATABASE_URL
+  files:
+    - config.yaml
+```
+
+A `language:` key on a `generic` engine selects the template set: absent
+means go; `rust`, `python` and `typescript` emit a minimal MCP stdio
+server dispatching to a hand-written handlers file next to it. The other
+engine types stay go.
+
 ## How do I use forge-dev?
 
 1. Create `forge-dev.yaml` in your engine directory:
