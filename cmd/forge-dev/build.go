@@ -95,10 +95,14 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 
 	// Step 4: Check if regeneration is needed (compare checksums from existing generated files)
 	// Skip checksum comparison if force flag is set
-	// Determine where spec file is/will be located
+	// Determine where spec file is/will be located. A non-go language
+	// carries its checksum in its generated server file instead.
 	specFilePath := filepath.Join(srcDir, GeneratedSpecFile)
 	if specTypesCtx != nil {
 		specFilePath = filepath.Join(specTypesCtx.OutputDir, GeneratedSpecFile)
+	}
+	if langFile, ok := LangMainFiles[config.Language]; ok {
+		specFilePath = filepath.Join(srcDir, langFile)
 	}
 	if !input.Force {
 		existingChecksum, err := ReadChecksumFromFile(specFilePath)
@@ -140,8 +144,52 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		return nil, fmt.Errorf("invalid forge-dev.yaml: %s: %s", errs[0].Field, errs[0].Message)
 	}
 
-	// Step 6: Generate all three files using templates
+	// Step 6: Generate the files using templates
 	generatedFiles := []string{}
+
+	// The runnable contract is emitted for every language: the inputs a run
+	// needs, derived from runtime: and the spec's required keys.
+	runnableSchema := ForgeTypesToSpecSchema(types)
+
+	runnablePath := filepath.Join(srcDir, GeneratedRunnableFile)
+	runnableContent, err := GenerateRunnableYAML(config, runnableSchema, checksum)
+	if err != nil {
+		return nil, fmt.Errorf("generating runnable manifest: %w", err)
+	}
+	if err := os.WriteFile(runnablePath, runnableContent, 0o644); err != nil {
+		return nil, fmt.Errorf("writing runnable manifest: %w", err)
+	}
+	generatedFiles = append(generatedFiles, GeneratedRunnableFile)
+	log.Printf("forge-dev: generated %s", runnablePath)
+
+	// A non-go language generates one MCP server file from its template set
+	// plus the shared docs; the Go code paths do not apply.
+	if config.Language != "" && config.Language != "go" {
+		langName, langContent, err := GenerateLangMain(config, runnableSchema, checksum)
+		if err != nil {
+			return nil, fmt.Errorf("generating %s server: %w", config.Language, err)
+		}
+		langPath := filepath.Join(srcDir, langName)
+		if err := os.WriteFile(langPath, langContent, 0o644); err != nil {
+			return nil, fmt.Errorf("writing %s server: %w", config.Language, err)
+		}
+		generatedFiles = append(generatedFiles, langName)
+		log.Printf("forge-dev: generated %s", langPath)
+
+		if err := generateSharedDocs(srcDir, config, types, checksum, &generatedFiles); err != nil {
+			return nil, err
+		}
+
+		log.Printf("forge-dev: successfully generated %d files for %s", len(generatedFiles), config.Name)
+
+		return &forge.Artifact{
+			Name:      config.Name,
+			Type:      "generated",
+			Location:  srcDir,
+			Timestamp: time.Now().UTC().Format(time.RFC3339),
+			Version:   checksum,
+		}, nil
+	}
 
 	// Generate zz_generated.spec.go
 	specContent, err := GenerateSpecFileFromTypes(types, config, checksum, specTypesCtx)
@@ -208,37 +256,9 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	generatedFiles = append(generatedFiles, GeneratedDocsFile)
 	log.Printf("forge-dev: generated %s", docsFilePath)
 
-	// Ensure docs/ directory exists for schema.md and list.yaml
-	docsDir := filepath.Join(srcDir, "docs")
-	if err := os.MkdirAll(docsDir, 0o755); err != nil {
-		return nil, fmt.Errorf("creating docs directory: %w", err)
+	if err := generateSharedDocs(srcDir, config, types, checksum, &generatedFiles); err != nil {
+		return nil, err
 	}
-
-	// Generate docs/schema.md
-	// Convert types to SpecSchema for backwards compatibility with GenerateSchemaMD
-	schemaMDPath := filepath.Join(docsDir, "schema.md")
-	schema := ForgeTypesToSpecSchema(types)
-	schemaMDContent, err := GenerateSchemaMD(schema, config)
-	if err != nil {
-		return nil, fmt.Errorf("generating schema.md: %w", err)
-	}
-	if err := os.WriteFile(schemaMDPath, schemaMDContent, 0o644); err != nil {
-		return nil, fmt.Errorf("writing schema.md: %w", err)
-	}
-	generatedFiles = append(generatedFiles, "docs/schema.md")
-	log.Printf("forge-dev: generated %s", schemaMDPath)
-
-	// Generate docs/list.yaml
-	listYAMLPath := filepath.Join(docsDir, "list.yaml")
-	listYAMLContent, err := GenerateListYAML(config, checksum)
-	if err != nil {
-		return nil, fmt.Errorf("generating list.yaml: %w", err)
-	}
-	if err := os.WriteFile(listYAMLPath, listYAMLContent, 0o644); err != nil {
-		return nil, fmt.Errorf("writing list.yaml: %w", err)
-	}
-	generatedFiles = append(generatedFiles, "docs/list.yaml")
-	log.Printf("forge-dev: generated %s", listYAMLPath)
 
 	log.Printf("forge-dev: successfully generated %d files for %s", len(generatedFiles), config.Name)
 
@@ -251,4 +271,38 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 		Version:   checksum,
 	}, nil
+}
+
+// generateSharedDocs emits the language-agnostic docs: docs/schema.md and
+// docs/list.yaml. Both the Go path and the non-go language path use it.
+func generateSharedDocs(srcDir string, config *Config, types []ForgeTypeDefinition, checksum string, generatedFiles *[]string) error {
+	docsDir := filepath.Join(srcDir, "docs")
+	if err := os.MkdirAll(docsDir, 0o755); err != nil {
+		return fmt.Errorf("creating docs directory: %w", err)
+	}
+
+	schemaMDPath := filepath.Join(docsDir, "schema.md")
+	schema := ForgeTypesToSpecSchema(types)
+	schemaMDContent, err := GenerateSchemaMD(schema, config)
+	if err != nil {
+		return fmt.Errorf("generating schema.md: %w", err)
+	}
+	if err := os.WriteFile(schemaMDPath, schemaMDContent, 0o644); err != nil {
+		return fmt.Errorf("writing schema.md: %w", err)
+	}
+	*generatedFiles = append(*generatedFiles, "docs/schema.md")
+	log.Printf("forge-dev: generated %s", schemaMDPath)
+
+	listYAMLPath := filepath.Join(docsDir, "list.yaml")
+	listYAMLContent, err := GenerateListYAML(config, checksum)
+	if err != nil {
+		return fmt.Errorf("generating list.yaml: %w", err)
+	}
+	if err := os.WriteFile(listYAMLPath, listYAMLContent, 0o644); err != nil {
+		return fmt.Errorf("writing list.yaml: %w", err)
+	}
+	*generatedFiles = append(*generatedFiles, "docs/list.yaml")
+	log.Printf("forge-dev: generated %s", listYAMLPath)
+
+	return nil
 }

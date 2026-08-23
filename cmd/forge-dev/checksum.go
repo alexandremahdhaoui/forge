@@ -76,13 +76,18 @@ func ReadChecksumFromFile(path string) (string, error) {
 		line := scanner.Text()
 		lineCount++
 
+		if strings.HasPrefix(line, "# SourceChecksum: ") {
+			line = "// " + strings.TrimPrefix(line, "# ")
+		}
+
 		if strings.HasPrefix(line, ChecksumHeaderPrefix) {
 			checksum := strings.TrimPrefix(line, ChecksumHeaderPrefix)
 			return strings.TrimSpace(checksum), nil
 		}
 
-		// Stop if we've passed the header comments
-		if !strings.HasPrefix(line, "//") && line != "" {
+		// Stop if we've passed the header comments. Go files comment with
+		// slashes; python and yaml headers comment with hashes.
+		if !strings.HasPrefix(line, "//") && !strings.HasPrefix(line, "#") && line != "" {
 			break
 		}
 	}

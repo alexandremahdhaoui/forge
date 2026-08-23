@@ -72,12 +72,32 @@ type Config struct {
 	// Description is a human-readable description of the engine (optional).
 	Description string `yaml:"description,omitempty"`
 
+	// Language selects the template set for generated code. Absent means go.
+	// Only the generic engine type generates in another language.
+	Language string `yaml:"language,omitempty"`
+
+	// Runtime declares the inputs a runnable built from this engine needs:
+	// environment variables and files that must exist before it runs. They
+	// land in zz_generated.runnable.yaml, never in hand-written yaml.
+	Runtime *RuntimeConfig `yaml:"runtime,omitempty"`
+
 	// OpenAPI contains OpenAPI spec configuration.
 	OpenAPI OpenAPIConfig `yaml:"openapi"`
 
 	// Generate contains code generation settings.
 	Generate GenerateConfig `yaml:"generate"`
 }
+
+// RuntimeConfig declares run-time inputs of the engine's runnable.
+type RuntimeConfig struct {
+	// Env names environment variables that must be set to run.
+	Env []string `yaml:"env,omitempty"`
+	// Files names paths, relative to the repo root, that must exist to run.
+	Files []string `yaml:"files,omitempty"`
+}
+
+// ValidLanguages are the template sets forge-dev can generate.
+var ValidLanguages = []string{"go", "rust", "python", "typescript"}
 
 // OpenAPIConfig contains OpenAPI specification configuration.
 type OpenAPIConfig struct {
@@ -247,6 +267,30 @@ var packageNameRegexp = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 // ValidateConfig validates the configuration and returns any validation errors.
 // validateDocsBaseURL checks generate.docsBaseURL when it is set. A trailing
 // slash is rejected because every consumer joins it with a slash already.
+func validateLanguage(c *Config) []ValidationError {
+	if c.Language == "" || c.Language == "go" {
+		return nil
+	}
+
+	for _, l := range ValidLanguages {
+		if c.Language == l {
+			if c.Type != EngineTypeGeneric {
+				return []ValidationError{{
+					Field:   "language",
+					Message: "only the generic engine type generates in another language",
+				}}
+			}
+
+			return nil
+		}
+	}
+
+	return []ValidationError{{
+		Field:   "language",
+		Message: fmt.Sprintf("must be one of: %s", strings.Join(ValidLanguages, ", ")),
+	}}
+}
+
 func validateDocsBaseURL(raw string) []ValidationError {
 	if raw == "" {
 		return nil
@@ -375,6 +419,7 @@ func ValidateConfig(c *Config) []ValidationError {
 
 	errors = append(errors, validateDocsBaseURL(c.Generate.DocsBaseURL)...)
 	errors = append(errors, validateTools(c)...)
+	errors = append(errors, validateLanguage(c)...)
 
 	// Validate name (required)
 	if c.Name == "" {
