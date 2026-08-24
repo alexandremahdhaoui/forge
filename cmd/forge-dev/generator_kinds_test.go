@@ -401,3 +401,83 @@ func TestTheCLIKindIsGoOnlyWithoutAGenerator(t *testing.T) {
 		t.Error("a generator-owned cell must accept any language")
 	}
 }
+
+func TestAConfigGeneratorFillsTheConfigSurfaceOfACLICell(t *testing.T) {
+	dir := t.TempDir()
+	writeKindFixture(t, dir, cliFixtureYaml()+
+		"configGenerator: forge://example.com/org/configgen/cmd/configgen-generator\n")
+
+	stub := &stubGeneratorCaller{answer: map[string]interface{}{
+		"files": []interface{}{
+			map[string]interface{}{"path": "zz_generated.config.go", "content": "package main\n"},
+		},
+	}}
+	withStubGenerator(t, stub)
+
+	_, err := generate(context.Background(), mcptypes.BuildInput{Name: "fixture-cli", Src: dir, Engine: "forge://forge-dev"})
+	if err != nil {
+		t.Fatalf("generate() with a config generator: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, "zz_generated.config.go")); err != nil {
+		t.Fatalf("the config generator's file must be written: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, GeneratedCLIFile)); err != nil {
+		t.Fatalf("the builtin cell keeps the dispatcher: %v", err)
+	}
+
+	if stub.model.Kind != KindCLI {
+		t.Errorf("the model must carry the cell, got kind %q", stub.model.Kind)
+	}
+
+	if !strings.Contains(stub.model.OpenAPISpec, "greeting") {
+		t.Error("the model must carry the raw OpenAPI spec: the Spec schema decides the keys")
+	}
+}
+
+func TestConfigGeneratorValidationRules(t *testing.T) {
+	base := func(kind string) *Config {
+		c := &Config{Name: "x", Kind: kind, Version: "0.1.0"}
+		c.OpenAPI.SpecPath = "./spec.openapi.yaml"
+		c.Generate.PackageName = "main"
+		c.ConfigGenerator = "forge://example.com/org/configgen/cmd/configgen-generator"
+
+		return c
+	}
+
+	cases := []struct {
+		name    string
+		config  *Config
+		message string
+	}{
+		{
+			"only cli and binary take one",
+			func() *Config { c := base(KindMCPServer); return c }(),
+			"only the cli and binary kinds take a config generator; mcp-server derives config-validate from the Spec schema already",
+		},
+		{
+			"a full generator owns config too",
+			func() *Config {
+				c := base("gui")
+				c.Generator = "forge://example.com/org/gui-gen/engines/gui-gen"
+
+				return c
+			}(),
+			"a generator: owns the whole cell, config included; drop one of the two",
+		},
+		{
+			"a config generator must be a forge URI",
+			func() *Config { c := base(KindBinary); c.ConfigGenerator = "https://example.com"; return c }(),
+			"must be a forge:// engine URI",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if !hasError(ValidateConfig(tc.config), "configGenerator", tc.message) {
+				t.Errorf("want configGenerator: %s, got %v", tc.message, ValidateConfig(tc.config))
+			}
+		})
+	}
+}

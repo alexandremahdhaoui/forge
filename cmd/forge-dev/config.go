@@ -97,6 +97,12 @@ type Config struct {
 	// cell instead of a builtin. Required for a custom kind.
 	Generator string `yaml:"generator,omitempty"`
 
+	// ConfigGenerator names a forge:// engine that emits the config surface
+	// of a cli or binary cell from the Spec schema: typed loading, flag
+	// beats env beats default, unknown flag fails loud. The builtin cell
+	// keeps everything else, so the spec stays the one source of the keys.
+	ConfigGenerator string `yaml:"configGenerator,omitempty"`
+
 	// Surface is the kind's vocabulary: tools for mcp-server, commands for
 	// cli, anything the owning generator defines for a custom kind.
 	Surface *SurfaceConfig `yaml:"surface,omitempty"`
@@ -423,6 +429,29 @@ func validateKind(c *Config) []ValidationError {
 			Field:   "generator",
 			Message: "must be a forge:// engine URI",
 		})
+	}
+
+	if c.ConfigGenerator != "" {
+		if !strings.HasPrefix(c.ConfigGenerator, "forge://") {
+			errors = append(errors, ValidationError{
+				Field:   "configGenerator",
+				Message: "must be a forge:// engine URI",
+			})
+		}
+
+		if c.Generator != "" {
+			errors = append(errors, ValidationError{
+				Field:   "configGenerator",
+				Message: "a generator: owns the whole cell, config included; drop one of the two",
+			})
+		}
+
+		if c.Kind != KindCLI && c.Kind != KindBinary {
+			errors = append(errors, ValidationError{
+				Field:   "configGenerator",
+				Message: "only the cli and binary kinds take a config generator; mcp-server derives config-validate from the Spec schema already",
+			})
+		}
 	}
 
 	switch {

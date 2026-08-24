@@ -189,7 +189,7 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	// An external generator owns the whole cell: it answers the files and
 	// core writes them. The manifest above and the docs below stay core's.
 	if config.Generator != "" {
-		files, err := generateExternal(srcDir, config, checksum, specPath)
+		files, err := generateExternal(srcDir, config, config.Generator, checksum, specPath)
 		if err != nil {
 			return nil, err
 		}
@@ -199,9 +199,31 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		return finish()
 	}
 
-	// The binary kind is an entrypoint the author owns: the manifest and the
-	// docs are the whole generated output.
+	// A config generator fills only the config surface of a builtin cli or
+	// binary cell: the Spec schema decides the keys, the generator answers
+	// the loader, and the builtin cell keeps everything else.
+	generateConfig := func() error {
+		if config.ConfigGenerator == "" {
+			return nil
+		}
+
+		files, err := generateExternal(srcDir, config, config.ConfigGenerator, checksum, specPath)
+		if err != nil {
+			return err
+		}
+
+		generatedFiles = append(generatedFiles, files...)
+
+		return nil
+	}
+
+	// The binary kind is an entrypoint the author owns: the manifest, the
+	// docs and any generated config loader are the whole output.
 	if config.Kind == KindBinary {
+		if err := generateConfig(); err != nil {
+			return nil, err
+		}
+
 		return finish()
 	}
 
@@ -220,6 +242,10 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 
 		generatedFiles = append(generatedFiles, GeneratedCLIFile)
 		log.Printf("forge-dev: generated %s", cliPath)
+
+		if err := generateConfig(); err != nil {
+			return nil, err
+		}
 
 		return finish()
 	}

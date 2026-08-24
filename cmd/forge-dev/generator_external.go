@@ -106,10 +106,12 @@ var newGeneratorCaller = func() generatorCaller {
 	return mcpcaller.NewCaller(Version)
 }
 
-// generateExternal hands the normalized model to the generator engine the
-// config names and writes the files it answers. Every path must stay inside
-// the engine source directory: a generator emits code, never escapes.
-func generateExternal(srcDir string, config *Config, checksum, specPath string) ([]string, error) {
+// generateExternal hands the normalized model to generatorURI and writes
+// the files it answers. Every path must stay inside the engine source
+// directory: a generator emits code, never escapes. The same call serves a
+// generator: owning the whole cell and a configGenerator: filling only the
+// config surface of a builtin cell.
+func generateExternal(srcDir string, config *Config, generatorURI, checksum, specPath string) ([]string, error) {
 	rawSpec, err := os.ReadFile(specPath)
 	if err != nil {
 		return nil, fmt.Errorf("reading the OpenAPI spec for the generator: %w", err)
@@ -131,14 +133,14 @@ func generateExternal(srcDir string, config *Config, checksum, specPath string) 
 
 	caller := newGeneratorCaller()
 
-	command, args, err := caller.ResolveEngine(config.Generator)
+	command, args, err := caller.ResolveEngine(generatorURI)
 	if err != nil {
-		return nil, fmt.Errorf("resolving generator %s: %w", config.Generator, err)
+		return nil, fmt.Errorf("resolving generator %s: %w", generatorURI, err)
 	}
 
 	raw, err := caller.CallMCP(command, args, "generate", model)
 	if err != nil {
-		return nil, fmt.Errorf("calling generator %s: %w", config.Generator, err)
+		return nil, fmt.Errorf("calling generator %s: %w", generatorURI, err)
 	}
 
 	encoded, err := json.Marshal(raw)
@@ -152,7 +154,7 @@ func generateExternal(srcDir string, config *Config, checksum, specPath string) 
 	}
 
 	if len(output.Files) == 0 {
-		return nil, fmt.Errorf("generator %s answered no files", config.Generator)
+		return nil, fmt.Errorf("generator %s answered no files", generatorURI)
 	}
 
 	written := []string{}
@@ -160,7 +162,7 @@ func generateExternal(srcDir string, config *Config, checksum, specPath string) 
 	for _, file := range output.Files {
 		clean := filepath.Clean(file.Path)
 		if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
-			return nil, fmt.Errorf("generator %s answered a path outside the engine directory: %s", config.Generator, file.Path)
+			return nil, fmt.Errorf("generator %s answered a path outside the engine directory: %s", generatorURI, file.Path)
 		}
 
 		full := filepath.Join(srcDir, clean)

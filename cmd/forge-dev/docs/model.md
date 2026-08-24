@@ -75,6 +75,25 @@ generator resolves like every engine: `forge://` through the factory and
 register, so a generator is versioned, proven and cached like anything
 else it generates for.
 
+## The config surface: the spec is the source of truth
+
+A cli or binary cell may name a `configGenerator:` beside the builtin
+cell. It speaks the same `generate` contract, but fills only the config
+surface: the Spec schema of the engine's own OpenAPI document decides the
+keys, and the generator answers a typed loader for them - flag beats env
+beats default, a required key with no value is an error, an unknown flag
+is an error. Nothing declares a key twice: the schema that validates the
+engine's spec is the one that grows its flags and env.
+
+```yaml
+kind: cli
+configGenerator: forge://github.com/alexandremahdhaoui/golden-configgen/cmd/configgen-generator
+```
+
+A full `generator:` owns the whole cell, config included, so the two keys
+are mutually exclusive. mcp-server derives config-validate from the same
+schema already and takes neither.
+
 ## Migration from type:
 
 `type: X` fails validation with one line naming the fix:
