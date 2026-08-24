@@ -19,7 +19,7 @@ redefine the runnable manifest.
 | Kind | Surface | The generated skeleton |
 |---|---|---|
 | mcp-server | `surface.tools` | stdio JSON-RPC server, config-validate derived from the Spec schema |
-| rest-api | the OpenAPI paths | HTTP server. Defined; no builtin cell yet, needs a `generator:` |
+| rest-api | the OpenAPI paths | HTTP server: typed handler per operation, mux from the paths verbatim, LISTENING line on bind. A nil handler answers 501, never a 404 |
 | cli | `surface.commands` | argv dispatcher, exit codes pass through, unknown command fails loud |
 | binary | none | nothing; the runnable manifest and the docs are the output |
 
@@ -44,8 +44,8 @@ framework wiring, data internal to the mcp-server kind.
 ## Language, axis two
 
 Builtin cells today: mcp-server in go, rust, python and typescript
-(profiles are go only); cli in go; binary in every language. Every other
-cell is external.
+(profiles are go only); cli and rest-api in go; binary in every language.
+Every other cell is external.
 
 ## Generator, the extension door
 

@@ -107,6 +107,9 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	if config.Kind == KindCLI {
 		specFilePath = filepath.Join(srcDir, GeneratedCLIFile)
 	}
+	if config.Kind == KindRestAPI {
+		specFilePath = filepath.Join(srcDir, GeneratedRESTFile)
+	}
 	if config.Kind == KindBinary || config.Generator != "" {
 		specFilePath = filepath.Join(srcDir, GeneratedRunnableFile)
 	}
@@ -246,6 +249,26 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		if err := generateConfig(); err != nil {
 			return nil, err
 		}
+
+		return finish()
+	}
+
+	// The rest-api kind generates the handler set, the mux and the main
+	// from the OpenAPI paths; the author writes the handlers next to it.
+	// The spec is the surface, so the route table cannot drift from it.
+	if config.Kind == KindRestAPI {
+		restContent, err := GenerateRESTFile(config, spec, checksum)
+		if err != nil {
+			return nil, fmt.Errorf("generating rest server: %w", err)
+		}
+
+		restPath := filepath.Join(srcDir, GeneratedRESTFile)
+		if err := os.WriteFile(restPath, restContent, 0o644); err != nil {
+			return nil, fmt.Errorf("writing rest server: %w", err)
+		}
+
+		generatedFiles = append(generatedFiles, GeneratedRESTFile)
+		log.Printf("forge-dev: generated %s", restPath)
 
 		return finish()
 	}

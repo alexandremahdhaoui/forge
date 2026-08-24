@@ -402,6 +402,13 @@ func validateLanguage(c *Config) []ValidationError {
 		}}
 	}
 
+	if c.Kind == KindRestAPI {
+		return []ValidationError{{
+			Field:   "language",
+			Message: "the builtin rest-api cell generates go only; name a generator: for another language",
+		}}
+	}
+
 	return nil
 }
 
@@ -467,11 +474,6 @@ func validateKind(c *Config) []ValidationError {
 			Field:   "kind",
 			Message: fmt.Sprintf("%q is not a builtin kind, so a generator: URI must own it", c.Kind),
 		})
-	case c.Kind == KindRestAPI && c.Generator == "":
-		errors = append(errors, ValidationError{
-			Field:   "kind",
-			Message: "rest-api has no builtin generator yet; name a generator: URI",
-		})
 	}
 
 	if c.Profile != "" {
@@ -492,6 +494,13 @@ func validateKind(c *Config) []ValidationError {
 		errors = append(errors, ValidationError{
 			Field:   "surface",
 			Message: "the binary kind has no surface",
+		})
+	}
+
+	if c.Kind == KindRestAPI && c.Generator == "" && c.Surface != nil {
+		errors = append(errors, ValidationError{
+			Field:   "surface",
+			Message: "the rest-api kind's surface is the OpenAPI paths; declare operations in the spec",
 		})
 	}
 

@@ -18,6 +18,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -346,9 +348,14 @@ func TestKindValidationRules(t *testing.T) {
 			"kind", `"gui" is not a builtin kind, so a generator: URI must own it`,
 		},
 		{
-			"rest-api has no builtin cell yet",
-			base(KindRestAPI),
-			"kind", "rest-api has no builtin generator yet; name a generator: URI",
+			"the rest-api surface is the paths",
+			func() *Config {
+				c := base(KindRestAPI)
+				c.Surface = &SurfaceConfig{Tools: []ToolConfig{{Name: "x"}}}
+
+				return c
+			}(),
+			"surface", "the rest-api kind's surface is the OpenAPI paths; declare operations in the spec",
 		},
 		{
 			"a profile outside mcp-server fails",
@@ -479,5 +486,152 @@ func TestConfigGeneratorValidationRules(t *testing.T) {
 				t.Errorf("want configGenerator: %s, got %v", tc.message, ValidateConfig(tc.config))
 			}
 		})
+	}
+}
+
+const restSpec = `openapi: 3.0.3
+info:
+  title: fixture-rest Spec Schema
+  version: 0.1.0
+paths:
+  /greet/{name}:
+    get:
+      operationId: greet
+      responses:
+        "200":
+          description: The greeting.
+  /healthz:
+    get:
+      operationId: healthz
+      responses:
+        "200":
+          description: Alive.
+components:
+  schemas:
+    Spec:
+      type: object
+      properties:
+        greeting:
+          type: string
+          description: The greeting.
+`
+
+func restFixtureYaml() string {
+	return `name: fixture-rest
+kind: rest-api
+version: 0.1.0
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main
+  docsBaseURL: https://example.com/raw
+`
+}
+
+func TestTheRestAPIKindServesTheOpenAPIPaths(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("no go toolchain on this host")
+	}
+
+	dir := t.TempDir()
+	createRequiredDocs(t, dir)
+
+	if err := os.WriteFile(filepath.Join(dir, "forge-dev.yaml"), []byte(restFixtureYaml()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "spec.openapi.yaml"), []byte(restSpec), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/fixture-rest\n\ngo 1.25\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := generate(context.Background(), mcptypes.BuildInput{Name: "fixture-rest", Src: dir, Engine: "forge://forge-dev"})
+	if err != nil {
+		t.Fatalf("generate() for the rest-api kind: %v", err)
+	}
+
+	// Healthz is deliberately nil: a missing implementation must answer
+	// 501 naming the operation, never a silent 404.
+	handlers := `package main
+
+import (
+	"fmt"
+	"net/http"
+)
+
+func NewRESTHandlers() RESTHandlers {
+	return RESTHandlers{
+		Greet: func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, "hello, %s", r.PathValue("name"))
+		},
+	}
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "handlers.go"), []byte(handlers), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	binary := filepath.Join(dir, "fixture-rest-bin")
+	build := exec.Command("go", "build", "-o", binary, ".")
+	build.Dir = dir
+	build.Env = append(os.Environ(), "GOWORK=off")
+
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("building the fixture rest server: %v: %s", err, out)
+	}
+
+	cmd := exec.Command(binary)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = cmd.Process.Kill(); _, _ = cmd.Process.Wait() })
+
+	var port string
+	if _, err := fmt.Fscanf(stdout, "LISTENING %s\n", &port); err != nil {
+		t.Fatalf("reading the LISTENING line: %v", err)
+	}
+
+	get := func(path string) (int, string) {
+		resp, err := http.Get("http://127.0.0.1:" + port + path)
+		if err != nil {
+			t.Fatalf("GET %s: %v", path, err)
+		}
+		defer resp.Body.Close()
+
+		body := make([]byte, 256)
+		n, _ := resp.Body.Read(body)
+
+		return resp.StatusCode, string(body[:n])
+	}
+
+	if code, body := get("/greet/world"); code != 200 || body != "hello, world" {
+		t.Errorf("greet answered %d %q", code, body)
+	}
+
+	if code, body := get("/healthz"); code != 501 || !strings.Contains(body, "Healthz is not implemented") {
+		t.Errorf("a nil handler must answer 501 naming the operation, got %d %q", code, body)
+	}
+
+	if code, _ := get("/nope"); code != 404 {
+		t.Errorf("an undeclared path must 404, got %d", code)
+	}
+}
+
+func TestARestAPISpecWithoutPathsFailsLoud(t *testing.T) {
+	dir := t.TempDir()
+	writeKindFixture(t, dir, restFixtureYaml())
+
+	_, err := generate(context.Background(), mcptypes.BuildInput{Name: "fixture-rest", Src: dir, Engine: "forge://forge-dev"})
+	if err == nil || !strings.Contains(err.Error(), "surface is its paths") {
+		t.Fatalf("a pathless rest-api spec must fail naming the gap, got %v", err)
 	}
 }
