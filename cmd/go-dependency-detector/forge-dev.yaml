@@ -1,5 +1,6 @@
 name: go-dependency-detector
-type: dependency-detector
+kind: mcp-server
+profile: dependency-detector
 version: 0.15.0
 description: Dependency detector for Go functions
 openapi:

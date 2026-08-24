@@ -38,7 +38,7 @@ func writeLangFixture(t *testing.T, dir, language string) {
 	createRequiredDocs(t, dir)
 
 	config := fmt.Sprintf(`name: echo-engine
-type: generic
+kind: mcp-server
 version: 0.1.0
 description: Echoes its arguments back.
 language: %s
@@ -52,6 +52,7 @@ openapi:
 generate:
   packageName: main
   docsBaseURL: https://example.com/raw
+surface:
   tools:
     - name: echo
       description: Echo the input back.
@@ -191,7 +192,7 @@ func TestChecksumSkipsRegenerationForALanguageServer(t *testing.T) {
 
 func TestALanguageOutsideGenericIsRejected(t *testing.T) {
 	errs := ValidateConfig(&Config{
-		Name: "x", Type: EngineTypeBuilder, Version: "0.1.0", Language: "python",
+		Name: "x", Kind: KindMCPServer, Profile: "builder", Version: "0.1.0", Language: "python",
 		Generate: GenerateConfig{PackageName: "main"},
 	})
 

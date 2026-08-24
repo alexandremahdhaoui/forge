@@ -104,6 +104,12 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	if langFile, ok := LangMainFiles[config.Language]; ok {
 		specFilePath = filepath.Join(srcDir, langFile)
 	}
+	if config.Kind == KindCLI {
+		specFilePath = filepath.Join(srcDir, GeneratedCLIFile)
+	}
+	if config.Kind == KindBinary || config.Generator != "" {
+		specFilePath = filepath.Join(srcDir, GeneratedRunnableFile)
+	}
 	if !input.Force {
 		existingChecksum, err := ReadChecksumFromFile(specFilePath)
 		if err != nil {
@@ -137,11 +143,13 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		return nil, fmt.Errorf("generating types: %w", err)
 	}
 
-	// A generic engine names its inputs and outputs by schema. Cross reference
-	// them now, before anything is written, because a missing schema would
-	// otherwise surface as a compile error in generated code.
-	if errs := ValidateGenericTools(config, types); len(errs) > 0 {
-		return nil, fmt.Errorf("invalid forge-dev.yaml: %s: %s", errs[0].Field, errs[0].Message)
+	// A generic mcp-server names its inputs and outputs by schema. Cross
+	// reference them now, before anything is written, because a missing
+	// schema would otherwise surface as a compile error in generated code.
+	if config.Kind == KindMCPServer && config.Generator == "" {
+		if errs := ValidateGenericTools(config, types); len(errs) > 0 {
+			return nil, fmt.Errorf("invalid forge-dev.yaml: %s: %s", errs[0].Field, errs[0].Message)
+		}
 	}
 
 	// Step 6: Generate the files using templates
@@ -162,6 +170,60 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	generatedFiles = append(generatedFiles, GeneratedRunnableFile)
 	log.Printf("forge-dev: generated %s", runnablePath)
 
+	finish := func() (*forge.Artifact, error) {
+		if err := generateSharedDocs(srcDir, config, types, checksum, &generatedFiles); err != nil {
+			return nil, err
+		}
+
+		log.Printf("forge-dev: successfully generated %d files for %s", len(generatedFiles), config.Name)
+
+		return &forge.Artifact{
+			Name:      config.Name,
+			Type:      "generated",
+			Location:  srcDir,
+			Timestamp: time.Now().UTC().Format(time.RFC3339),
+			Version:   checksum,
+		}, nil
+	}
+
+	// An external generator owns the whole cell: it answers the files and
+	// core writes them. The manifest above and the docs below stay core's.
+	if config.Generator != "" {
+		files, err := generateExternal(srcDir, config, checksum, specPath)
+		if err != nil {
+			return nil, err
+		}
+
+		generatedFiles = append(generatedFiles, files...)
+
+		return finish()
+	}
+
+	// The binary kind is an entrypoint the author owns: the manifest and the
+	// docs are the whole generated output.
+	if config.Kind == KindBinary {
+		return finish()
+	}
+
+	// The cli kind generates the dispatcher and the main; the author writes
+	// the handlers next to it.
+	if config.Kind == KindCLI {
+		cliContent, err := GenerateCLIFile(config, checksum)
+		if err != nil {
+			return nil, fmt.Errorf("generating cli dispatcher: %w", err)
+		}
+
+		cliPath := filepath.Join(srcDir, GeneratedCLIFile)
+		if err := os.WriteFile(cliPath, cliContent, 0o644); err != nil {
+			return nil, fmt.Errorf("writing cli dispatcher: %w", err)
+		}
+
+		generatedFiles = append(generatedFiles, GeneratedCLIFile)
+		log.Printf("forge-dev: generated %s", cliPath)
+
+		return finish()
+	}
+
 	// A non-go language generates one MCP server file from its template set
 	// plus the shared docs; the Go code paths do not apply.
 	if config.Language != "" && config.Language != "go" {
@@ -176,19 +238,7 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		generatedFiles = append(generatedFiles, langName)
 		log.Printf("forge-dev: generated %s", langPath)
 
-		if err := generateSharedDocs(srcDir, config, types, checksum, &generatedFiles); err != nil {
-			return nil, err
-		}
-
-		log.Printf("forge-dev: successfully generated %d files for %s", len(generatedFiles), config.Name)
-
-		return &forge.Artifact{
-			Name:      config.Name,
-			Type:      "generated",
-			Location:  srcDir,
-			Timestamp: time.Now().UTC().Format(time.RFC3339),
-			Version:   checksum,
-		}, nil
+		return finish()
 	}
 
 	// Generate zz_generated.spec.go
@@ -256,21 +306,7 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	generatedFiles = append(generatedFiles, GeneratedDocsFile)
 	log.Printf("forge-dev: generated %s", docsFilePath)
 
-	if err := generateSharedDocs(srcDir, config, types, checksum, &generatedFiles); err != nil {
-		return nil, err
-	}
-
-	log.Printf("forge-dev: successfully generated %d files for %s", len(generatedFiles), config.Name)
-
-	// Step 7: Return Artifact with list of generated files
-	// Note: The Artifact.Location contains the directory where files were generated
-	return &forge.Artifact{
-		Name:      config.Name,
-		Type:      "generated",
-		Location:  srcDir,
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		Version:   checksum,
-	}, nil
+	return finish()
 }
 
 // generateSharedDocs emits the language-agnostic docs: docs/schema.md and

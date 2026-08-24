@@ -1,6 +1,7 @@
 # forge-dev configuration for go-gen-mocks
 name: go-gen-mocks
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.15.0
 
 openapi:

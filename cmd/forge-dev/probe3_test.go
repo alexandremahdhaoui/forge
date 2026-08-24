@@ -37,7 +37,7 @@ func TestProbeForgeCISpec(t *testing.T) {
 
 	spec, err := os.ReadFile("/home/amahdha/workspaces/playground/forge-ci/.forge/spec-cache/engines.v1.yaml")
 	if err != nil {
-		t.Fatal(err)
+		t.Skipf("the probe needs the playground spec cache: %v", err)
 	}
 
 	if err := os.WriteFile(filepath.Join(engine, "spec.openapi.yaml"), spec, 0o600); err != nil {
@@ -45,13 +45,14 @@ func TestProbeForgeCISpec(t *testing.T) {
 	}
 
 	cfg := `name: ci-manager-dryrun
-type: generic
+kind: mcp-server
 version: 0.1.5
 description: probe
 openapi:
   specPath: spec.openapi.yaml
 generate:
   packageName: main
+surface:
   tools:
     - name: reconcile
       description: probe

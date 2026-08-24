@@ -184,7 +184,7 @@ func TestDocsBaseURLIsValidated(t *testing.T) {
 		{"trailing slash", "https://example.com/docs/", "must not end with a trailing slash"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			c := &Config{Name: "go-build", Type: EngineTypeBuilder, Version: "1.0.0"}
+			c := &Config{Name: "go-build", Kind: KindMCPServer, Profile: "builder", Version: "1.0.0"}
 			c.Generate.PackageName = "main"
 			c.Generate.DocsBaseURL = tc.url
 
@@ -204,7 +204,7 @@ func TestDocsBaseURLIsValidated(t *testing.T) {
 }
 
 func TestAnEmptyDocsBaseURLIsNotAnError(t *testing.T) {
-	c := &Config{Name: "go-build", Type: EngineTypeBuilder, Version: "1.0.0"}
+	c := &Config{Name: "go-build", Kind: KindMCPServer, Profile: "builder", Version: "1.0.0"}
 	c.Generate.PackageName = "main"
 
 	for _, e := range ValidateConfig(c) {

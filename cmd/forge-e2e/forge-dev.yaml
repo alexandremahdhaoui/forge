@@ -1,6 +1,7 @@
 # forge-dev configuration for forge-e2e
 name: forge-e2e
-type: test-runner
+kind: mcp-server
+profile: test-runner
 version: 0.15.0
 
 openapi:

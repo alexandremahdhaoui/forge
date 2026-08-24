@@ -44,7 +44,7 @@ func TestGenerateSpecFile(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -65,7 +65,7 @@ func TestGenerateSpecFile(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -95,7 +95,7 @@ func TestGenerateSpecFile(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -112,7 +112,7 @@ func TestGenerateSpecFile(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -194,7 +194,7 @@ func TestGenerateSpecFile_Compiles(t *testing.T) {
 
 	config := &Config{
 		Name: "complex-engine",
-		Type: EngineTypeBuilder,
+		Kind: KindMCPServer, Profile: "builder",
 		Generate: GenerateConfig{
 			PackageName: "main",
 		},
@@ -287,7 +287,7 @@ func TestGenerateSpecFileFromTypes(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -312,7 +312,7 @@ func TestGenerateSpecFileFromTypes(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -336,7 +336,7 @@ func TestGenerateSpecFileFromTypes(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -366,7 +366,7 @@ func TestGenerateSpecFileFromTypes(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -396,7 +396,7 @@ func TestGenerateSpecFileFromTypes(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -411,7 +411,7 @@ func TestGenerateSpecFileFromTypes(t *testing.T) {
 			types: []ForgeTypeDefinition{},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -491,7 +491,7 @@ func TestGenerateValidateFileFromTypes(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -520,7 +520,7 @@ func TestGenerateValidateFileFromTypes(t *testing.T) {
 			},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -534,7 +534,7 @@ func TestGenerateValidateFileFromTypes(t *testing.T) {
 			types: []ForgeTypeDefinition{},
 			config: &Config{
 				Name: "test-engine",
-				Type: EngineTypeBuilder,
+				Kind: KindMCPServer, Profile: "builder",
 				Generate: GenerateConfig{
 					PackageName: "main",
 				},
@@ -705,7 +705,7 @@ func TestGenerateSpecFileFromTypes_PackageName(t *testing.T) {
 
 	config := &Config{
 		Name: "test-engine",
-		Type: EngineTypeBuilder,
+		Kind: KindMCPServer, Profile: "builder",
 		Generate: GenerateConfig{
 			PackageName: "main",
 		},
@@ -800,7 +800,7 @@ func TestGenerateSpecFileFromTypes_StructureWithExternalPackage(t *testing.T) {
 
 	config := &Config{
 		Name: "test-engine",
-		Type: EngineTypeBuilder,
+		Kind: KindMCPServer, Profile: "builder",
 		Generate: GenerateConfig{
 			PackageName: "main",
 		},
@@ -989,7 +989,7 @@ func TestGenerateSpecFileFromTypes_MultipleNonPointerRefs(t *testing.T) {
 
 	config := &Config{
 		Name: "test-engine",
-		Type: EngineTypeBuilder,
+		Kind: KindMCPServer, Profile: "builder",
 		Generate: GenerateConfig{
 			PackageName: "main",
 		},

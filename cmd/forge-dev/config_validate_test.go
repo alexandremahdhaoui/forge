@@ -30,7 +30,8 @@ func TestValidateForgeDevConfig(t *testing.T) {
 
 		// Create valid forge-dev.yaml
 		configContent := `name: valid-engine
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.1.0
 openapi:
   specPath: ./spec.openapi.yaml
@@ -144,7 +145,8 @@ generate:
 
 		// Create valid forge-dev.yaml
 		configContent := `name: no-spec-engine
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.1.0
 openapi:
   specPath: ./spec.openapi.yaml
@@ -222,7 +224,8 @@ components:
 
 		// Create valid forge-dev.yaml
 		configContent := `name: empty-spec-engine
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.1.0
 openapi:
   specPath: ./spec.openapi.yaml
@@ -268,7 +271,8 @@ components:
 
 		// Create valid forge-dev.yaml
 		configContent := `name: dir-params-engine
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.1.0
 openapi:
   specPath: ./spec.openapi.yaml

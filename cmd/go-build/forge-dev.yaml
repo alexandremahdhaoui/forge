@@ -1,5 +1,6 @@
 name: go-build
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.15.0
 description: Build Go binaries with git versioning
 openapi:

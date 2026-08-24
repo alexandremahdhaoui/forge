@@ -84,7 +84,7 @@ components:
 `
 
 const genericConfig = `name: ci-state-git
-type: generic
+kind: mcp-server
 version: 0.1.0
 description: Read and write CI state in a git repo.
 openapi:
@@ -92,6 +92,7 @@ openapi:
 generate:
   packageName: main
   docsBaseURL: https://raw.githubusercontent.com/alexandremahdhaoui/forge-ci/refs/heads/main
+surface:
   tools:
     - name: get
       description: Read one record.

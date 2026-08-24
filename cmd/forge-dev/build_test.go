@@ -48,7 +48,8 @@ func TestGenerate(t *testing.T) {
 
 		// Create forge-dev.yaml
 		configContent := `name: test-engine
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.1.0
 description: Test engine for unit tests
 openapi:
@@ -153,7 +154,8 @@ components:
 
 		// Create forge-dev.yaml
 		configContent := `name: idempotent-engine
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.1.0
 openapi:
   specPath: ./spec.openapi.yaml
@@ -293,7 +295,8 @@ version: not-semver
 
 		// Create valid forge-dev.yaml
 		configContent := `name: test-engine
-type: builder
+kind: mcp-server
+profile: builder
 version: 0.1.0
 openapi:
   specPath: ./spec.openapi.yaml
@@ -330,7 +333,8 @@ func TestGenerateTestRunnerType(t *testing.T) {
 
 		// Create forge-dev.yaml for test-runner
 		configContent := `name: test-runner-engine
-type: test-runner
+kind: mcp-server
+profile: test-runner
 version: 0.1.0
 openapi:
   specPath: ./spec.openapi.yaml
@@ -394,7 +398,8 @@ func TestGenerateTestEnvSubengineType(t *testing.T) {
 
 		// Create forge-dev.yaml for testenv-subengine
 		configContent := `name: testenv-subengine-engine
-type: testenv-subengine
+kind: mcp-server
+profile: testenv-subengine
 version: 0.1.0
 openapi:
   specPath: ./spec.openapi.yaml

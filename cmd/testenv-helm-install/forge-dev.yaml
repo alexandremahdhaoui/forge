@@ -1,6 +1,7 @@
 # forge-dev configuration for testenv-helm-install
 name: testenv-helm-install
-type: testenv-subengine
+kind: mcp-server
+profile: testenv-subengine
 version: 0.15.0
 
 openapi:

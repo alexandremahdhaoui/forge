@@ -1,5 +1,6 @@
 name: go-lint-licenses
-type: test-runner
+kind: mcp-server
+profile: test-runner
 version: 0.15.0
 description: License header verifier for Go files
 openapi:
