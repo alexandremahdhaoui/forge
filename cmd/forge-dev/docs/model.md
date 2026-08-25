@@ -87,7 +87,7 @@ engine's spec is the one that grows its flags and env.
 
 ```yaml
 kind: cli
-configGenerator: forge://github.com/alexandremahdhaoui/golden-configgen/cmd/configgen-generator
+configGenerator: forge://github.com/alexandremahdhaoui/golden-configgen/cmd/configgen-gen
 ```
 
 A full `generator:` owns the whole cell, config included, so the two keys
