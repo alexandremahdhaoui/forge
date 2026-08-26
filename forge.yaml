@@ -163,6 +163,15 @@ run:
     factory: git@github.com:alexandremahdhaoui/forge-self-factory.git
 
 test:
+  # -- dist - every command cross-built CGO-off for the distribution,
+  # named by the <name>_<os>_<arch> travel convention. The toolchain
+  # pipeline's release stage globs build/dist into the aggregated release.
+  - name: dist
+    runner: "forge://generic-test-runner"
+    spec:
+      command: sh
+      args: ["hack/build-dist.sh"]
+
   # -- lint-tags - verify all test files have build tags
   - name: lint-tags
     runner: "forge://go-lint-tags"
