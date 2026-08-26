@@ -33,16 +33,26 @@ func Run(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestR
 
 	startTime := time.Now()
 
+	// A provisioned binary wins when no explicit version is demanded: the
+	// workspace's .forge/bin sits first on PATH carrying the pinned build
+	// the factory's toolchain section resolved. Naming a version through
+	// the environment still forces the go run form - an explicit demand
+	// outranks whatever is installed.
 	golangciVersion := os.Getenv("GOLANGCI_LINT_VERSION")
-	if golangciVersion == "" {
-		golangciVersion = "v2.6.0"
+
+	var cmd *exec.Cmd
+
+	if path, err := exec.LookPath("golangci-lint"); err == nil && golangciVersion == "" {
+		cmd = exec.Command(path, "run", "--fix")
+	} else {
+		if golangciVersion == "" {
+			golangciVersion = "v2.6.0"
+		}
+
+		golangciPkg := fmt.Sprintf("github.com/golangci/golangci-lint/v2/cmd/golangci-lint@%s", golangciVersion)
+		cmd = exec.Command("go", "run", golangciPkg, "run", "--fix")
 	}
 
-	golangciPkg := fmt.Sprintf("github.com/golangci/golangci-lint/v2/cmd/golangci-lint@%s", golangciVersion)
-
-	args := []string{"run", golangciPkg, "run", "--fix"}
-
-	cmd := exec.Command("go", args...)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 

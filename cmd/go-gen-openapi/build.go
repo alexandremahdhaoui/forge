@@ -70,13 +70,24 @@ func Build(ctx context.Context, input mcptypes.BuildInput, _ *Spec) (*forge.Arti
 		return nil, fmt.Errorf("failed to extract config: %w", err)
 	}
 
-	// Get oapi-codegen version and build executable command
+	// A provisioned binary wins when no explicit version is demanded: the
+	// workspace's .forge/bin sits first on PATH carrying the pinned build
+	// the factory's toolchain section resolved. OAPI_CODEGEN_VERSION still
+	// forces the go run form - an explicit demand outranks whatever is
+	// installed.
 	oapiCodegenVersion := os.Getenv("OAPI_CODEGEN_VERSION")
-	if oapiCodegenVersion == "" {
-		oapiCodegenVersion = "v2.3.0"
-	}
 
-	executable := fmt.Sprintf("go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@%s", oapiCodegenVersion)
+	var executable string
+
+	if path, err := exec.LookPath("oapi-codegen"); err == nil && oapiCodegenVersion == "" {
+		executable = path
+	} else {
+		if oapiCodegenVersion == "" {
+			oapiCodegenVersion = "v2.3.0"
+		}
+
+		executable = fmt.Sprintf("go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@%s", oapiCodegenVersion)
+	}
 
 	// Call existing generation logic, passing RootDir for relative path resolution
 	if err := doGenerate(executable, *config, input.RootDir); err != nil {

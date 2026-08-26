@@ -97,11 +97,6 @@ func getMocksDir(mocksDir string) string {
 
 func generateMocks(mocksDir string) error {
 	mockeryVersion := os.Getenv("MOCKERY_VERSION")
-	if mockeryVersion == "" {
-		mockeryVersion = "v3.5.5"
-	}
-
-	mockery := fmt.Sprintf("github.com/vektra/mockery/v3@%s", mockeryVersion)
 
 	// Clean mocks directory
 	dir := getMocksDir(mocksDir)
@@ -109,8 +104,23 @@ func generateMocks(mocksDir string) error {
 		return fmt.Errorf("failed to clean mocks directory: %w", err)
 	}
 
-	// Generate mocks
-	cmd := exec.Command("go", "run", mockery)
+	// A provisioned binary wins when no explicit version is demanded: the
+	// workspace's .forge/bin sits first on PATH carrying the pinned build
+	// the factory's toolchain section resolved. MOCKERY_VERSION still
+	// forces the go run form - an explicit demand outranks whatever is
+	// installed.
+	var cmd *exec.Cmd
+
+	if path, err := exec.LookPath("mockery"); err == nil && mockeryVersion == "" {
+		cmd = exec.Command(path)
+	} else {
+		if mockeryVersion == "" {
+			mockeryVersion = "v3.5.5"
+		}
+
+		cmd = exec.Command("go", "run", fmt.Sprintf("github.com/vektra/mockery/v3@%s", mockeryVersion))
+	}
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
