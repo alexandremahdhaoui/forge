@@ -19,6 +19,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"text/template"
 	"time"
 
@@ -101,9 +103,23 @@ func Build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.A
 		location = "."
 	}
 
+	artifactType := "command-output"
+
+	// A generic build that declares a dest and leaves the named file there
+	// produced a real artifact: record the file itself, as a binary, so the
+	// release side can publish it. A command that wrote nothing keeps the
+	// command-output record it always had.
+	if input.Dest != "" {
+		built := filepath.Join(input.Dest, input.Name)
+		if info, err := os.Stat(built); err == nil && !info.IsDir() {
+			location = built
+			artifactType = "binary"
+		}
+	}
+
 	artifact := &forge.Artifact{
 		Name:      input.Name,
-		Type:      "command-output",
+		Type:      artifactType,
 		Location:  location,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 		Version:   fmt.Sprintf("%s-exit%d", command, output.ExitCode),
