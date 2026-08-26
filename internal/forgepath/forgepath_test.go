@@ -355,12 +355,6 @@ func TestBuildExternalGoRunCommand_Success(t *testing.T) {
 			wantArgs:   []string{"run", "github.com/user/repo/cmd/tool@v1.0.0"},
 		},
 		{
-			name:       "with empty version defaults to latest",
-			modulePath: "github.com/user/repo/cmd/tool",
-			version:    "",
-			wantArgs:   []string{"run", "github.com/user/repo/cmd/tool@latest"},
-		},
-		{
 			name:       "with dirty suffix stripped (dash)",
 			modulePath: "github.com/user/repo/cmd/tool",
 			version:    "v1.0.0-dirty",
@@ -406,6 +400,20 @@ func TestBuildExternalGoRunCommand_Success(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Latest is never a fallback: an empty version fails loud and names the fix.
+func TestBuildExternalGoRunCommand_EmptyVersionIsAnError(t *testing.T) {
+	t.Parallel()
+
+	_, err := BuildExternalGoRunCommand("github.com/user/repo/cmd/tool", "")
+	if err == nil {
+		t.Fatal("an empty version resolved; latest must never be a fallback")
+	}
+
+	if !strings.Contains(err.Error(), "no version given") {
+		t.Errorf("error does not name the problem: %v", err)
 	}
 }
 

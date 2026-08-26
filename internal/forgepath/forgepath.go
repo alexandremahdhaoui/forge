@@ -254,7 +254,8 @@ func IsExternalModule(path string) bool {
 //
 // Parameters:
 //   - modulePath: Full module path (e.g., "github.com/user/repo/cmd/tool")
-//   - version: Version to use (e.g., "v1.0.0"). If empty, defaults to "latest"
+//   - version: Version to use (e.g., "v1.0.0"). Required: latest is never a
+//     fallback, so an empty version is an error naming the fix
 //
 // Returns:
 //   - []string: Command arguments for exec.Command("go", args...)
@@ -281,9 +282,13 @@ func BuildExternalGoRunCommand(modulePath, version string) ([]string, error) {
 		}
 	}
 
-	// Default version to "latest" for external modules
+	// Latest is never a fallback: a floating version makes every run
+	// non-reproducible and shadows the register, which owns adoptable
+	// versions. Fail loud and name the fix.
 	if version == "" {
-		version = "latest"
+		return nil, fmt.Errorf(
+			"module %s: no version given and nothing pins one; name an @version or resolve it through its register (forge-factory run)",
+			modulePath)
 	}
 
 	// Strip dirty suffixes for module resolution (consistent with BuildGoRunCommand)

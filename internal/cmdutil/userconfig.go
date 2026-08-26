@@ -17,10 +17,9 @@ package cmdutil
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
-	"github.com/alexandremahdhaoui/forge/internal/forgepath"
+	"github.com/alexandremahdhaoui/forge/pkg/toolresolver"
 
 	"sigs.k8s.io/yaml"
 )
@@ -70,33 +69,22 @@ func loadUserConfigFromPath(path string) (UserConfig, error) {
 	return cfg, nil
 }
 
-// ResolveToolBinary resolves a tool binary using the following priority:
-//  1. userOverride if non-empty
-//  2. exec.LookPath(binaryName)
-//  3. go run via forgepath.BuildExternalGoRunCommand if goModule is non-empty
-//  4. error if nothing found
+// ResolveToolBinary resolves a tool binary through the shared toolresolver
+// precedence: user override, then the workspace, then PATH, then a pinned
+// `go run` - never latest.
 //
 // Returns (binary, args, error) where binary is the executable path and args
 // are additional arguments (non-nil only for the go run fallback).
 func ResolveToolBinary(userOverride, binaryName, goModule, forgeVersion string) (string, []string, error) {
-	// Priority 1: User override
-	if userOverride != "" {
-		return userOverride, nil, nil
-	}
-
-	// Priority 2: Binary on PATH
-	if path, err := exec.LookPath(binaryName); err == nil {
-		return path, nil, nil
-	}
-
-	// Priority 3: go run via external module
+	ref := toolresolver.Ref{Name: binaryName, Version: forgeVersion}
 	if goModule != "" {
-		args, err := forgepath.BuildExternalGoRunCommand(goModule+"/cmd/"+binaryName, forgeVersion)
-		if err != nil {
-			return "", nil, fmt.Errorf("failed to build go run command for %s: %w", binaryName, err)
-		}
-		return "go", args, nil
+		ref.Module = goModule + "/cmd/" + binaryName
 	}
 
-	return "", nil, fmt.Errorf("tool binary %q not found: not in user config, not on PATH, and no go module specified", binaryName)
+	inv, err := toolresolver.Resolver{Override: userOverride}.Resolve(ref)
+	if err != nil {
+		return "", nil, fmt.Errorf("resolving tool binary %q: %w", binaryName, err)
+	}
+
+	return inv.Path, inv.Args, nil
 }

@@ -27,11 +27,10 @@ import (
 	"github.com/alexandremahdhaoui/forge/internal/forgepath"
 	"github.com/alexandremahdhaoui/forge/internal/runnerexec"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
+	"github.com/alexandremahdhaoui/forge/pkg/toolresolver"
 )
 
 const materializedEnvVar = "FORGE_RUN_MATERIALIZED"
-
-const forgeFactoryModule = "github.com/alexandremahdhaoui/forge-factory/cmd/forge-factory"
 
 func runRun(args []string) error {
 	target, extra := splitRunArgs(args)
@@ -267,10 +266,15 @@ func execAttached(command string, args []string, env []string) error {
 	return fmt.Errorf("running %s: %w", command, err)
 }
 
+// delegateToForgeFactory hands the verb to the companion forge-factory
+// through the shared resolution rule: the workspace checkout in local mode,
+// then PATH, then go run at the pinned companion - never latest, so a cold
+// machine gets the forge-factory this forge was proved with.
 func delegateToForgeFactory(args []string) error {
-	if _, err := exec.LookPath("forge-factory"); err == nil {
-		return execAttached("forge-factory", args, nil)
+	inv, err := toolresolver.ForgeFactory()
+	if err != nil {
+		return fmt.Errorf("delegating to forge-factory: %w", err)
 	}
 
-	return execAttached("go", append([]string{"run", forgeFactoryModule + "@latest"}, args...), nil)
+	return execAttached(inv.Path, append(append([]string{}, inv.Args...), args...), nil)
 }

@@ -17,6 +17,7 @@
 package engineresolver
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -155,7 +156,22 @@ func TestParseEngineURI_GoProtocol(t *testing.T) {
 				t.Errorf("ParseEngineURI() engineType = %v, want %v", engineType, tt.wantEngineType)
 			}
 
-			if command != tt.wantCommand {
+			// Member forms resolve forge-factory through the shared rule, so
+			// the command is wherever this machine carries it: an installed
+			// path, or a pinned go run - never latest.
+			if tt.wantCommand == "forge-factory" {
+				joined := strings.Join(args, " ")
+				resolved := filepath.Base(command) == "forge-factory" ||
+					(command == "go" && strings.Contains(joined, "forge-factory"))
+
+				if !resolved {
+					t.Errorf("ParseEngineURI() command = %v args = %v, want forge-factory", command, args)
+				}
+
+				if strings.Contains(joined, "@latest") {
+					t.Errorf("ParseEngineURI() args = %v float to latest", args)
+				}
+			} else if command != tt.wantCommand {
 				t.Errorf("ParseEngineURI() command = %v, want %v", command, tt.wantCommand)
 			}
 

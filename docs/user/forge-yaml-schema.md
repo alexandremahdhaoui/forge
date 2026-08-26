@@ -600,18 +600,25 @@ forge://<binary-name>
 
 ### Engine Resolution
 
-When forge encounters an engine URI like `forge://go-build@v1.0.0`:
+When forge encounters an engine URI:
 
-1. **URI Parsing:** Extracts engine name and version from `forge://<name>[@<version>]`
-2. **Short Name Expansion:** Expands short names to full paths
-   - `forge://go-build@v1.0.0` -> `github.com/alexandremahdhaoui/forge/cmd/go-build@v1.0.0`
-   - `forge://container-build` -> `github.com/alexandremahdhaoui/forge/cmd/container-build@latest`
-3. **Binary Check:** Looks for binary in PATH (from previous `go install`)
-4. **Auto-Install:** If not found, runs `go install <full-path@version>`
-5. **MCP Mode:** Invokes with `--mcp` flag
-6. **Communication:** Uses stdio JSON-RPC 2.0 protocol
+1. **URI Parsing:** `forge://<name>[@<version>]` for forge's own engines,
+   `forge://<module-path>[@rev]` for a factory member.
+2. **Own engines** (`forge://go-build`): run at the running forge's own
+   version - an embedded `@version` is ignored so every engine matches the
+   CLI. With `FORGE_RUN_LOCAL_ENABLED=true` the engine is built from the
+   forge checkout into `build/local-engines/`; otherwise it runs via
+   `go run github.com/alexandremahdhaoui/forge/cmd/<name>@<forge-version>`.
+3. **Member engines** (`forge://github.com/x/repo/cmd/tool`): the enclosing
+   Go workspace wins when it carries the module; otherwise
+   `forge-factory run` materialises it and the version comes from the
+   member's register. Versions are always pinned - `latest` is never a
+   fallback.
+4. **MCP Mode:** the resolved command is invoked with `--mcp`.
+5. **Communication:** stdio JSON-RPC 2.0.
 
-**Note:** Engines are automatically installed on first use. No manual installation required.
+**Note:** Nothing is installed into PATH by engine resolution; a workspace's
+pinned tooling arrives through `forge-factory sync`.
 
 ### Available Engines
 

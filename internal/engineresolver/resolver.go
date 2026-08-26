@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/alexandremahdhaoui/forge/internal/forgepath"
+	"github.com/alexandremahdhaoui/forge/pkg/toolresolver"
 )
 
 const (
@@ -90,7 +91,16 @@ func ParseEngineURI(engineURI, forgeVersion string) (engineType string, command 
 			return EngineTypeMCP, "go", []string{"run", bare}, nil
 		}
 
-		return EngineTypeMCP, "forge-factory", []string{"run", "--quiet", path, "--", "--mcp"}, nil
+		// forge-factory materialises the member; it resolves through the
+		// shared rule so a machine without it installed still gets the
+		// pinned companion, never latest.
+		inv, err := toolresolver.ForgeFactory()
+		if err != nil {
+			return "", "", nil, fmt.Errorf("resolving forge-factory for %s: %w", engineURI, err)
+		}
+
+		return EngineTypeMCP, inv.Path,
+			append(append([]string{}, inv.Args...), "run", "--quiet", path, "--", "--mcp"), nil
 	}
 
 	// A short form is one of forge's own engines at the running forge version.
