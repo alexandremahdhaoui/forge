@@ -31,6 +31,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strings"
 
@@ -57,7 +58,7 @@ const ForgeFactoryModule = "github.com/alexandremahdhaoui/forge-factory/cmd/forg
 //
 // and until then the source carries the last sha the workspace pipeline
 // proved against this forge.
-var companionForgeFactory = "dbb5447d1e92622cc809a81a5448920029344b6e"
+var companionForgeFactory = "d37002e4281fa6b29203c830da9d52dd5cd14edf"
 
 // CompanionRevision is the distribution revision id a released binary
 // shipped with. Empty on dev builds; release builds stamp it with -ldflags.
@@ -163,18 +164,61 @@ func (r Resolver) Resolve(ref Ref) (Invocation, error) {
 }
 
 // ForgeFactory resolves the forge-factory companion for delegation: the
-// workspace copy in local mode, then PATH, then go run at the pinned
-// companion sha - never latest.
+// workspace copy in local mode, then the pinned store view a released
+// binary ships with, then PATH, then go run at the pinned companion sha -
+// never latest.
 func ForgeFactory() (Invocation, error) {
-	r := Resolver{PinVersion: func(module string) string {
-		if v := DepVersion(module); v != "" {
-			return v
-		}
+	r := Resolver{
+		StoreLookup: DefaultStoreLookup,
+		PinVersion: func(module string) string {
+			if v := DepVersion(module); v != "" {
+				return v
+			}
 
-		return companionForgeFactory
-	}}
+			return companionForgeFactory
+		},
+	}
 
 	return r.Resolve(Ref{Name: "forge-factory", Module: ForgeFactoryModule})
+}
+
+// StoreDir answers the store root: FORGE_STORE_DIR, else the user cache's
+// forge/store - the layout forge-factory sync populates.
+func StoreDir() string {
+	if env := os.Getenv("FORGE_STORE_DIR"); env != "" {
+		return env
+	}
+
+	cache, err := os.UserCacheDir()
+	if err != nil {
+		return ""
+	}
+
+	return filepath.Join(cache, "forge", "store")
+}
+
+// DefaultStoreLookup consults the companion revision's provisioned view: a
+// released binary stamped with CompanionRevision finds its whole toolchain
+// in the store without PATH or network. Dev builds carry no revision and
+// answer nothing.
+func DefaultStoreLookup(name string) (string, bool) {
+	if CompanionRevision == "" {
+		return "", false
+	}
+
+	store := StoreDir()
+	if store == "" {
+		return "", false
+	}
+
+	path := filepath.Join(store, "rev", CompanionRevision,
+		runtime.GOOS+"-"+runtime.GOARCH, "bin", name)
+
+	if info, err := os.Stat(path); err == nil && !info.IsDir() {
+		return path, true
+	}
+
+	return "", false
 }
 
 // DepVersion answers the version the running binary was built against for

@@ -18,6 +18,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -123,8 +124,8 @@ func TestGoRunConsultsThePinWhenTheRefCarriesNone(t *testing.T) {
 func TestNothingPinsIsAnErrorNeverLatest(t *testing.T) {
 	for _, ref := range []Ref{
 		{Name: "tool"}, // no module at all
-		{Name: "tool", Module: "example.com/x/cmd/tool"},                   // pin answers nothing
-		{Name: "tool", Module: "example.com/x/cmd/tool", Version: "dev"},   // dev is not a pin
+		{Name: "tool", Module: "example.com/x/cmd/tool"},                 // pin answers nothing
+		{Name: "tool", Module: "example.com/x/cmd/tool", Version: "dev"}, // dev is not a pin
 	} {
 		r := Resolver{LookPath: noPath, PinVersion: func(string) string { return "" }}
 
@@ -176,6 +177,58 @@ func TestForgeFactoryDelegationIsPinned(t *testing.T) {
 
 	if !strings.HasPrefix(inv.Args[1], ForgeFactoryModule+"@") {
 		t.Fatalf("delegation names the wrong module: %+v", inv)
+	}
+}
+
+// A released binary stamped with a companion revision finds its toolchain
+// in the store; a dev build (no revision) answers nothing and falls
+// through.
+func TestDefaultStoreLookupConsultsTheCompanionRevision(t *testing.T) {
+	store := t.TempDir()
+	t.Setenv("FORGE_STORE_DIR", store)
+
+	saved := CompanionRevision
+	t.Cleanup(func() { CompanionRevision = saved })
+
+	CompanionRevision = ""
+	if _, ok := DefaultStoreLookup("forge-factory"); ok {
+		t.Fatal("a dev build must not consult the store")
+	}
+
+	CompanionRevision = "abc123def456"
+	if _, ok := DefaultStoreLookup("forge-factory"); ok {
+		t.Fatal("an empty store must answer nothing")
+	}
+
+	viewBin := filepath.Join(store, "rev", "abc123def456",
+		runtime.GOOS+"-"+runtime.GOARCH, "bin")
+	if err := os.MkdirAll(viewBin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	binary := filepath.Join(viewBin, "forge-factory")
+	if err := os.WriteFile(binary, []byte("#!/bin/sh\n"), 0o555); err != nil {
+		t.Fatal(err)
+	}
+
+	path, ok := DefaultStoreLookup("forge-factory")
+	if !ok || path != binary {
+		t.Fatalf("store lookup answered %q %v, want %q", path, ok, binary)
+	}
+
+	// The store view outranks PATH in the shared precedence.
+	r := Resolver{
+		StoreLookup: DefaultStoreLookup,
+		LookPath:    func(string) (string, error) { return "/usr/bin/forge-factory", nil },
+	}
+
+	inv, err := r.Resolve(Ref{Name: "forge-factory", Module: ForgeFactoryModule})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if inv.Path != binary || inv.Source != SourceStore {
+		t.Fatalf("the store lost to PATH: %+v", inv)
 	}
 }
 
