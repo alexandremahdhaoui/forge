@@ -237,3 +237,95 @@ func TestDepVersionAnswersEmptyForUnknownModules(t *testing.T) {
 		t.Fatalf("unexpected version %q", v)
 	}
 }
+
+// EnsureWorkspaceBin puts the enclosing workspace's pinned tooling on
+// PATH for the whole process tree, so nothing depends on .envrc having
+// been sourced.
+func TestEnsureWorkspaceBinPrependsThePinnedView(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, ".forge", "bin")
+
+	if err := os.MkdirAll(bin, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(root, "forge-factory.yaml"), []byte("name: w\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	nested := filepath.Join(root, "member", "cmd", "tool")
+	if err := os.MkdirAll(nested, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("PATH", "/usr/bin")
+
+	if got := EnsureWorkspaceBin(nested); got != bin {
+		t.Fatalf("expected %s, got %q", bin, got)
+	}
+
+	if path := os.Getenv("PATH"); !strings.HasPrefix(path, bin) {
+		t.Fatalf("PATH must start with the workspace bin, got %q", path)
+	}
+
+	// Idempotent: a second call changes nothing.
+	before := os.Getenv("PATH")
+
+	if got := EnsureWorkspaceBin(nested); got != "" {
+		t.Fatalf("a dir already on PATH must answer empty, got %q", got)
+	}
+
+	if os.Getenv("PATH") != before {
+		t.Fatal("a second call must not change PATH")
+	}
+}
+
+func TestEnsureWorkspaceBinOutsideAWorkspaceChangesNothing(t *testing.T) {
+	t.Setenv("PATH", "/usr/bin")
+
+	if got := EnsureWorkspaceBin(t.TempDir()); got != "" {
+		t.Fatalf("no workspace means no change, got %q", got)
+	}
+
+	if os.Getenv("PATH") != "/usr/bin" {
+		t.Fatal("PATH must be untouched outside a workspace")
+	}
+}
+
+// A factory file without a provisioned bin dir is a workspace that never
+// synced tooling: nothing to expose, nothing to change.
+func TestEnsureWorkspaceBinNeedsTheBinDir(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "forge-factory.yaml"), []byte("name: w\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("PATH", "/usr/bin")
+
+	if got := EnsureWorkspaceBin(root); got != "" {
+		t.Fatalf("no .forge/bin means no change, got %q", got)
+	}
+}
+
+// A PATH hit served by a workspace's .forge/bin is the pinned view, not a
+// user install, and the source says so.
+func TestAWorkspaceBinHitIsLabelledHonestly(t *testing.T) {
+	r := Resolver{
+		LookPath: func(string) (string, error) {
+			return "/w/.forge/bin/forge-ci", nil
+		},
+	}
+
+	inv, err := r.Resolve(Ref{Name: "forge-ci"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if inv.Source != SourceWorkspaceBin {
+		t.Fatalf("expected %s, got %s", SourceWorkspaceBin, inv.Source)
+	}
+
+	if inv.Path != "/w/.forge/bin/forge-ci" {
+		t.Fatalf("unexpected path %s", inv.Path)
+	}
+}

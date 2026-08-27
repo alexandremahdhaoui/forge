@@ -23,6 +23,7 @@ import (
 
 	"github.com/alexandremahdhaoui/forge/internal/cmdutil"
 	"github.com/alexandremahdhaoui/forge/pkg/engineversion"
+	"github.com/alexandremahdhaoui/forge/pkg/toolresolver"
 )
 
 // Version information (set via ldflags during build)
@@ -62,6 +63,25 @@ func main() {
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(1)
+	}
+
+	// The enclosing workspace's pinned tooling joins PATH before anything
+	// else, so delegation and engines resolve provisioned binaries with no
+	// .envrc sourced.
+	if wd, err := os.Getwd(); err == nil {
+		toolresolver.EnsureWorkspaceBin(wd)
+	}
+
+	// Delegated verbs run before global-flag parsing on purpose: every
+	// argument after the verb belongs to the child binary verbatim - a
+	// --config there is the child's, not forge's.
+	if err, handled := delegate(os.Args[1], os.Args[2:]); handled {
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+
+		return
 	}
 
 	// Parse global flags
@@ -272,78 +292,42 @@ func parseGlobalFlags(args []string) []string {
 }
 
 func printUsage() {
-	fmt.Println(`forge - A build orchestration tool
+	fmt.Println(`forge - build, test and run through one front door
 
 Usage:
   forge [global flags] <command> [args...]
 
-Global Flags:
-  --config <path>                    Use custom forge.yaml path (default: forge.yaml)
-  --cwd <path>                       Change working directory before running command
-  --skip-workspace-resolution        Disable automatic Go workspace detection
+Build and test (this repo's forge.yaml):
+  build [-f|--force] [artifact]   Build every artifact, or one; lazy by default
+  test run <stage>                Run one test stage
+  test-all [-f|--force]           Build everything, then every stage, fail-fast
+  list [build|test]               Show what this repo can build and test
 
-Commands:
-  build [artifact-name]              Build all artifacts
-  test <subcommand> <stage> [args...]  Test operations (run, list, manage environments)
-  test-all                           Build all artifacts and run all test stages
-  run <target> [-- args...]          Run a runnable target: a name, a ./path, or a module path
-  clone <factory-url> [dir]          Bootstrap a whole factory workspace
-  list [build|test]                  List available build targets and test stages
-  docs <list|get> [name]             Fetch project documentation
-  config <subcommand>                Configuration management
-  cu <subcommand>                    Continuous-update operations (status, commit, checkout, go-get)
-  ws <subcommand>                    Workspace lifecycle (list, create, delete, suspend, resume)
-  ui                                 Launch the forge TUI dashboard
-  version                            Show version information
+Run:
+  run <target> [-- args...]       Run a declared target: a name, a ./path, or a module path
+  clone <factory-url> [dir]       Stand up a whole workspace from its factory, from nothing
 
-Build:
-  build [-f|--force]                 Build all artifacts from forge.yaml
-  build [-f|--force] <artifact-name> Build specific artifact (force rebuild all)
+Toolchain (delegated; resolved pinned - checkout, then store, then workspace bin):
+  factory <args...>               The workspace tool: sync, status, add, bump ...
+  ci <args...>                    The pipeline tool: apply, bootstrap ...
+  register <args...>              The package register tool: status, add, apply ...
+  cache clean                     Remove the derived run cache; the next run rebuilds it
 
-Test:
-  test run <stage> [env-id]          Run tests for stage (optionally reuse environment)
-  test list <stage>                  List test reports for stage
-  test get <stage> <test-id>         Get test report details
-  test delete <stage> <test-id>      Delete test report
-  test list-env <stage>              List test environments for stage
-  test get-env <stage> <env-id>      Get test environment details
-  test create-env <stage>            Create test environment for stage
-  test delete-env <stage> <env-id>   Delete test environment
+More:
+  test <verb> <stage> [args]      Reports and environments: list, get, delete,
+                                  list-env, get-env, create-env, delete-env
+  docs <list|get> [name]          Read this project's documentation
+  config validate [path]          Check a forge.yaml without running anything
+  cu <verb>                       Continuous update: status, commit, checkout,
+                                  list-branches, go-get
+  ws <verb>                       Remote workspaces: list, create, get, delete,
+                                  suspend, resume
+  ui                              The terminal dashboard
+  version                         What forge this is
+  help                            This message
 
-Test All:
-  test-all [-f|--force]              Build all artifacts and run all test stages sequentially
-
-List:
-  list                               List all build targets and test stages
-  list build                         List only build targets
-  list test                          List only test stages
-
-Docs:
-  docs list                          List all available documentation
-  docs get <name>                    Fetch a specific document
-
-Config:
-  config validate [path]             Validate forge.yaml configuration
-
-Continuous Update:
-  cu status                          Show pending dependency changes
-  cu commit --message <msg>          Commit pending changes
-  cu checkout --branch <name>        Check out a branch
-  cu list-branches                   List branches
-  cu go-get --package <pkg>          Run go get and commit changes
-
-Workspace:
-  ws list                            List workspaces
-  ws create [flags]                  Create a workspace (--image, --namespace)
-  ws get --name <name>               Get workspace details
-  ws delete --name <name>            Delete a workspace
-  ws suspend --name <name>           Suspend a workspace
-  ws resume --name <name>            Resume a workspace
-
-UI:
-  ui                                 Launch the forge TUI dashboard
-
-Other:
-  version                            Show version information
-  help                               Show this help message`)
+Global flags:
+  --config <path>                 Use this forge.yaml instead of ./forge.yaml
+  --cwd <path>                    Switch to this directory first
+  --skip-workspace-resolution     Ignore any enclosing Go workspace`)
 }

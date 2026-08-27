@@ -45,7 +45,52 @@ const (
 	SourceStore     = "store"
 	SourcePath      = "path"
 	SourceGoRun     = "go-run"
+	// SourceWorkspaceBin is a PATH hit served by an enclosing workspace's
+	// .forge/bin - the pinned view sync provisioned, not a user install.
+	SourceWorkspaceBin = "workspace-bin"
 )
+
+// workspaceBinDir is the per-workspace directory sync fills with the
+// pinned tooling. EnsureWorkspaceBin exposes it; Resolve labels it.
+const workspaceBinDir = ".forge/bin"
+
+// EnsureWorkspaceBin puts the enclosing workspace's pinned tooling on this
+// process's PATH, so every child - engines, delegated tools, run targets -
+// resolves it with no .envrc sourced. It walks up from wd to the first
+// directory carrying forge-factory.yaml alongside a .forge/bin directory,
+// prepends that bin dir to PATH once, and answers it; outside a workspace,
+// or when the dir is already on PATH, it changes nothing and answers "".
+func EnsureWorkspaceBin(wd string) string {
+	dir := wd
+
+	for {
+		factory := filepath.Join(dir, "forge-factory.yaml")
+		bin := filepath.Join(dir, workspaceBinDir)
+
+		if info, err := os.Stat(factory); err == nil && !info.IsDir() {
+			if binInfo, err := os.Stat(bin); err == nil && binInfo.IsDir() {
+				current := os.Getenv("PATH")
+
+				for _, entry := range filepath.SplitList(current) {
+					if entry == bin {
+						return ""
+					}
+				}
+
+				_ = os.Setenv("PATH", bin+string(os.PathListSeparator)+current)
+
+				return bin
+			}
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+
+		dir = parent
+	}
+}
 
 // ForgeFactoryModule is the main package forge delegates workspace verbs to.
 const ForgeFactoryModule = "github.com/alexandremahdhaoui/forge-factory/cmd/forge-factory"
@@ -139,7 +184,14 @@ func (r Resolver) Resolve(ref Ref) (Invocation, error) {
 	}
 
 	if path, err := lookPath(ref.Name); err == nil {
-		return Invocation{Path: path, Source: SourcePath}, nil
+		// A hit under a workspace's .forge/bin is the pinned view sync
+		// provisioned, not a user install: say so, honestly.
+		source := SourcePath
+		if strings.Contains(filepath.ToSlash(path), "/"+workspaceBinDir+"/") {
+			source = SourceWorkspaceBin
+		}
+
+		return Invocation{Path: path, Source: source}, nil
 	}
 
 	version := ref.Version

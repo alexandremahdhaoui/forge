@@ -278,3 +278,41 @@ func delegateToForgeFactory(args []string) error {
 
 	return execAttached(inv.Path, append(append([]string{}, inv.Args...), args...), nil)
 }
+
+// delegate answers whether verb names a companion binary and, when it
+// does, hands it the rest of the argv untouched.
+func delegate(verb string, rest []string) (error, bool) {
+	switch verb {
+	case "factory":
+		return delegateToForgeFactory(rest), true
+	case "ci":
+		return delegateToTool("forge-ci",
+			"github.com/alexandremahdhaoui/forge-ci/cmd/forge-ci", rest), true
+	case "register":
+		return delegateToTool("forge-register",
+			"github.com/alexandremahdhaoui/forge-register/cmd/forge-register", rest), true
+	case "cache":
+		return delegateToForgeFactory(append([]string{"cache"}, rest...)), true
+	}
+
+	return nil, false
+}
+
+// delegateToTool hands the invocation to a companion binary through the
+// shared resolution rule: workspace checkout, then the pinned store, then
+// PATH (including the enclosing workspace's .forge/bin). These tools carry
+// no baked version pin on purpose - the register is the pin - so a machine
+// with nothing provisioned gets told what provisions it, not a go run at
+// some guessed version.
+func delegateToTool(name, module string, args []string) error {
+	r := toolresolver.Resolver{StoreLookup: toolresolver.DefaultStoreLookup}
+
+	inv, err := r.Resolve(toolresolver.Ref{Name: name, Module: module})
+	if err != nil {
+		return fmt.Errorf(
+			"%s is not provisioned: run `forge factory sync` (or `forge-factory sync`) in your workspace, or install it",
+			name)
+	}
+
+	return execAttached(inv.Path, append(append([]string{}, inv.Args...), args...), nil)
+}
