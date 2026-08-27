@@ -166,11 +166,14 @@ test:
   # -- dist - every command cross-built CGO-off for the distribution,
   # named by the <name>_<os>_<arch> travel convention. The toolchain
   # pipeline's release stage globs build/dist into the aggregated release.
+  # -- dist - cross-build every command declared distributable. What travels
+  # is what its build entry declares platforms for; a repo's own tool that
+  # declares none stays home, so two repos can each keep a cmd/docgen.
   - name: dist
     runner: "forge://generic-test-runner"
     spec:
-      command: sh
-      args: ["hack/build-dist.sh"]
+      command: forge
+      args: ["build", "--platforms", "linux/amd64,linux/arm64"]
 
   # -- lint-tags - verify all test files have build tags
   - name: lint-tags
@@ -251,118 +254,147 @@ build:
     src: ./cmd/forge
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: go-build
     src: ./cmd/go-build
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: container-build
     src: ./cmd/container-build
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: testenv-kind
     src: ./cmd/testenv-kind
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: testenv-lcr
     src: ./cmd/testenv-lcr
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: testenv-helm-install
     src: ./cmd/testenv-helm-install
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: testenv-stub
     src: ./cmd/testenv-stub
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: go-test
     src: ./cmd/go-test
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: go-lint-licenses
     src: ./cmd/go-lint-licenses
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: go-lint-tags
     src: ./cmd/go-lint-tags
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: testenv
     src: ./cmd/testenv
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: go-format
     src: ./cmd/go-format
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: rust-license-header
     src: ./cmd/rust-license-header
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: go-license-header
     src: ./cmd/go-license-header
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: go-lint
     src: ./cmd/go-lint
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: go-gen-mocks
     src: ./cmd/go-gen-mocks
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: go-gen-openapi
     src: ./cmd/go-gen-openapi
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: go-gen-protobuf
     src: ./cmd/go-gen-protobuf
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: go-gen-bpf
     src: ./cmd/go-gen-bpf
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: forge-e2e
     src: ./cmd/forge-e2e
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: generic-builder
     src: ./cmd/generic-builder
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: generic-test-runner
     src: ./cmd/generic-test-runner
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: parallel-builder
     src: ./cmd/parallel-builder
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: parallel-test-runner
     src: ./cmd/parallel-test-runner
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: test-report
     src: ./cmd/test-report
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: go-dependency-detector
     src: ./cmd/go-dependency-detector
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: go-gen-mocks-dep-detector
     src: ./cmd/go-gen-mocks-dep-detector
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: go-gen-openapi-dep-detector
     src: ./cmd/go-gen-openapi-dep-detector
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
   - name: forge-dev
     src: ./cmd/forge-dev
     dest: ./build/bin
     engine: forge://go-build
+    platforms: [linux/amd64, linux/arm64]
     spec:
       ldflags: "-X main.Version={{.GitVersion}}"
 

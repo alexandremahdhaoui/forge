@@ -65,6 +65,85 @@ func appendSpecToGroups(groups []engineGroup, engine string, params map[string]a
 //
 // This function MUST NOT write to stdout. Stdout is the JSON-RPC
 // transport in MCP mode. Progress messages go to stderr.
+// buildPlatforms is the os/arch list `forge build --platforms` asked for.
+// Empty means an ordinary host build: every entry builds once, for this
+// machine. Non-empty selects distribution mode - only entries declaring
+// platforms build, once per requested platform.
+var buildPlatforms []string
+
+// distFanOut expands one build entry into the per-platform entries a
+// distribution build wants: each carries the travel name <name>_<os>_<arch>
+// and the GOOS/GOARCH the engine builds under. An entry that declares no
+// platform is a repo's own tool - it is not public and answers nothing.
+func distFanOut(spec forge.BuildSpec, wanted []string) []forge.BuildSpec {
+	out := make([]forge.BuildSpec, 0, len(wanted))
+
+	for _, platform := range wanted {
+		declared := false
+
+		for _, own := range spec.Platforms {
+			if own == platform {
+				declared = true
+
+				break
+			}
+		}
+
+		if !declared {
+			continue
+		}
+
+		parts := strings.SplitN(platform, "/", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		copied := spec
+		copied.Name = fmt.Sprintf("%s_%s_%s", spec.Name, parts[0], parts[1])
+
+		engineSpec := map[string]any{}
+		for k, v := range spec.Spec {
+			engineSpec[k] = v
+		}
+
+		env := map[string]any{}
+
+		if existing, ok := engineSpec["env"].(map[string]any); ok {
+			for k, v := range existing {
+				env[k] = v
+			}
+		}
+
+		env["GOOS"] = parts[0]
+		env["GOARCH"] = parts[1]
+		engineSpec["env"] = env
+		copied.Spec = engineSpec
+		copied.Platforms = nil
+
+		out = append(out, copied)
+	}
+
+	return out
+}
+
+// distSpecs answers what a build pass actually builds: the declared entries
+// as written for a host build, or their per-platform expansion when
+// platforms were asked for. Distribution mode is an allowlist by
+// construction - what carries no platforms never travels.
+func distSpecs(declared forge.Build, wanted []string) forge.Build {
+	if len(wanted) == 0 {
+		return declared
+	}
+
+	out := forge.Build{}
+
+	for _, spec := range declared {
+		out = append(out, distFanOut(spec, wanted)...)
+	}
+
+	return out
+}
+
 func buildAll(artifactName string, forceRebuild bool) (*BuildAllResult, error) {
 	// Load forge.yaml configuration
 	config, err := loadConfig()
@@ -92,7 +171,15 @@ func buildAll(artifactName string, forceRebuild bool) (*BuildAllResult, error) {
 		}
 	}()
 
-	for _, spec := range config.Build {
+	specs := distSpecs(config.Build, buildPlatforms)
+
+	if len(buildPlatforms) > 0 && len(specs) == 0 {
+		return nil, fmt.Errorf(
+			"no artifact declares any of the platforms %s: an artifact travels only where its build entry says platforms:",
+			strings.Join(buildPlatforms, ", "))
+	}
+
+	for _, spec := range specs {
 		// Filter by artifact name if provided
 		if artifactName != "" && spec.Name != artifactName {
 			continue

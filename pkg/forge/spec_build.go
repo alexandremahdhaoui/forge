@@ -14,7 +14,10 @@
 
 package forge
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Build holds the list of artifacts to build
 type Build []BuildSpec
@@ -37,6 +40,13 @@ type BuildSpec struct {
 	// - forge://container-build (forge://github.com/alexandremahdhaoui/forge/cmd/container-build)
 	// - forge://go-build        (forge://github.com/alexandremahdhaoui/forge/cmd/go-build)
 	Engine string `json:"engine"`
+	// Platforms names the os/arch pairs this artifact is distributable for,
+	// e.g. ["linux/amd64", "linux/arm64"]. It is the declaration that this
+	// artifact is PUBLIC: `forge build --platforms` builds exactly the
+	// entries that carry one, once per platform, recording each as its own
+	// artifact named <name>_<os>_<arch>. An entry without platforms is a
+	// repo's own tool and never travels.
+	Platforms []string `json:"platforms,omitempty"`
 	// Spec contains engine-specific configuration (free-form)
 	// Supports fields like: command, args, env, envFile, context
 	// For container-build engine, also supports:
@@ -69,6 +79,15 @@ func (bs *BuildSpec) Validate() error {
 	// Validate engine URI
 	if err := ValidateURI(bs.Engine, "BuildSpec.engine"); err != nil {
 		errs.Add(err)
+	}
+
+	// A platform is os/arch and nothing else: the name a binary travels
+	// under is built from it, so a malformed one would ship silently.
+	for _, platform := range bs.Platforms {
+		if parts := strings.Split(platform, "/"); len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			errs.Add(fmt.Errorf(
+				"BuildSpec.platforms: %q is not <os>/<arch> (e.g. linux/amd64)", platform))
+		}
 	}
 
 	return errs.ErrorOrNil()

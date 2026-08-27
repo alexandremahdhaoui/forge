@@ -63,28 +63,33 @@ func Build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.A
 
 	outputPath := filepath.Join(dest, input.Name)
 
-	// Set CGO_ENABLED=0 for static binaries (can be overridden by custom env)
-	if err := os.Setenv("CGO_ENABLED", "0"); err != nil {
-		return nil, fmt.Errorf("failed to set CGO_ENABLED: %w", err)
-	}
+	// The build environment is scoped to this command, never the process:
+	// batch builds run in parallel, so setting GOOS on the process would
+	// leak into a sibling build and cross-compile the wrong artifact.
+	// CGO off keeps the binary static; custom env may override it.
+	buildEnv := append(os.Environ(), "CGO_ENABLED=0")
 
-	// Apply custom environment variables if provided
+	// A cross build is one that names a target: it gets the distribution
+	// treatment - stripped, trimmed - because it is built to travel.
+	cross := false
+
 	for key, value := range customEnv {
-		if err := os.Setenv(key, value); err != nil {
-			return nil, fmt.Errorf("failed to set environment variable %s: %w", key, err)
+		if key == "GOOS" || key == "GOARCH" {
+			cross = true
 		}
+
+		buildEnv = append(buildEnv, key+"="+value)
 	}
 
-	// Build command arguments
+	// Build command arguments. -trimpath keeps absolute build paths out of
+	// the binary, so the same source builds the same bytes anywhere.
 	args := []string{
 		"build",
+		"-trimpath",
 		"-o", outputPath,
 	}
 
-	// Add ldflags from environment if provided
-	if ldflags := os.Getenv("GO_BUILD_LDFLAGS"); ldflags != "" {
-		args = append(args, "-ldflags", ldflags)
-	}
+	args = append(args, "-ldflags", buildLDFlags(cross))
 
 	// Add custom args if provided
 	args = append(args, customArgs...)
@@ -94,6 +99,7 @@ func Build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.A
 
 	// Execute build
 	cmd := exec.Command("go", args...)
+	cmd.Env = buildEnv
 	cmd.Stdout = os.Stderr // MCP mode: redirect to stderr
 	cmd.Stderr = os.Stderr
 
@@ -264,4 +270,47 @@ func hasMainFunc(file *ast.File) bool {
 		}
 	}
 	return false
+}
+
+// buildLDFlags composes the link flags every go-build produces. The version
+// label a binary reports comes from git, so `<tool> version` never lies
+// about which build it is; a -X against a symbol a command does not carry
+// is ignored by the linker, so one line serves every command. A cross build
+// is stripped, because it is built to travel rather than to be debugged.
+// GO_BUILD_LDFLAGS, when set, is appended and therefore wins.
+func buildLDFlags(cross bool) string {
+	flags := []string{}
+
+	if cross {
+		flags = append(flags, "-s", "-w")
+	}
+
+	if label := gitLabel(); label != "" {
+		flags = append(flags, "-X", "main.Version="+label, "-X", "main.version="+label)
+	}
+
+	// The revision the pipeline proved, handed to every compute target: a
+	// released binary knows the distribution it shipped with, which is what
+	// lets it find its companions in the store with no PATH and no network.
+	if revision := os.Getenv("FORGE_CI_REVISION"); revision != "" {
+		flags = append(flags, "-X",
+			"github.com/alexandremahdhaoui/forge/pkg/toolresolver.CompanionRevision="+revision)
+	}
+
+	if extra := os.Getenv("GO_BUILD_LDFLAGS"); extra != "" {
+		flags = append(flags, extra)
+	}
+
+	return strings.Join(flags, " ")
+}
+
+// gitLabel is the human name of this build: the nearest tag, else the sha.
+// A tree that is not a repo has no label and the stamp is simply omitted.
+func gitLabel() string {
+	out, err := exec.Command("git", "describe", "--tags", "--always").Output()
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(out))
 }
