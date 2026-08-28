@@ -282,20 +282,47 @@ func delegateToForgeFactory(args []string) error {
 // delegate answers whether verb names a companion binary and, when it
 // does, hands it the rest of the argv untouched.
 func delegate(verb string, rest []string) (error, bool) {
-	switch verb {
-	case "factory":
-		return delegateToForgeFactory(rest), true
-	case "ci":
-		return delegateToTool("forge-ci",
-			"github.com/alexandremahdhaoui/forge-ci/cmd/forge-ci", rest), true
-	case "register":
-		return delegateToTool("forge-register",
-			"github.com/alexandremahdhaoui/forge-register/cmd/forge-register", rest), true
-	case "cache":
-		return delegateToForgeFactory(append([]string{"cache"}, rest...)), true
+	tool, args, ok := delegation(verb, rest)
+	if !ok {
+		return nil, false
 	}
 
-	return nil, false
+	if tool.name == "forge-factory" {
+		return delegateToForgeFactory(args), true
+	}
+
+	return delegateToTool(tool.name, tool.module, args), true
+}
+
+// companion names the binary a verb belongs to.
+type companion struct{ name, module string }
+
+// delegation answers which companion owns a verb and the argv it gets. It is
+// separate from the exec so the argv rule can be stated in a test: "cache"
+// is forge-factory's own verb under forge's name, so it travels with the
+// rest - dropping it turns "forge cache clean" into a bare
+// "forge-factory clean", which is not a command.
+func delegation(verb string, rest []string) (companion, []string, bool) {
+	factory := companion{name: "forge-factory", module: toolresolver.ForgeFactoryModule}
+
+	switch verb {
+	case "factory":
+		return factory, rest, true
+	case "cache":
+		return factory, append([]string{"cache"}, rest...), true
+	case "ci":
+		return companion{
+			name:   "forge-ci",
+			module: "github.com/alexandremahdhaoui/forge-ci/cmd/forge-ci",
+		}, rest, true
+	case "register":
+		return companion{
+			name:   "forge-register",
+			module: "github.com/alexandremahdhaoui/forge-register/cmd/forge-register",
+		}, rest, true
+	}
+
+	return companion{}, nil, false
 }
 
 // delegateToTool hands the invocation to a companion binary through the

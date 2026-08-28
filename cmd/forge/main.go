@@ -65,17 +65,31 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Global flags that come BEFORE the verb are forge's, and --cwd among
+	// them decides which workspace everything after this reads. Applying it
+	// after the workspace-bin lookup picked up the wrong .forge/bin, and
+	// running delegation before it made "forge --cwd x ci ..." an unknown
+	// command rather than a delegation.
+	//
+	// Only the leading run is parsed. Everything from the verb on belongs to
+	// whoever owns the verb: a --config after "ci" is forge-ci's, not ours.
+	verb, rest := splitLeadingFlags(os.Args[1:])
+
+	if verb == "" {
+		printUsage()
+		os.Exit(1)
+	}
+
+	applyCwdOverride()
+
 	// The enclosing workspace's pinned tooling joins PATH before anything
 	// else, so delegation and engines resolve provisioned binaries with no
-	// .envrc sourced.
+	// .envrc sourced. After --cwd, so it is the named workspace's.
 	if wd, err := os.Getwd(); err == nil {
 		toolresolver.EnsureWorkspaceBin(wd)
 	}
 
-	// Delegated verbs run before global-flag parsing on purpose: every
-	// argument after the verb belongs to the child binary verbatim - a
-	// --config there is the child's, not forge's.
-	if err, handled := delegate(os.Args[1], os.Args[2:]); handled {
+	if err, handled := delegate(verb, rest); handled {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
@@ -84,27 +98,15 @@ func main() {
 		return
 	}
 
-	// Parse global flags
-	args := os.Args[1:]
-	args = parseGlobalFlags(args)
+	// The rest of the argv, with any remaining global flags taken out.
+	args := parseGlobalFlags(append([]string{verb}, rest...))
 
 	if len(args) < 1 {
 		printUsage()
 		os.Exit(1)
 	}
 
-	// Apply --cwd override before workspace resolution and config-based directory change
-	if cwdOverride != "" {
-		absPath, err := filepath.Abs(cwdOverride)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: cannot resolve --cwd path %q: %v\n", cwdOverride, err)
-			os.Exit(1)
-		}
-		if err := os.Chdir(absPath); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: cannot change to --cwd directory %q: %v\n", absPath, err)
-			os.Exit(1)
-		}
-	}
+	applyCwdOverride()
 
 	// Resolve Go workspace if present
 	if err := resolveWorkspace(); err != nil {
@@ -249,6 +251,81 @@ func changeToProjectDir() error {
 }
 
 // parseGlobalFlags parses global flags like --config and returns remaining args
+// splitLeadingFlags takes forge's own global flags off the front of the argv
+// and answers the verb plus everything after it, untouched. A flag after the
+// verb is not read here: it belongs to whoever owns the verb.
+func splitLeadingFlags(args []string) (string, []string) {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+
+		if !strings.HasPrefix(arg, "-") {
+			return arg, args[i+1:]
+		}
+
+		switch {
+		case arg == "--config" || arg == "--cwd":
+			if i+1 >= len(args) {
+				fmt.Fprintf(os.Stderr, "Error: %s requires a path argument\n", arg)
+				os.Exit(1)
+			}
+
+			set(arg, args[i+1])
+
+			i++
+		case strings.HasPrefix(arg, "--config=") || strings.HasPrefix(arg, "--cwd="):
+			name, value, _ := strings.Cut(arg, "=")
+			if value == "" {
+				fmt.Fprintf(os.Stderr, "Error: %s requires a path argument\n", name)
+				os.Exit(1)
+			}
+
+			set(name, value)
+		case arg == "--skip-workspace-resolution":
+			skipWorkspaceResolution = true
+		default:
+			// Not one of ours. It is the verb's problem, and there is no
+			// verb yet, so let the usual parser report it.
+			return arg, args[i+1:]
+		}
+	}
+
+	return "", nil
+}
+
+func set(name, value string) {
+	if name == "--cwd" {
+		cwdOverride = value
+
+		return
+	}
+
+	configPath = value
+}
+
+// applyCwdOverride moves to the named directory before anything reads the
+// working directory. Everything downstream - the workspace bin, workspace
+// resolution, config discovery - answers about the workspace the user named.
+func applyCwdOverride() {
+	if cwdOverride == "" {
+		return
+	}
+
+	absPath, err := filepath.Abs(cwdOverride)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: cannot resolve --cwd path %q: %v\n", cwdOverride, err)
+		os.Exit(1)
+	}
+
+	if err := os.Chdir(absPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: cannot change to --cwd directory %q: %v\n", absPath, err)
+		os.Exit(1)
+	}
+
+	// Applied once. parseGlobalFlags runs again over the rest of the argv
+	// and must not chdir a second time from a now-relative path.
+	cwdOverride = ""
+}
+
 func parseGlobalFlags(args []string) []string {
 	result := make([]string, 0, len(args))
 

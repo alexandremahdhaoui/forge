@@ -171,17 +171,45 @@ func buildAll(artifactName string, forceRebuild bool) (*BuildAllResult, error) {
 		}
 	}()
 
-	specs := distSpecs(config.Build, buildPlatforms)
+	// The name filter runs before the fan-out, on the name the user typed.
+	// Fan-out renames each copy to <name>_<os>_<arch>, so filtering after it
+	// made "forge build --platforms linux/arm64 forge" match nothing and
+	// fail with "no artifact found with name: forge" - about an artifact
+	// that is right there in forge.yaml.
+	declared := config.Build
+
+	if artifactName != "" && len(buildPlatforms) > 0 {
+		declared = forge.Build{}
+
+		for _, spec := range config.Build {
+			if spec.Name == artifactName {
+				declared = append(declared, spec)
+			}
+		}
+
+		if len(declared) == 0 {
+			return nil, fmt.Errorf("no artifact found with name: %s", artifactName)
+		}
+	}
+
+	specs := distSpecs(declared, buildPlatforms)
 
 	if len(buildPlatforms) > 0 && len(specs) == 0 {
+		if artifactName != "" {
+			return nil, fmt.Errorf(
+				"%s declares none of the platforms %s; an artifact travels only where its own build entry names them",
+				artifactName, strings.Join(buildPlatforms, ", "))
+		}
+
 		return nil, fmt.Errorf(
-			"no artifact declares any of the platforms %s: an artifact travels only where its build entry says platforms:",
+			"no artifact declares any of the platforms %s; an artifact travels only where its own build entry names them",
 			strings.Join(buildPlatforms, ", "))
 	}
 
 	for _, spec := range specs {
-		// Filter by artifact name if provided
-		if artifactName != "" && spec.Name != artifactName {
+		// Filter by artifact name if provided. In platforms mode the filter
+		// already ran above, against the declared name.
+		if artifactName != "" && len(buildPlatforms) == 0 && spec.Name != artifactName {
 			continue
 		}
 

@@ -109,3 +109,38 @@ func TestThePlatformsFlagIsParsedEitherWay(t *testing.T) {
 		t.Fatal("a flag with no list must fail loudly")
 	}
 }
+
+// The fan-out renames each copy to <name>_<os>_<arch>, so a name filter
+// running after it matched nothing: "forge build --platforms linux/arm64
+// forge" failed with "no artifact found with name: forge", about an
+// artifact declared right there in forge.yaml. The filter runs on the name
+// the user typed, before the rename.
+func TestANamedArtifactSurvivesTheFanOut(t *testing.T) {
+	declared := forge.Build{
+		{Name: "alpha", Platforms: []string{"linux/amd64", "linux/arm64"}},
+		{Name: "beta", Platforms: []string{"linux/amd64"}},
+	}
+
+	only := forge.Build{}
+
+	for _, spec := range declared {
+		if spec.Name == "alpha" {
+			only = append(only, spec)
+		}
+	}
+
+	specs := distSpecs(only, []string{"linux/arm64"})
+	if len(specs) != 1 {
+		t.Fatalf("got %d specs, want 1", len(specs))
+	}
+
+	if specs[0].Name != "alpha_linux_arm64" {
+		t.Fatalf("got %q; the copy is renamed, which is why the filter "+
+			"cannot run after it", specs[0].Name)
+	}
+
+	// And beta, which does not declare arm64, contributes nothing.
+	if got := distSpecs(forge.Build{declared[1]}, []string{"linux/arm64"}); len(got) != 0 {
+		t.Fatalf("beta declares no arm64 and produced %d specs", len(got))
+	}
+}
