@@ -371,6 +371,16 @@ func IsWorkspaceModule(modulePath string) bool {
 // nearest go.work file. It parses the go.work use directives and reads each
 // member's go.mod to extract module paths.
 func isWorkspaceModule(modulePath string) bool {
+	// GOWORK=off means the go command this answer becomes an argument to
+	// will not read the workspace at all. Answering yes anyway produced
+	// "go run <module path>" with no version, in a directory with no
+	// go.mod, and the failure named the module rather than the workspace
+	// that was switched off: "no required module provides package ...".
+	// forge clone into a fresh directory hit it every time.
+	if os.Getenv("GOWORK") == "off" {
+		return false
+	}
+
 	goWorkDir := findGoWork()
 	if goWorkDir == "" {
 		return false
