@@ -1,0 +1,70 @@
+openapi: 3.0.3
+info:
+  title: container-build-simple Spec Schema
+  version: 0.1.0
+  description: >
+    Schema for the container-build-simple engine spec.
+
+    This engine appends ONE layer of prebuilt files onto a base image and
+    writes a multi-architecture OCI image layout to disk. It is layer
+    assembly rather than a build: there are no RUN steps, so it needs no
+    daemon, no Containerfile and no shellout, and multi-architecture costs
+    one layer set per architecture plus an index.
+
+    It names no registry and pushes nothing. A build writes a file and a
+    release publishes it, exactly as a binary does, so this engine holds no
+    credential and cannot reach the outside world.
+
+    An image that needs RUN steps is a different job and belongs to a
+    Containerfile builder.
+components:
+  schemas:
+    Spec:
+      type: object
+      description: Configuration for the container-build-simple engine
+      required: [from]
+      properties:
+        base:
+          type: string
+          default: debian:stable-slim
+          description: >
+            The base image. Use "scratch" for none.
+
+            A static binary runs on scratch, so the base exists for whatever
+            else runs alongside it. For a CI job container that is a shell
+            and glibc, which is why the default is a debian and not an
+            alpine: musl breaks JavaScript actions in edge cases, and every
+            "uses:" step in a workflow is a JavaScript action.
+        from:
+          type: array
+          items:
+            type: string
+          description: >
+            Globs of the files that go into the layer, relative to the
+            repository. A glob that matches nothing fails the build, because
+            an image that silently ships empty fails on the runner that
+            tries to use it, days later and far from the cause.
+        platforms:
+          type: array
+          items:
+            type: string
+          description: >
+            The os/arch pairs to assemble, like linux/amd64. Each becomes one
+            manifest in the index. Defaults to linux/amd64.
+
+            A file is matched to a platform by its name_os_arch suffix, and
+            lands in the image under its real name.
+        binDir:
+          type: string
+          default: /usr/local/bin
+          description: Where the files land inside the image, and the front of PATH.
+        env:
+          type: object
+          additionalProperties:
+            type: string
+          description: Environment variables to set in the image config.
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+          description: Labels to set in the image config.
