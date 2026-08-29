@@ -304,10 +304,23 @@ func buildLDFlags(cross bool) string {
 	return strings.Join(flags, " ")
 }
 
-// gitLabel is the human name of this build: the nearest tag, else the sha.
-// A tree that is not a repo has no label and the stamp is simply omitted.
+// gitLabel is the human name of this build. The pipeline's version wins when
+// there is one, because that is the number the release will actually carry:
+// three sources used to compete here, and a binary that reports a different
+// version from the release it shipped in is a lie the operator acts on.
+//
+// With no pipeline, the nearest tag on the plain semver line, else the sha.
+// --match is what keeps a namespaced tag out of it: a repo released by two
+// factories carries "forge-v0.50.0" alongside "v0.49.0", and git describe
+// with no match returns whichever is nearest, so the label read as a version
+// nobody could pin. A tree that is not a repo has no label and the stamp is
+// simply omitted.
 func gitLabel() string {
-	out, err := exec.Command("git", "describe", "--tags", "--always").Output()
+	if version := os.Getenv("FORGE_CI_VERSION"); version != "" {
+		return version
+	}
+
+	out, err := exec.Command("git", "describe", "--tags", "--always", "--match", "v[0-9]*").Output()
 	if err != nil {
 		return ""
 	}
