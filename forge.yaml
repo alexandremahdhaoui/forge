@@ -192,6 +192,15 @@ test:
   - name: unit
     runner: "forge://go-test"
 
+  # The same tests as somebody who cannot write to /. Root hides a test that
+  # names an absolute path and then creates it, which is how three defects
+  # left a sibling repo green here and red on a colleague's machine.
+  - name: unit-nonroot
+    runner: forge://generic-test-runner
+    spec:
+      command: sh
+      args: ["hack/unit-nonroot.sh"]
+
   # -- integration tests - creates isolated test environments
   - name: integration
     runner: "forge://go-test"
