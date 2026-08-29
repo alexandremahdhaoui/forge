@@ -2,6 +2,33 @@
 
 A tool for building container images from declarative configuration with support for multiple build engines and artifact tracking.
 
+## What this engine does not do
+
+Read this before choosing it. Three things it declares are not implemented,
+and each of them fails silently rather than loudly.
+
+- **It pushes nothing.** `spec.push`, `spec.registry` and `spec.tags` are
+  parsed and never read: `build.go` opens with `_ = spec // TODO`. The kaniko
+  mode hardcodes `--no-push`, and no mode runs a push command. A build that
+  declares `push: true` succeeds having pushed nothing.
+- **It builds the host architecture only.** There is no `--platform` anywhere
+  in it, so `platforms:` on the build entry does not reach the build.
+- **It needs a container engine.** `CONTAINER_BUILD_ENGINE` is required, and
+  it is docker, podman or kaniko-in-docker. There is no daemonless path.
+
+Its only use in this repo today is `for-testing-purposes`, which builds
+`FROM alpine:latest` and one `RUN echo test`.
+
+## Use container-build-simple instead when there are no RUN steps
+
+An image that is a base plus a directory of prebuilt files is layer assembly
+rather than a build. `forge://container-build-simple` does that in pure Go:
+no daemon, no Containerfile, no shellout, and multi-architecture for free,
+because everything this engine carries exists to support `RUN`.
+
+Come back here when the image genuinely needs `RUN` steps, and read the list
+above first. Fixing it is tracked in FOLLOWUP.md.
+
 ## Overview
 
 `container-build` reads container build specifications from `forge.yaml`, builds all defined containers using docker, kaniko, or podman, and writes artifact metadata to an artifact store for version tracking.

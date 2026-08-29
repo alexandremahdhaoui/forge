@@ -5,6 +5,16 @@ info:
   description: >
     Schema for the container-build engine spec.
     The container-build engine builds container images using Docker, Podman, or Kaniko.
+
+    NOT IMPLEMENTED, and each fails silently rather than loudly: push,
+    registry and tags are parsed and never read (build.go opens with
+    `_ = spec // TODO`, and kaniko hardcodes --no-push), and there is no
+    --platform anywhere, so the build is the host architecture only.
+
+    For an image that is a base plus a directory of prebuilt files, use
+    container-build-simple: it needs no daemon and no Containerfile, and
+    multi-architecture costs nothing there. Everything this engine carries
+    exists to support RUN steps.
 components:
   schemas:
     Spec:
@@ -26,13 +36,13 @@ components:
           type: array
           items:
             type: string
-          description: Image tags (optional)
+          description: "NOT IMPLEMENTED: parsed and never read. Image tags (optional)"
         target:
           type: string
           description: Build target stage (optional)
         push:
           type: boolean
-          description: Whether to push image (optional)
+          description: "NOT IMPLEMENTED: parsed and never read, and no mode runs a push. Whether to push image (optional)"
         registry:
           type: string
-          description: Registry URL (optional)
+          description: "NOT IMPLEMENTED: parsed and never read. Registry URL (optional)"
