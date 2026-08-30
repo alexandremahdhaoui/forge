@@ -21,10 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Tell forge-self-factory to run the pipeline
-        env:
-          GH_TOKEN: ${{ secrets.FORGE_CI_DISPATCH_TOKEN }}
         run: |
-          gh api repos/alexandremahdhaoui/forge-self-factory/dispatches \
-            --field event_type=member-pushed \
-            --field 'client_payload[repo]=${{ github.repository }}' \
-            --field 'client_payload[sha]=${{ github.sha }}'
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.FORGE_CI_DISPATCH_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/alexandremahdhaoui/forge-self-factory/dispatches" \
+            -d '{"event_type":"member-pushed","client_payload":{"repo":"${{ github.repository }}","sha":"${{ github.sha }}"}}'
