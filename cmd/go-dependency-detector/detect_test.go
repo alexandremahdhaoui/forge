@@ -194,9 +194,10 @@ func main() {
 		t.Fatalf("DetectDependencies failed: %v", err)
 	}
 
-	// Should have 1 dependency (go.mod)
-	if len(output.Dependencies) != 1 {
-		t.Errorf("Expected 1 dependency (go.mod), got %d", len(output.Dependencies))
+	// go.mod and the entry file itself. The entry file used to be walked for
+	// its imports and never recorded, so editing it rebuilt nothing.
+	if len(output.Dependencies) != 2 {
+		t.Errorf("Expected 2 dependencies (go.mod + main.go), got %d", len(output.Dependencies))
 	}
 
 	// Verify it's go.mod
@@ -209,6 +210,21 @@ func main() {
 			t.Errorf("Expected go.mod, got %s", filepath.Base(dep.FilePath))
 		}
 	}
+
+	if !hasFile(output.Dependencies, "main.go") {
+		t.Error("the entry file must be a dependency of the thing built from it")
+	}
+}
+
+// hasFile reports whether the dependencies carry a file with this base name.
+func hasFile(deps []mcptypes.Dependency, base string) bool {
+	for _, dep := range deps {
+		if dep.Type == "file" && filepath.Base(dep.FilePath) == base {
+			return true
+		}
+	}
+
+	return false
 }
 
 // TestDetectDependencies_StdlibOnly tests a function with only stdlib imports.
@@ -257,8 +273,9 @@ func main() {
 	}
 
 	// Should have 1 dependency (go.mod, stdlib is excluded)
-	if len(output.Dependencies) != 1 {
-		t.Errorf("Expected 1 dependency (go.mod, stdlib excluded), got %d", len(output.Dependencies))
+	if len(output.Dependencies) != 2 {
+		t.Errorf("Expected 2 dependencies (go.mod + main.go, stdlib excluded), got %d",
+			len(output.Dependencies))
 	}
 
 	// Verify it's go.mod
@@ -324,8 +341,9 @@ func main() {
 	}
 
 	// Should have 3 dependencies: go.mod + 2 external packages
-	if len(output.Dependencies) != 3 {
-		t.Errorf("Expected 3 dependencies (go.mod + 2 external), got %d", len(output.Dependencies))
+	if len(output.Dependencies) != 4 {
+		t.Errorf("Expected 4 dependencies (go.mod + main.go + 2 external), got %d",
+			len(output.Dependencies))
 	}
 
 	// First dependency should be go.mod
@@ -339,11 +357,12 @@ func main() {
 		}
 	}
 
-	// Verify external package dependencies (skip go.mod at index 0)
-	for i := 1; i < len(output.Dependencies); i++ {
-		dep := output.Dependencies[i]
+	// Verify external package dependencies. The file entries are go.mod and
+	// the entry file, so external ones are selected by type rather than by
+	// position.
+	for _, dep := range output.Dependencies {
 		if dep.Type != "externalPackage" {
-			t.Errorf("Expected type 'externalPackage', got %q", dep.Type)
+			continue
 		}
 
 		if dep.ExternalPackage == "github.com/stretchr/testify/assert" {
@@ -425,8 +444,9 @@ func main() {
 	}
 
 	// Should have 2 file dependencies: go.mod + helper.go
-	if len(output.Dependencies) != 2 {
-		t.Errorf("Expected 2 dependencies (go.mod + helper.go), got %d", len(output.Dependencies))
+	if len(output.Dependencies) != 3 {
+		t.Errorf("Expected 3 dependencies (go.mod + main.go + helper.go), got %d",
+			len(output.Dependencies))
 	}
 
 	// First dependency should be go.mod
@@ -440,27 +460,23 @@ func main() {
 		}
 	}
 
-	// Second dependency should be helper.go
-	if len(output.Dependencies) > 1 {
-		dep := output.Dependencies[1]
+	// helper.go is in there, found by name: the entry file is a dependency
+	// too now, so nothing here may depend on its position.
+	if !hasFile(output.Dependencies, "helper.go") {
+		t.Error("Expected helper.go among the dependencies")
+	}
+
+	for _, dep := range output.Dependencies {
 		if dep.Type != "file" {
-			t.Errorf("Expected type 'file', got %q", dep.Type)
+			continue
 		}
 
-		// Verify file path is absolute
 		if !filepath.IsAbs(dep.FilePath) {
 			t.Errorf("Expected absolute path, got %q", dep.FilePath)
 		}
 
-		// Verify file path points to helper.go
-		if filepath.Base(dep.FilePath) != "helper.go" {
-			t.Errorf("Expected helper.go, got %s", filepath.Base(dep.FilePath))
-		}
-
-		// Verify timestamp format
-		_, err = time.Parse(time.RFC3339, dep.Timestamp)
-		if err != nil {
-			t.Errorf("Invalid timestamp format: %v", err)
+		if _, err := time.Parse(time.RFC3339, dep.Timestamp); err != nil {
+			t.Errorf("Invalid timestamp format for %s: %v", dep.FilePath, err)
 		}
 	}
 }
@@ -547,8 +563,9 @@ func main() {
 	}
 
 	// Should have 3 file dependencies: go.mod + b.go + c.go
-	if len(output.Dependencies) != 3 {
-		t.Errorf("Expected 3 dependencies (go.mod + transitive), got %d", len(output.Dependencies))
+	if len(output.Dependencies) != 4 {
+		t.Errorf("Expected 4 dependencies (go.mod + main.go + transitive), got %d",
+			len(output.Dependencies))
 	}
 
 	// First dependency should be go.mod
@@ -659,8 +676,9 @@ func B() string {
 	// When we start from A, we mark A as visited, then process B
 	// B tries to import A, but A is already visited, so we skip it
 	// Therefore, we get go.mod + B in dependencies (A is the starting point, not a dependency)
-	if len(output.Dependencies) != 2 {
-		t.Errorf("Expected 2 dependencies (go.mod + circular handled), got %d", len(output.Dependencies))
+	if len(output.Dependencies) != 3 {
+		t.Errorf("Expected 3 dependencies (go.mod + main.go + circular handled), got %d",
+			len(output.Dependencies))
 		for i, dep := range output.Dependencies {
 			t.Logf("Dependency %d: %s", i, filepath.Base(dep.FilePath))
 		}
@@ -677,12 +695,9 @@ func B() string {
 		}
 	}
 
-	// Second dependency should be b.go
-	if len(output.Dependencies) > 1 {
-		dep := output.Dependencies[1]
-		if filepath.Base(dep.FilePath) != "b.go" {
-			t.Errorf("Expected b.go, got %s", filepath.Base(dep.FilePath))
-		}
+	// b.go is reached through the cycle, found by name rather than position.
+	if !hasFile(output.Dependencies, "b.go") {
+		t.Error("Expected b.go among the dependencies")
 	}
 
 	// Verify no duplicates
@@ -754,5 +769,192 @@ func TestDetectDependencies_NonExistentFile(t *testing.T) {
 	if !strings.Contains(err.Error(), "no such file") &&
 		!strings.Contains(err.Error(), "does not exist") {
 		t.Errorf("Expected file not found error, got: %v", err)
+	}
+}
+
+// TestDetectDependencies_EveryFileOfAPackage is the case the rest of this
+// suite cannot express: every other fixture package holds exactly one .go
+// file, so taking only the first one looked identical to taking all of them.
+//
+// Here the package holds three files and only the alphabetically LAST one
+// reaches deeper. Resolving a package to its first file stopped at a.go and
+// never learned that deep exists - which is how forge-ci's binary came to
+// track reconcilecontroller/index.go and miss fourteen packages.
+func TestDetectDependencies_EveryFileOfAPackage(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	goMod := `module example.com/test
+
+go 1.23
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0o644); err != nil {
+		t.Fatalf("Failed to write go.mod: %v", err)
+	}
+
+	deepDir := filepath.Join(tmpDir, "deep")
+	if err := os.MkdirAll(deepDir, 0o755); err != nil {
+		t.Fatalf("Failed to create deep dir: %v", err)
+	}
+
+	deepCode := `package deep
+
+func Deep() string { return "deep" }
+`
+	if err := os.WriteFile(filepath.Join(deepDir, "deep.go"), []byte(deepCode), 0o644); err != nil {
+		t.Fatalf("Failed to write deep.go: %v", err)
+	}
+
+	wideDir := filepath.Join(tmpDir, "wide")
+	if err := os.MkdirAll(wideDir, 0o755); err != nil {
+		t.Fatalf("Failed to create wide dir: %v", err)
+	}
+
+	// a.go sorts first and imports nothing. The old walk stopped here.
+	aCode := `package wide
+
+func A() string { return "a" }
+`
+	if err := os.WriteFile(filepath.Join(wideDir, "a.go"), []byte(aCode), 0o644); err != nil {
+		t.Fatalf("Failed to write a.go: %v", err)
+	}
+
+	bCode := `package wide
+
+func B() string { return "b" }
+`
+	if err := os.WriteFile(filepath.Join(wideDir, "b.go"), []byte(bCode), 0o644); err != nil {
+		t.Fatalf("Failed to write b.go: %v", err)
+	}
+
+	// z.go sorts last and is the only door to the deep package.
+	zCode := `package wide
+
+import "example.com/test/deep"
+
+func Z() string { return deep.Deep() }
+`
+	if err := os.WriteFile(filepath.Join(wideDir, "z.go"), []byte(zCode), 0o644); err != nil {
+		t.Fatalf("Failed to write z.go: %v", err)
+	}
+
+	mainFile := filepath.Join(tmpDir, "main.go")
+	mainCode := `package main
+
+import "example.com/test/wide"
+
+func main() {
+	_ = wide.A()
+}
+`
+	if err := os.WriteFile(mainFile, []byte(mainCode), 0o644); err != nil {
+		t.Fatalf("Failed to write main.go: %v", err)
+	}
+
+	output, err := DetectDependencies(mcptypes.DetectDependenciesInput{
+		FilePath: mainFile,
+		FuncName: "main",
+	})
+	if err != nil {
+		t.Fatalf("DetectDependencies failed: %v", err)
+	}
+
+	for _, want := range []string{"go.mod", "main.go", "a.go", "b.go", "z.go", "deep.go"} {
+		if !hasFile(output.Dependencies, want) {
+			t.Errorf("%s is not tracked, so editing it would rebuild nothing", want)
+		}
+	}
+}
+
+// TestDetectDependencies_PackageSiblingOfTheEntryFile is golden-go's
+// config-demo reduced: a main package of two files, where the second is
+// generated. Walking imports alone never sees a sibling, because a sibling is
+// not imported - so config-demo came out with go.mod as its only dependency
+// and no edit to either file ever rebuilt it.
+func TestDetectDependencies_PackageSiblingOfTheEntryFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	goMod := `module example.com/test
+
+go 1.23
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0o644); err != nil {
+		t.Fatalf("Failed to write go.mod: %v", err)
+	}
+
+	mainFile := filepath.Join(tmpDir, "main.go")
+	mainCode := `package main
+
+func main() {
+	_ = Config()
+}
+`
+	if err := os.WriteFile(mainFile, []byte(mainCode), 0o644); err != nil {
+		t.Fatalf("Failed to write main.go: %v", err)
+	}
+
+	generated := `package main
+
+func Config() string { return "generated" }
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "zz_generated.config.go"), []byte(generated), 0o644); err != nil {
+		t.Fatalf("Failed to write zz_generated.config.go: %v", err)
+	}
+
+	output, err := DetectDependencies(mcptypes.DetectDependenciesInput{
+		FilePath: mainFile,
+		FuncName: "main",
+	})
+	if err != nil {
+		t.Fatalf("DetectDependencies failed: %v", err)
+	}
+
+	if !hasFile(output.Dependencies, "zz_generated.config.go") {
+		t.Error("a sibling in the entry package must be tracked; it is compiled into the binary")
+	}
+}
+
+// TestDetectDependencies_TestFilesAreNotDependencies keeps the walk off test
+// files. They are not compiled into the artifact, so an edit to one must not
+// invalidate a build that does not contain it.
+func TestDetectDependencies_TestFilesAreNotDependencies(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	goMod := `module example.com/test
+
+go 1.23
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0o644); err != nil {
+		t.Fatalf("Failed to write go.mod: %v", err)
+	}
+
+	mainFile := filepath.Join(tmpDir, "main.go")
+	mainCode := `package main
+
+func main() {}
+`
+	if err := os.WriteFile(mainFile, []byte(mainCode), 0o644); err != nil {
+		t.Fatalf("Failed to write main.go: %v", err)
+	}
+
+	testCode := `package main
+
+import "testing"
+
+func TestNothing(t *testing.T) {}
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "main_test.go"), []byte(testCode), 0o644); err != nil {
+		t.Fatalf("Failed to write main_test.go: %v", err)
+	}
+
+	output, err := DetectDependencies(mcptypes.DetectDependenciesInput{
+		FilePath: mainFile,
+		FuncName: "main",
+	})
+	if err != nil {
+		t.Fatalf("DetectDependencies failed: %v", err)
+	}
+
+	if hasFile(output.Dependencies, "main_test.go") {
+		t.Error("a test file is not compiled into the artifact and must not be a dependency")
 	}
 }
