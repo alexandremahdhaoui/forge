@@ -362,8 +362,10 @@ type Remote struct {
 	Token string
 }
 
-var _ Registry = (*Remote)(nil)
-var _ Puller = (*Remote)(nil)
+var (
+	_ Registry = (*Remote)(nil)
+	_ Puller   = (*Remote)(nil)
+)
 
 // options carries the credential. With no token the requests go out
 // anonymous, which is enough to pull a public base and not enough to push:

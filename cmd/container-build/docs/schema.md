@@ -28,19 +28,19 @@ Build container images using Docker, Podman, or Kaniko
 
 - **Type:** `boolean`
 - **Required:** No
-- **Description:** Whether to push image (optional)
+- **Description:** NOT IMPLEMENTED: parsed and never read, and no mode runs a push. Whether to push image (optional)
 
 ### `registry`
 
 - **Type:** `string`
 - **Required:** No
-- **Description:** Registry URL (optional)
+- **Description:** NOT IMPLEMENTED: parsed and never read. Registry URL (optional)
 
 ### `tags`
 
 - **Type:** `array of string`
 - **Required:** No
-- **Description:** Image tags (optional)
+- **Description:** NOT IMPLEMENTED: parsed and never read. Image tags (optional)
 
 ### `target`
 

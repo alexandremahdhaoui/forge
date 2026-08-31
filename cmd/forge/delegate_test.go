@@ -109,8 +109,10 @@ func TestOnlyTheFlagsBeforeTheVerbAreForges(t *testing.T) {
 		// The child's flags reach it verbatim, including ones spelled the
 		// same as forge's.
 		"the child's own --config": {
-			[]string{"ci", "apply", "--config", "theirs.yaml"}, "ci",
-			[]string{"apply", "--config", "theirs.yaml"}, "", "",
+			[]string{"ci", "apply", "--config", "theirs.yaml"},
+			"ci",
+			[]string{"apply", "--config", "theirs.yaml"},
+			"", "",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
