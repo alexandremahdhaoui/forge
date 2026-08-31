@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexandremahdhaoui/forge/internal/gosource"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"golang.org/x/mod/modfile"
 	"gopkg.in/yaml.v3"
@@ -120,32 +121,12 @@ func resolvePackageToFiles(pkgPath string, workDir string) ([]string, error) {
 }
 
 // listGoFiles returns all .go files in a directory (excluding _test.go files).
+//
+// This detector had the right answer while go-dependency-detector took only
+// the first file it found, so the two disagreed about what a package is. They
+// share one implementation now rather than two that can drift again.
 func listGoFiles(dir string) ([]string, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read directory %s: %w", dir, err)
-	}
-
-	var files []string
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go") {
-			absPath, err := filepath.Abs(filepath.Join(dir, name))
-			if err != nil {
-				return nil, fmt.Errorf("failed to get absolute path for %s: %w", name, err)
-			}
-			files = append(files, absPath)
-		}
-	}
-
-	if len(files) == 0 {
-		return nil, fmt.Errorf("no .go files found in directory %s", dir)
-	}
-
-	return files, nil
+	return gosource.ListGoFiles(dir)
 }
 
 // ----------------------------------------------------- CORE DETECTION ---------------------------------------------- //

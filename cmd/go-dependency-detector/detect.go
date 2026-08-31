@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexandremahdhaoui/forge/internal/gosource"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 	"golang.org/x/mod/modfile"
 )
@@ -102,8 +103,15 @@ func DetectDependencies(input mcptypes.DetectDependenciesInput) (mcptypes.Detect
 		modulePath: goModData.Module.Mod.Path,
 	}
 
-	// Step 6: Recursively traverse all imports (transitive dependencies)
-	err = tracker.processFile(absFilePath)
+	// Step 6: Record the entry package and traverse everything it imports.
+	//
+	// The entry point is a package and not a file. Starting from the file
+	// alone left main.go untracked - it was walked for its imports and never
+	// recorded - and left every sibling in its package unseen, because the
+	// walk follows imports and a sibling is not imported. golden-go's
+	// config-demo came out with go.mod as its ONLY dependency, so editing
+	// either of its two source files rebuilt nothing.
+	err = tracker.processPackage(filepath.Dir(absFilePath))
 	if err != nil {
 		return mcptypes.DetectDependenciesOutput{}, err
 	}
@@ -114,13 +122,47 @@ func DetectDependencies(input mcptypes.DetectDependenciesInput) (mcptypes.Detect
 	}, nil
 }
 
-// processFile recursively processes a Go file and its imports.
+// processPackage records every file of one package and walks what they
+// import. A package is all of its files: reading one of them and calling that
+// the package is what made 14 of forge-ci's 24 packages invisible.
+func (t *dependencyTracker) processPackage(dir string) error {
+	files, err := gosource.ListGoFiles(dir)
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		if err := t.processFile(file); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// processFile records one file and recursively processes what it imports.
 func (t *dependencyTracker) processFile(filePath string) error {
 	// Prevent cycles
 	if t.visitedFiles[filePath] {
 		return nil
 	}
 	t.visitedFiles[filePath] = true
+
+	// Record the file itself before walking it. A file that is read for its
+	// imports but never recorded is a file whose own edits are invisible.
+	// go.mod is already in the list, so it is not recorded twice.
+	if filePath != t.goModPath {
+		timestamp, err := getFileTimestamp(filePath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to get timestamp for %s: %v\n", filePath, err)
+		} else {
+			t.dependencies = append(t.dependencies, mcptypes.Dependency{
+				Type:      "file",
+				FilePath:  filePath,
+				Timestamp: timestamp,
+			})
+		}
+	}
 
 	// Parse the file
 	fset := token.NewFileSet()
@@ -150,48 +192,23 @@ func (t *dependencyTracker) processFile(filePath string) error {
 		isLocal := isLocalPackage(importPath, t.modulePath, t.goModData)
 
 		if isLocal {
-			// Local package - resolve to file path and recurse
-			localFilePath, err := resolveLocalPackage(t.goModData, importPath, t.moduleDir, t.modulePath)
+			// Local package - resolve to its directory and take all of it
+			pkgDir, err := resolveLocalPackage(t.goModData, importPath, t.moduleDir, t.modulePath)
 			if err != nil {
 				// Log warning but continue
 				fmt.Fprintf(os.Stderr, "Warning: failed to resolve local package %s: %v\n", importPath, err)
 				continue
 			}
 
-			// Get absolute path
-			absLocalPath, err := filepath.Abs(localFilePath)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to get absolute path for %s: %v\n", localFilePath, err)
-				continue
-			}
-
-			// Skip if already visited
-			if t.visitedFiles[absLocalPath] {
-				continue
-			}
-
-			// Get file timestamp
-			timestamp, err := getFileTimestamp(absLocalPath)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to get timestamp for %s: %v\n", absLocalPath, err)
-				continue
-			}
-
-			// Add to dependencies
-			t.dependencies = append(t.dependencies, mcptypes.Dependency{
-				Type:      "file",
-				FilePath:  absLocalPath,
-				Timestamp: timestamp,
-			})
-
-			// Mark package as visited
+			// Mark the package visited before recursing, so a cycle between
+			// two packages terminates here rather than on the stack.
 			t.visitedPackages[importPath] = true
 
-			// Recurse into the local package
-			err = t.processFile(absLocalPath)
+			// Recurse into every file of the local package
+			err = t.processPackage(pkgDir)
 			if err != nil {
 				// Log warning but continue
-				fmt.Fprintf(os.Stderr, "Warning: failed to process file %s: %v\n", absLocalPath, err)
+				fmt.Fprintf(os.Stderr, "Warning: failed to process package %s: %v\n", importPath, err)
 			}
 		} else {
 			// External package - get version from go.mod
@@ -268,7 +285,9 @@ func isLocalPackage(importPath, modulePath string, goModData *modfile.File) bool
 	return false
 }
 
-// resolveLocalPackage resolves a local import path to a file path.
+// resolveLocalPackage resolves a local import path to the directory holding
+// that package. It answers a directory rather than a file because a package
+// is every file in it, and the caller reads all of them.
 func resolveLocalPackage(goModData *modfile.File, importPath, goModDir, modulePath string) (string, error) {
 	// Check for replace directive
 	for _, replace := range goModData.Replace {
@@ -279,8 +298,8 @@ func resolveLocalPackage(goModData *modfile.File, importPath, goModDir, modulePa
 				// Relative path
 				replacePath = filepath.Join(goModDir, replacePath)
 			}
-			// Find first .go file in the package directory
-			return findFirstGoFile(replacePath)
+
+			return replacePath, nil
 		}
 	}
 
@@ -293,30 +312,7 @@ func resolveLocalPackage(goModData *modfile.File, importPath, goModDir, modulePa
 	relPath := strings.TrimPrefix(importPath, modulePath)
 	relPath = strings.TrimPrefix(relPath, "/")
 
-	// Construct full path
-	pkgDir := filepath.Join(goModDir, relPath)
-
-	// Find first .go file in the package directory
-	return findFirstGoFile(pkgDir)
-}
-
-// findFirstGoFile finds the first .go file in a directory.
-func findFirstGoFile(dir string) (string, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return "", fmt.Errorf("failed to read directory %s: %w", dir, err)
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if strings.HasSuffix(entry.Name(), ".go") && !strings.HasSuffix(entry.Name(), "_test.go") {
-			return filepath.Join(dir, entry.Name()), nil
-		}
-	}
-
-	return "", fmt.Errorf("no .go files found in directory %s", dir)
+	return filepath.Join(goModDir, relPath), nil
 }
 
 // getPackageVersion extracts the version of an external package from go.mod.
