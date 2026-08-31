@@ -173,7 +173,9 @@ test:
     runner: "forge://generic-test-runner"
     spec:
       command: forge
-      args: ["build", "--platforms", "linux/amd64,linux/arm64"]
+      # Frozen: the distribution is the one build that must be reproducible,
+      # so it proves the recorded lock and never repairs it.
+      args: ["build", "--frozen", "--platforms", "linux/amd64,linux/arm64"]
 
   # -- lint-tags - verify all test files have build tags
   - name: lint-tags
