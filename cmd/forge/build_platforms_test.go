@@ -27,10 +27,14 @@ import (
 // dist step globbed cmd/* instead of reading a declaration.
 func TestOnlyDeclaredPlatformsTravel(t *testing.T) {
 	declared := forge.Build{
-		{Name: "forge", Src: "./cmd/forge", Dest: "./build/dist",
-			Engine: "forge://go-build", Platforms: []string{"linux/amd64", "linux/arm64"}},
-		{Name: "docgen", Src: "./cmd/docgen", Dest: "./build/bin",
-			Engine: "forge://go-build"},
+		{
+			Name: "forge", Src: "./cmd/forge", Dest: "./build/dist",
+			Engine: "forge://go-build", Platforms: []string{"linux/amd64", "linux/arm64"},
+		},
+		{
+			Name: "docgen", Src: "./cmd/docgen", Dest: "./build/bin",
+			Engine: "forge://go-build",
+		},
 	}
 
 	specs := distSpecs(declared, []string{"linux/amd64", "linux/arm64"})

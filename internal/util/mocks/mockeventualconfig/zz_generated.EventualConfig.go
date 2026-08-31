@@ -71,7 +71,7 @@ type MockEventualConfig_GetValue_Call struct {
 
 // GetValue is a helper method to define mock.On call
 //   - key eventualconfig.Key
-func (_e *MockEventualConfig_Expecter) GetValue(key interface{}) *MockEventualConfig_GetValue_Call {
+func (_e *MockEventualConfig_Expecter) GetValue(key any) *MockEventualConfig_GetValue_Call {
 	return &MockEventualConfig_GetValue_Call{Call: _e.mock.On("GetValue", key)}
 }
 
@@ -123,7 +123,7 @@ type MockEventualConfig_SetValue_Call struct {
 // SetValue is a helper method to define mock.On call
 //   - key eventualconfig.Key
 //   - value any
-func (_e *MockEventualConfig_Expecter) SetValue(key interface{}, value interface{}) *MockEventualConfig_SetValue_Call {
+func (_e *MockEventualConfig_Expecter) SetValue(key any, value any) *MockEventualConfig_SetValue_Call {
 	return &MockEventualConfig_SetValue_Call{Call: _e.mock.On("SetValue", key, value)}
 }
 
