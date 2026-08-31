@@ -41,6 +41,13 @@ type engineReference struct {
 	// For test runners: TestSpec.Spec
 	// For testenv: nil (testenv gets forgeSpec instead)
 	Spec map[string]interface{}
+
+	// Src is the build entry's source directory, handed to the engine as
+	// DirectoryParams.RootDir. An engine that validates files under the
+	// entry's directory - forge-dev reads forge-dev.yaml and the OpenAPI
+	// spec there - refused every entry without it, because the build passes
+	// the directory and the validation never did.
+	Src string
 }
 
 // extractEngineURIs extracts all unique engine URIs from a forge.Spec.
@@ -52,15 +59,20 @@ func extractEngineURIs(spec forge.Spec) []engineReference {
 	seen := make(map[string]bool)
 	var refs []engineReference
 
-	// Extract from build specs
+	// Extract from build specs. The key is engine plus source directory, not
+	// engine alone: one engine can serve many entries - every forge-dev cell
+	// names forge://forge-dev - and deduplicating on the URI validated the
+	// first cell and silently skipped the rest.
 	for _, bs := range spec.Build {
-		if bs.Engine != "" && !seen[bs.Engine] {
-			seen[bs.Engine] = true
+		key := bs.Engine + "\x00" + bs.Src
+		if bs.Engine != "" && !seen[key] {
+			seen[key] = true
 			refs = append(refs, engineReference{
 				URI:      bs.Engine,
 				SpecType: "build",
 				SpecName: bs.Name,
 				Spec:     bs.Spec,
+				Src:      bs.Src,
 			})
 		}
 	}
@@ -118,13 +130,20 @@ func validateEngineSpec(ctx context.Context, ref engineReference, forgeSpec *for
 		}, nil
 	}
 
-	// Prepare the ConfigValidateInput
+	// Prepare the ConfigValidateInput. The entry's source directory rides
+	// as RootDir exactly as a build passes it, so an engine that validates
+	// files under the entry - forge-dev and its cells - sees the same
+	// directory the build would hand it.
 	input := mcptypes.ConfigValidateInput{
 		Spec:       ref.Spec,
 		ForgeSpec:  forgeSpec,
 		ConfigPath: configPath,
 		SpecType:   ref.SpecType,
 		SpecName:   ref.SpecName,
+	}
+
+	if ref.Src != "" {
+		input.DirectoryParams = &mcptypes.DirectoryParams{RootDir: ref.Src}
 	}
 
 	// Convert ConfigValidateInput to map[string]any for callMCPEngine
