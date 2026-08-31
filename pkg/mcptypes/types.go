@@ -88,6 +88,7 @@ type BuildInput struct {
 	Context string `json:"context,omitempty" jsonschema:"Resolved absolute path to build context directory"`
 	Engine  string `json:"engine" jsonschema:"Engine URI that performs the build (e.g. forge://go-build)"`
 	Force   bool   `json:"force,omitempty" jsonschema:"Force rebuild and skip dependency-based caching"`
+	Frozen  bool   `json:"frozen,omitempty" jsonschema:"Build strictly against the recorded dependency lock and never repair it; a stale lock fails the build"`
 
 	// Generic engine specific fields (optional)
 	Command string            `json:"command,omitempty" jsonschema:"Command to execute (generic-builder engine only)"`

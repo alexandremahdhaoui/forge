@@ -22,7 +22,7 @@ import (
 
 // runBuild is the CLI entry point for the build command.
 // It calls the shared buildAll function and prints human-readable output.
-func runBuild(args []string, forceRebuild bool) error {
+func runBuild(args []string, forceRebuild, frozenBuild bool) error {
 	var artifactName string
 
 	rest, platforms, err := parsePlatformsFlag(args)
@@ -36,7 +36,7 @@ func runBuild(args []string, forceRebuild bool) error {
 		artifactName = rest[0]
 	}
 
-	result, err := buildAll(artifactName, forceRebuild)
+	result, err := buildAll(artifactName, forceRebuild, frozenBuild)
 	if err != nil {
 		return err
 	}

@@ -97,6 +97,7 @@ type BuildInput struct {
 	Name         string `json:"name,omitempty" jsonschema:"Build target name from forge.yaml build[].name. Omit to build all targets."`
 	ArtifactName string `json:"artifactName,omitempty" jsonschema:"Alternative to name for specifying the build target"`
 	Force        bool   `json:"force,omitempty" jsonschema:"Force rebuild even if artifacts are up to date. Passed to engine as force=true."`
+	Frozen       bool   `json:"frozen,omitempty" jsonschema:"Build strictly against the recorded dependency lock and never repair it; a stale lock fails the build."`
 	CWD          string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
@@ -143,8 +144,9 @@ type TestRunInput struct {
 
 // TestAllInput represents the input parameters for the test-all tool.
 type TestAllInput struct {
-	Force bool   `json:"force,omitempty" jsonschema:"Force rebuild of all artifacts before running tests."`
-	CWD   string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
+	Force  bool   `json:"force,omitempty" jsonschema:"Force rebuild of all artifacts before running tests."`
+	Frozen bool   `json:"frozen,omitempty" jsonschema:"Build strictly against the recorded dependency lock and never repair it; a stale lock fails the build."`
+	CWD    string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
 // TestAllResult represents the aggregated results from test-all command.
@@ -324,7 +326,7 @@ func handleBuildTool(
 	log.Printf("Building artifact: %s", name)
 
 	// Call shared build logic
-	buildAllResult, err := buildAll(name, input.Force)
+	buildAllResult, err := buildAll(name, input.Force, input.Frozen)
 
 	// Convert BuildAllResult to MCP response format
 	return formatBuildMCPResult(buildAllResult, err)
@@ -958,7 +960,7 @@ func handleTestAllTool(
 	log.Printf("Running test-all: build all + run all test stages")
 
 	// Call runTestAll
-	testAllErr := runTestAll([]string{}, input.Force)
+	testAllErr := runTestAll([]string{}, input.Force, input.Frozen)
 
 	// Load configuration to get artifact store path
 	config, err := loadConfig()

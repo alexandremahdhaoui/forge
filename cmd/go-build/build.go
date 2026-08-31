@@ -81,12 +81,32 @@ func Build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) (*forge.A
 		buildEnv = append(buildEnv, key+"="+value)
 	}
 
+	// A frozen build proves the recorded lock instead of trusting it: the
+	// module cache is checked against go.sum before anything compiles, and
+	// -mod=readonly refuses to repair go.mod. Frozen never writes - a stale
+	// lock fails the build rather than self-healing into bytes nobody can
+	// reproduce.
+	if input.Frozen {
+		verify := exec.Command("go", "mod", "verify")
+		verify.Env = buildEnv
+		verify.Stdout = os.Stderr
+		verify.Stderr = os.Stderr
+
+		if err := verify.Run(); err != nil {
+			return nil, fmt.Errorf("frozen build: go mod verify failed: %w", err)
+		}
+	}
+
 	// Build command arguments. -trimpath keeps absolute build paths out of
 	// the binary, so the same source builds the same bytes anywhere.
 	args := []string{
 		"build",
 		"-trimpath",
 		"-o", outputPath,
+	}
+
+	if input.Frozen {
+		args = append(args, "-mod=readonly")
 	}
 
 	args = append(args, "-ldflags", buildLDFlags(cross))

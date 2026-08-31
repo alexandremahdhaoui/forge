@@ -144,7 +144,7 @@ func distSpecs(declared forge.Build, wanted []string) forge.Build {
 	return out
 }
 
-func buildAll(artifactName string, forceRebuild bool) (*BuildAllResult, error) {
+func buildAll(artifactName string, forceRebuild, frozenBuild bool) (*BuildAllResult, error) {
 	// Load forge.yaml configuration
 	config, err := loadConfig()
 	if err != nil {
@@ -343,7 +343,7 @@ func buildAll(artifactName string, forceRebuild bool) (*BuildAllResult, error) {
 					continue
 				}
 
-				artifacts, err = buildWithSingleEngine(command, args, specs, dirs, engineConfig, forceRebuild)
+				artifacts, err = buildWithSingleEngine(command, args, specs, dirs, engineConfig, forceRebuild, frozenBuild)
 				if err != nil {
 					result.BuildErrors = append(result.BuildErrors, fmt.Sprintf("build failed for %s: %v", engineURI, err))
 					continue
@@ -357,7 +357,7 @@ func buildAll(artifactName string, forceRebuild bool) (*BuildAllResult, error) {
 				continue
 			}
 
-			artifacts, err = buildWithSingleEngine(command, args, specs, dirs, nil, forceRebuild)
+			artifacts, err = buildWithSingleEngine(command, args, specs, dirs, nil, forceRebuild, frozenBuild)
 			if err != nil {
 				result.BuildErrors = append(result.BuildErrors, fmt.Sprintf("build failed for %s: %v", engineURI, err))
 				continue
@@ -503,6 +503,7 @@ func buildWithSingleEngine(
 	dirs *ForgeDirs,
 	engineConfig *forge.EngineConfig,
 	forceRebuild bool,
+	frozenBuild bool,
 ) ([]forge.Artifact, error) {
 	// Prepare specs with injected directories and config
 	specsWithConfig := make([]map[string]any, len(specs))
@@ -520,6 +521,11 @@ func buildWithSingleEngine(
 
 		// Inject force rebuild flag
 		clonedSpec["force"] = forceRebuild
+
+		// Inject the frozen flag: a real build proves the recorded lock and
+		// never repairs it, so a stale lock fails instead of self-healing
+		// into a build nobody can reproduce.
+		clonedSpec["frozen"] = frozenBuild
 
 		// Inject engine-specific config if provided (from alias)
 		// For generic engines, promote spec fields to top level for backward compatibility

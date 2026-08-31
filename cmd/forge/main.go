@@ -145,17 +145,22 @@ func main() {
 			os.Exit(1)
 		}
 	case "build":
-		// Parse force flag
+		// Parse force and frozen flags. Frozen makes a real build: strictly
+		// against the recorded dependency lock, never repairing it.
 		forceRebuild := false
+		frozenBuild := false
 		filteredArgs := make([]string, 0, len(cmdArgs))
 		for _, arg := range cmdArgs {
-			if arg == "-f" || arg == "--force" {
+			switch arg {
+			case "-f", "--force":
 				forceRebuild = true
-			} else {
+			case "--frozen":
+				frozenBuild = true
+			default:
 				filteredArgs = append(filteredArgs, arg)
 			}
 		}
-		if err := runBuild(filteredArgs, forceRebuild); err != nil {
+		if err := runBuild(filteredArgs, forceRebuild, frozenBuild); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -165,17 +170,21 @@ func main() {
 			os.Exit(1)
 		}
 	case "test-all":
-		// Parse force flag
+		// Parse force and frozen flags, exactly as build does.
 		forceRebuild := false
+		frozenBuild := false
 		filteredArgs := make([]string, 0, len(cmdArgs))
 		for _, arg := range cmdArgs {
-			if arg == "-f" || arg == "--force" {
+			switch arg {
+			case "-f", "--force":
 				forceRebuild = true
-			} else {
+			case "--frozen":
+				frozenBuild = true
+			default:
 				filteredArgs = append(filteredArgs, arg)
 			}
 		}
-		if err := runTestAll(filteredArgs, forceRebuild); err != nil {
+		if err := runTestAll(filteredArgs, forceRebuild, frozenBuild); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
