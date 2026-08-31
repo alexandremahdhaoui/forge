@@ -48,6 +48,38 @@ func TestHasHeaderDetectsExistingHeader(t *testing.T) {
 	}
 }
 
+// hack/boilerplate.go.txt is a /* */ block, and three files carrying it
+// verbatim read as unlicensed before the walk spoke that form.
+func TestHasHeaderDetectsTheBoilerplateBlockForm(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, dir, "main.go",
+		"/*\nCopyright 2024 Alexandre Mahdhaoui\n\nLicensed under the Apache License.\n*/\n\npackage main\n")
+
+	got, err := HasHeader(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got {
+		t.Fatal("expected the block-comment boilerplate to be detected")
+	}
+}
+
+// A block comment that never mentions a license is still not a header, and
+// the code after it is still where the search ends.
+func TestHasHeaderABlockCommentWithoutALicenseIsNotOne(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, dir, "main.go",
+		"/*\nA small helper module.\n*/\n\npackage main\n")
+
+	got, err := HasHeader(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got {
+		t.Fatal("expected a non-license block comment to not be treated as a header")
+	}
+}
+
 func TestHasHeaderNoHeader(t *testing.T) {
 	dir := t.TempDir()
 	path := writeFile(t, dir, "lib.rs", "use std::fmt;\n\npub fn foo() {}\n")

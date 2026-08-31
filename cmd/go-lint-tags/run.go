@@ -150,11 +150,12 @@ func checkBuildTag(filePath string, expectedTags []string) (bool, error) {
 
 	scanner := bufio.NewScanner(file)
 
-	// Check first few lines for build tag
-	lineCount := 0
-	for scanner.Scan() && lineCount < 5 {
+	// Scan until the package clause, where a build constraint can no longer
+	// appear. A fixed line cap false-negatives the moment a file has more
+	// preamble than the cap - a license header above the tag was enough -
+	// which is the same defect the license walk had with block comments.
+	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		lineCount++
 
 		// Check for go:build directive
 		if strings.HasPrefix(line, "//go:build") {

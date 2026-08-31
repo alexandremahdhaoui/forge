@@ -63,6 +63,12 @@ func HasHeader(path string) (bool, error) {
 	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
+
+	// hack/boilerplate.go.txt is a /* */ block, so the walk speaks both
+	// comment forms. Rejecting the project's own documented boilerplate is
+	// how three files carrying it read as unlicensed.
+	inBlock := false
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 
@@ -70,19 +76,38 @@ func HasHeader(path string) (bool, error) {
 			continue
 		}
 
-		if !strings.HasPrefix(line, "//") {
+		if inBlock {
+			if hasLicenseMarker(line) {
+				return true, nil
+			}
+
+			if strings.Contains(line, "*/") {
+				inBlock = false
+			}
+
+			continue
+		}
+
+		switch {
+		case strings.HasPrefix(line, "/*"):
+			inBlock = !strings.Contains(line, "*/")
+		case !strings.HasPrefix(line, "//"):
 			// Reached real code with no header seen yet.
 			return false, nil
 		}
 
-		if strings.Contains(line, "Copyright") ||
-			strings.Contains(line, "SPDX-License-Identifier") ||
-			strings.Contains(line, "Licensed under") {
+		if hasLicenseMarker(line) {
 			return true, nil
 		}
 	}
 
 	return false, scanner.Err()
+}
+
+func hasLicenseMarker(line string) bool {
+	return strings.Contains(line, "Copyright") ||
+		strings.Contains(line, "SPDX-License-Identifier") ||
+		strings.Contains(line, "Licensed under")
 }
 
 // IsGeneratedFile reports whether a file's first non-empty line marks it as
