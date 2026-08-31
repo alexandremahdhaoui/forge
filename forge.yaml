@@ -252,6 +252,16 @@ test:
       timeout: "20m"
 
 # -- build defines the artifacts to build
+
+  # Generated code is committed and read straight from the repo, and nothing
+  # checked it against its source: the release gates on a -dirty revision, but
+  # that revision is measured before any stage runs, so what a build
+  # regenerates is invisible to it.
+  - name: generated
+    runner: forge://generic-test-runner
+    spec:
+      command: sh
+      args: ["hack/generated-check.sh"]
 build:
   # Format code before building
   - name: format-code
