@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
@@ -115,8 +116,26 @@ func validateForgeDevConfig(input mcptypes.ConfigValidateInput) *mcptypes.Config
 		}
 	}
 
-	// Step 3: Read and validate spec.openapi.yaml using kin-openapi
+	// Step 3: Read and validate spec.openapi.yaml using kin-openapi.
+	//
+	// A spec file that does not exist yet is a warning, not an error: shared
+	// specs are materialized by the build's own resolution step, so on a
+	// fresh clone `forge config validate` runs before the file can exist.
+	// The configuration is still fully validated; only the spec's content
+	// waits for the build. A file that exists and fails to parse remains an
+	// error - that is a broken spec, not an unresolved one.
 	specPath := filepath.Join(configPath, config.OpenAPI.SpecPath)
+	if _, statErr := os.Stat(specPath); os.IsNotExist(statErr) {
+		warnings = append(warnings, mcptypes.ValidationWarning{
+			Field: "spec.openapi.yaml",
+			Message: fmt.Sprintf(
+				"%s does not exist yet; the build's spec resolution materializes it, so its content is validated at build time",
+				config.OpenAPI.SpecPath),
+		})
+
+		return &mcptypes.ConfigValidateOutput{Valid: true, Errors: errors, Warnings: warnings}
+	}
+
 	spec, err := LoadOpenAPISpec(specPath)
 	if err != nil {
 		errors = append(errors, mcptypes.ValidationError{

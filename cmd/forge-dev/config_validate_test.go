@@ -72,6 +72,65 @@ components:
 		}
 	})
 
+	t.Run("a spec the build materializes is a warning, not an error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// A valid forge-dev.yaml whose spec file does not exist yet: shared
+		// specs are written by the build's own resolution step, so on a
+		// fresh clone validate runs before the file can exist.
+		configContent := `name: valid-engine
+kind: mcp-server
+profile: builder
+version: 0.1.0
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main
+`
+		if err := os.WriteFile(filepath.Join(tmpDir, "forge-dev.yaml"), []byte(configContent), 0o644); err != nil {
+			t.Fatalf("writing forge-dev.yaml: %v", err)
+		}
+
+		output := validateForgeDevConfig(mcptypes.ConfigValidateInput{
+			Spec: map[string]interface{}{"configPath": tmpDir},
+		})
+
+		if !output.Valid {
+			t.Errorf("expected valid=true for an unresolved spec, got errors: %v", output.Errors)
+		}
+		if len(output.Warnings) == 0 {
+			t.Error("expected a warning naming the unresolved spec")
+		}
+	})
+
+	t.Run("a spec that exists and does not parse is still an error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		configContent := `name: valid-engine
+kind: mcp-server
+profile: builder
+version: 0.1.0
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main
+`
+		if err := os.WriteFile(filepath.Join(tmpDir, "forge-dev.yaml"), []byte(configContent), 0o644); err != nil {
+			t.Fatalf("writing forge-dev.yaml: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(tmpDir, "spec.openapi.yaml"), []byte("{not yaml"), 0o644); err != nil {
+			t.Fatalf("writing spec.openapi.yaml: %v", err)
+		}
+
+		output := validateForgeDevConfig(mcptypes.ConfigValidateInput{
+			Spec: map[string]interface{}{"configPath": tmpDir},
+		})
+
+		if output.Valid {
+			t.Error("a broken spec is not an unresolved one; expected valid=false")
+		}
+	})
+
 	t.Run("missing forge-dev.yaml returns error", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
