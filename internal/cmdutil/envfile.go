@@ -123,44 +123,10 @@ func validateEnvFilePath(path string) error {
 	return nil
 }
 
-// parseExportedVarNames extracts the list of environment variable names
-// that are expected to be set after sourcing the file. It handles both
-// export and unset statements, with the last statement for each variable winning.
-func parseExportedVarNames(content []byte) ([]string, error) {
-	exportRegex := regexp.MustCompile(`^\s*export\s+([A-Z_][A-Z0-9_]*)=`)
-	unsetRegex := regexp.MustCompile(`^\s*unset\s+([A-Z_][A-Z0-9_]*)`)
-
-	// Track last line number for each exported and unset variable
-	lastExportLine := make(map[string]int)
-	lastUnsetLine := make(map[string]int)
-
-	lines := bytes.Split(content, []byte{'\n'})
-	for lineNum, line := range lines {
-		lineStr := string(line)
-
-		// Check for export statement
-		if matches := exportRegex.FindStringSubmatch(lineStr); matches != nil {
-			varName := matches[1]
-			lastExportLine[varName] = lineNum
-		}
-
-		// Check for unset statement
-		if matches := unsetRegex.FindStringSubmatch(lineStr); matches != nil {
-			varName := matches[1]
-			lastUnsetLine[varName] = lineNum
-		}
-	}
-
-	// Collect variables where last export > last unset (or no unset exists)
-	var expectedVars []string
-	for varName, exportLine := range lastExportLine {
-		unsetLine, wasUnset := lastUnsetLine[varName]
-		if !wasUnset || exportLine > unsetLine {
-			expectedVars = append(expectedVars, varName)
-		}
-	}
-
-	return expectedVars, nil
+// shellBookkeepingVars are set or changed by the shell that executes the
+// env file, not by the file itself, so the diff must not import them.
+var shellBookkeepingVars = map[string]bool{
+	"SHLVL": true, "_": true, "PWD": true, "OLDPWD": true, "SHELL": true,
 }
 
 // shellQuote provides POSIX-compliant shell quoting for paths.
@@ -199,15 +165,8 @@ func executeEnvFileInShell(path string) ([]byte, error) {
 	return stdout.Bytes(), nil
 }
 
-// parseEnvOutput parses the null-terminated environment output
-// and filters it to only include expected variables.
-func parseEnvOutput(output []byte, expectedVars []string) (map[string]string, error) {
-	// Create a set of expected variable names for quick lookup
-	expectedSet := make(map[string]bool)
-	for _, varName := range expectedVars {
-		expectedSet[varName] = true
-	}
-
+// parseEnvOutput parses the null-terminated environment output into a map.
+func parseEnvOutput(output []byte) map[string]string {
 	result := make(map[string]string)
 
 	// Split on null bytes
@@ -223,62 +182,77 @@ func parseEnvOutput(output []byte, expectedVars []string) (map[string]string, er
 			continue
 		}
 
-		varName := string(parts[0])
-		varValue := string(parts[1])
-
-		// Only include if in expected list
-		if expectedSet[varName] {
-			result[varName] = varValue
-		}
+		result[string(parts[0])] = string(parts[1])
 	}
 
-	return result, nil
+	return result
 }
 
 // SourceEnvFile sources an environment file by executing it in a bash shell
-// and setting the exported variables in the current process.
-// This function performs security validation, parses the file to identify
-// expected variables, executes the file in a shell, and sets the resulting
-// environment variables.
+// and applying to this process what the execution changed: every variable
+// the file added or modified is set, and every variable it unset is unset.
+//
+// The delta is measured against this process's environment rather than
+// parsed out of the file's text. A textual parse only sees `export NAME=`
+// lines in the file itself and silently drops whatever a sourced sub-file
+// exports - which is exactly how a generated env file sourced from a
+// managed block lost every variable except the one the block exported
+// directly.
 func SourceEnvFile(envFilePath string) error {
 	// Step 1: Validate the path
 	if err := validateEnvFilePath(envFilePath); err != nil {
 		return fmt.Errorf("invalid env file path: %w", err)
 	}
 
-	// Step 2: Read file content
-	content, err := os.ReadFile(envFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to read env file: %w", err)
-	}
-
-	// Step 3: Parse exported variable names
-	expectedVars, err := parseExportedVarNames(content)
-	if err != nil {
-		return fmt.Errorf("failed to parse exported variables: %w", err)
-	}
-
-	// Step 4: Execute the file in a shell
+	// Step 2: Execute the file in a shell and capture the resulting env
 	output, err := executeEnvFileInShell(envFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to execute env file: %w", err)
 	}
 
-	// Step 5: Parse the environment output
-	envMap, err := parseEnvOutput(output, expectedVars)
-	if err != nil {
-		return fmt.Errorf("failed to parse env output: %w", err)
-	}
+	after := parseEnvOutput(output)
 
-	// Step 6: Set environment variables
-	for varName, varValue := range envMap {
-		if err := os.Setenv(varName, varValue); err != nil {
-			return fmt.Errorf("failed to set environment variable %s: %w", varName, err)
+	// Step 3: The environment the shell started from
+	before := make(map[string]string)
+	for _, entry := range os.Environ() {
+		parts := strings.SplitN(entry, "=", 2)
+		if len(parts) != 2 {
+			continue
 		}
+		before[parts[0]] = parts[1]
 	}
 
-	// Step 7: Log success (count only, no variable names or values)
-	fmt.Fprintf(os.Stderr, "Sourced %d environment variables from %s\n", len(envMap), envFilePath)
+	// Step 4: Apply what changed
+	applied := 0
+
+	for name, value := range after {
+		if shellBookkeepingVars[name] {
+			continue
+		}
+		if prev, ok := before[name]; ok && prev == value {
+			continue
+		}
+		if err := os.Setenv(name, value); err != nil {
+			return fmt.Errorf("failed to set environment variable %s: %w", name, err)
+		}
+		applied++
+	}
+
+	for name := range before {
+		if shellBookkeepingVars[name] {
+			continue
+		}
+		if _, ok := after[name]; ok {
+			continue
+		}
+		if err := os.Unsetenv(name); err != nil {
+			return fmt.Errorf("failed to unset environment variable %s: %w", name, err)
+		}
+		applied++
+	}
+
+	// Step 5: Log success (count only, no variable names or values)
+	fmt.Fprintf(os.Stderr, "Sourced %d environment variables from %s\n", applied, envFilePath)
 
 	return nil
 }

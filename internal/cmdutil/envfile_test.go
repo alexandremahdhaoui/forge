@@ -163,3 +163,64 @@ KEY2="  spaces inside  "
 		}
 	}
 }
+
+// The variable the CI build lost was exported by a file the env file
+// sourced, not by the env file's own text. The import must carry what the
+// execution changed, wherever the export line lives.
+func TestSourceEnvFile_ImportsWhatASourcedFileExports(t *testing.T) {
+	dir := t.TempDir()
+
+	sub := filepath.Join(dir, "sub.env")
+	if err := os.WriteFile(sub, []byte("export FROM_SOURCED_FILE=jar-path\n"), 0o644); err != nil {
+		t.Fatalf("writing sub file: %v", err)
+	}
+
+	envrc := filepath.Join(dir, "envrc")
+	content := "export DIRECT=direct-value\n. \"" + sub + "\"\n"
+	if err := os.WriteFile(envrc, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing env file: %v", err)
+	}
+
+	t.Chdir(dir)
+	t.Setenv("FROM_SOURCED_FILE", "")
+	os.Unsetenv("FROM_SOURCED_FILE")
+	t.Setenv("DIRECT", "")
+	os.Unsetenv("DIRECT")
+
+	if err := SourceEnvFile("envrc"); err != nil {
+		t.Fatalf("SourceEnvFile failed: %v", err)
+	}
+
+	if got := os.Getenv("FROM_SOURCED_FILE"); got != "jar-path" {
+		t.Errorf("FROM_SOURCED_FILE: expected %q, got %q", "jar-path", got)
+	}
+	if got := os.Getenv("DIRECT"); got != "direct-value" {
+		t.Errorf("DIRECT: expected %q, got %q", "direct-value", got)
+	}
+}
+
+// A variable the env file unsets must leave the process, and one it never
+// touches must keep its value.
+func TestSourceEnvFile_UnsetLeavesAndUntouchedStays(t *testing.T) {
+	dir := t.TempDir()
+
+	envrc := filepath.Join(dir, "envrc")
+	if err := os.WriteFile(envrc, []byte("unset DOOMED\n"), 0o644); err != nil {
+		t.Fatalf("writing env file: %v", err)
+	}
+
+	t.Chdir(dir)
+	t.Setenv("DOOMED", "present")
+	t.Setenv("UNTOUCHED", "kept")
+
+	if err := SourceEnvFile("envrc"); err != nil {
+		t.Fatalf("SourceEnvFile failed: %v", err)
+	}
+
+	if _, ok := os.LookupEnv("DOOMED"); ok {
+		t.Errorf("DOOMED should have been unset")
+	}
+	if got := os.Getenv("UNTOUCHED"); got != "kept" {
+		t.Errorf("UNTOUCHED: expected %q, got %q", "kept", got)
+	}
+}
