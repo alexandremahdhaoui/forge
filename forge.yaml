@@ -169,7 +169,7 @@ test:
   # -- dist - cross-build every command declared distributable. What travels
   # is what its build entry declares platforms for; a repo's own tool that
   # declares none stays home, so two repos can each keep a cmd/docgen.
-  - name: dist
+  - name: build-artifacts
     runner: "forge://generic-test-runner"
     spec:
       command: forge
