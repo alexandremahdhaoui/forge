@@ -88,8 +88,8 @@ func (_c *MockEventualConfig_GetValue_Call) Run(run func(key eventualconfig.Key)
 	return _c
 }
 
-func (_c *MockEventualConfig_GetValue_Call) Return(vCh <-chan any, err error) *MockEventualConfig_GetValue_Call {
-	_c.Call.Return(vCh, err)
+func (_c *MockEventualConfig_GetValue_Call) Return(anyMoqParamCh <-chan any, err error) *MockEventualConfig_GetValue_Call {
+	_c.Call.Return(anyMoqParamCh, err)
 	return _c
 }
 
