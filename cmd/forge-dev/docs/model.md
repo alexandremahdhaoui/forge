@@ -104,8 +104,11 @@ Three rules run on every answer, before the build calls it a success.
 2. The returned list lands in `zz_generated.runnable.yaml` under `files`.
    On the next run a file the previous list held and the new answer does
    not is removed, and the removal is logged. A recorded entry that
-   escapes the engine directory or is not named `zz_generated` is skipped
-   and logged instead of removed.
+   escapes the engine directory is skipped and logged instead of removed.
+   So is one that is neither named `zz_generated` nor a module root. A
+   recorded module root is removed only when the file on disk still
+   carries the generated header, or when it is already gone. A module
+   root without the header is hand written, so it is skipped and logged.
 3. An answer with `manifest: true` must hold `zz_generated_cell.yaml`. An
    answer without it fails naming the generator.
 

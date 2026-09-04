@@ -182,7 +182,7 @@ func generateExternal(call externalCall) ([]string, error) {
 		return nil, fmt.Errorf("generator %s answered no files", generatorURI)
 	}
 
-	placed := make([]string, 0, len(output.Files))
+	placed := make([]GeneratedFile, 0, len(output.Files))
 
 	for _, file := range output.Files {
 		clean, err := placeAnsweredPath(generatorURI, call.outputDir, file.Path)
@@ -190,28 +190,26 @@ func generateExternal(call externalCall) ([]string, error) {
 			return nil, err
 		}
 
-		placed = append(placed, clean)
+		placed = append(placed, GeneratedFile{Path: clean, Content: file.Content})
 	}
 
-	if err := checkGeneratedPaths(generatorURI, placed, output.Files); err != nil {
+	if err := checkGeneratedPaths(generatorURI, placed); err != nil {
 		return nil, err
 	}
 
 	written := []string{}
 
-	for i, file := range output.Files {
-		clean := placed[i]
-
-		full := filepath.Join(srcDir, clean)
+	for _, file := range placed {
+		full := filepath.Join(srcDir, file.Path)
 		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-			return nil, fmt.Errorf("creating the directory of %s: %w", clean, err)
+			return nil, fmt.Errorf("creating the directory of %s: %w", file.Path, err)
 		}
 
 		if err := os.WriteFile(full, []byte(file.Content), 0o644); err != nil {
-			return nil, fmt.Errorf("writing %s: %w", clean, err)
+			return nil, fmt.Errorf("writing %s: %w", file.Path, err)
 		}
 
-		written = append(written, clean)
+		written = append(written, file.Path)
 	}
 
 	if err := checkGeneratedAnswer(srcDir, generatorURI, output, written); err != nil {
@@ -289,9 +287,9 @@ var languageModuleRoots = map[string]bool{
 	"index.ts":    true,
 }
 
-func checkGeneratedPaths(generatorURI string, written []string, files []GeneratedFile) error {
-	for i, path := range written {
-		base := filepath.Base(path)
+func checkGeneratedPaths(generatorURI string, placed []GeneratedFile) error {
+	for _, file := range placed {
+		base := filepath.Base(file.Path)
 		if strings.HasPrefix(base, "zz_generated") {
 			continue
 		}
@@ -299,13 +297,13 @@ func checkGeneratedPaths(generatorURI string, written []string, files []Generate
 		if !languageModuleRoots[base] {
 			return fmt.Errorf(
 				"checking the answer of generator %s: %s is not named zz_generated",
-				generatorURI, path)
+				generatorURI, file.Path)
 		}
 
-		if !HasGeneratedHeader(files[i].Content) {
+		if !HasGeneratedHeader(file.Content) {
 			return fmt.Errorf(
 				"checking the answer of generator %s: the module root %s is missing the generated header on line one",
-				generatorURI, path)
+				generatorURI, file.Path)
 		}
 	}
 
@@ -340,7 +338,7 @@ func removeStaleGeneratedFiles(srcDir string, previous, written []string) error 
 		}
 
 		if !removableGeneratedPath(srcDir, path) {
-			log.Printf("forge-dev: skipped the recorded entry %s, it is not removable, it must be named zz_generated and stay inside the engine directory", path)
+			log.Printf("forge-dev: skipped the recorded entry %s, it is not removable, it must be named zz_generated or be a module root carrying the generated header, and stay inside the engine directory", path)
 
 			continue
 		}
