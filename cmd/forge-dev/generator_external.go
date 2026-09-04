@@ -193,7 +193,7 @@ func generateExternal(call externalCall) ([]string, error) {
 		placed = append(placed, clean)
 	}
 
-	if err := checkGeneratedPaths(generatorURI, placed); err != nil {
+	if err := checkGeneratedPaths(generatorURI, placed, output.Files); err != nil {
 		return nil, err
 	}
 
@@ -281,11 +281,30 @@ func sweepStaleGeneratedFiles(srcDir string, previous []string) error {
 	return removeStaleGeneratedFiles(srcDir, previous, kept)
 }
 
-func checkGeneratedPaths(generatorURI string, written []string) error {
-	for _, path := range written {
-		if !strings.HasPrefix(filepath.Base(path), "zz_generated") {
+var languageModuleRoots = map[string]bool{
+	"lib.rs":      true,
+	"main.rs":     true,
+	"mod.rs":      true,
+	"__init__.py": true,
+	"index.ts":    true,
+}
+
+func checkGeneratedPaths(generatorURI string, written []string, files []GeneratedFile) error {
+	for i, path := range written {
+		base := filepath.Base(path)
+		if strings.HasPrefix(base, "zz_generated") {
+			continue
+		}
+
+		if !languageModuleRoots[base] {
 			return fmt.Errorf(
 				"checking the answer of generator %s: %s is not named zz_generated",
+				generatorURI, path)
+		}
+
+		if !HasGeneratedHeader(files[i].Content) {
+			return fmt.Errorf(
+				"checking the answer of generator %s: the module root %s is missing the generated header on line one",
 				generatorURI, path)
 		}
 	}
@@ -320,7 +339,7 @@ func removeStaleGeneratedFiles(srcDir string, previous, written []string) error 
 			continue
 		}
 
-		if !removableGeneratedPath(path) {
+		if !removableGeneratedPath(srcDir, path) {
 			log.Printf("forge-dev: skipped the recorded entry %s, it is not removable, it must be named zz_generated and stay inside the engine directory", path)
 
 			continue
@@ -336,13 +355,27 @@ func removeStaleGeneratedFiles(srcDir string, previous, written []string) error 
 	return nil
 }
 
-func removableGeneratedPath(path string) bool {
+func removableGeneratedPath(srcDir, path string) bool {
 	clean := filepath.Clean(path)
 	if escapesEngineDir(clean) {
 		return false
 	}
 
-	return strings.HasPrefix(filepath.Base(clean), "zz_generated")
+	base := filepath.Base(clean)
+	if strings.HasPrefix(base, "zz_generated") {
+		return true
+	}
+
+	if !languageModuleRoots[base] {
+		return false
+	}
+
+	raw, err := os.ReadFile(filepath.Join(srcDir, clean))
+	if os.IsNotExist(err) {
+		return true
+	}
+
+	return err == nil && HasGeneratedHeader(string(raw))
 }
 
 func recordGeneratedFiles(runnablePath string, written []string) error {

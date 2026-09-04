@@ -97,7 +97,10 @@ Three rules run on every answer, before the build calls it a success.
 1. Every returned path stays inside the engine directory and is named
    `zz_generated`. A path that is not fails with the path and the
    generator URI, and the whole answer is refused before anything is
-   written.
+   written. A module root is the one exception, because a language names
+   it: `lib.rs`, `main.rs`, `mod.rs`, `__init__.py` and `index.ts` are
+   accepted when line one carries the generated header. One that misses
+   the header fails with the path and says the header is missing.
 2. The returned list lands in `zz_generated.runnable.yaml` under `files`.
    On the next run a file the previous list held and the new answer does
    not is removed, and the removal is logged. A recorded entry that
