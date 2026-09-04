@@ -239,6 +239,7 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 			checksum:    checksum,
 			openAPISpec: configSpec,
 			outputDir:   config.ConfigGenerator.OutputDir,
+			configOnly:  true,
 		})
 		if err != nil {
 			return err

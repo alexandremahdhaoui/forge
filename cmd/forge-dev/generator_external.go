@@ -112,7 +112,8 @@ var newGeneratorCaller = func() generatorCaller {
 }
 
 // externalCall is one dispatch to a generator: which engine, what spec it
-// reads, and where its answer lands.
+// reads, and where its answer lands. configOnly marks a configGenerator
+// dispatch, which reads the Spec schema and nothing else.
 type externalCall struct {
 	srcDir      string
 	config      *Config
@@ -120,6 +121,7 @@ type externalCall struct {
 	checksum    string
 	openAPISpec string
 	outputDir   string
+	configOnly  bool
 }
 
 // generateExternal hands the normalized model to the generator and writes
@@ -127,18 +129,13 @@ type externalCall struct {
 // directory: a generator emits code, never escapes. The same call serves a
 // generator: owning the whole cell and a configGenerator: filling only the
 // config keys.
+//
+// A configGenerator receives identity plus the Spec schema. The layout, the
+// proto and the wiring belong to the generator that owns the cell, and a
+// config generator has no field for them: sending them makes its schema
+// refuse the call on an unexpected property.
 func generateExternal(call externalCall) ([]string, error) {
 	srcDir, config, generatorURI := call.srcDir, call.config, call.generator
-
-	protoSpec, err := config.protoSpecText(srcDir)
-	if err != nil {
-		return nil, err
-	}
-
-	wiringSpec, err := config.wiringSpecText(srcDir)
-	if err != nil {
-		return nil, err
-	}
 
 	model := GeneratorModel{
 		Name:        config.Name,
@@ -147,13 +144,26 @@ func generateExternal(call externalCall) ([]string, error) {
 		Kind:        config.Kind,
 		Language:    config.Language,
 		PackageName: config.Generate.PackageName,
-		Layout:      layoutMap(config),
 		Runtime:     config.Runtime,
 		OpenAPISpec: call.openAPISpec,
-		ProtoSpec:   protoSpec,
-		WiringSpec:  wiringSpec,
 		Checksum:    call.checksum,
 		SrcDir:      srcDir,
+	}
+
+	if !call.configOnly {
+		protoSpec, err := config.protoSpecText(srcDir)
+		if err != nil {
+			return nil, err
+		}
+
+		wiringSpec, err := config.wiringSpecText(srcDir)
+		if err != nil {
+			return nil, err
+		}
+
+		model.Layout = layoutMap(config)
+		model.ProtoSpec = protoSpec
+		model.WiringSpec = wiringSpec
 	}
 
 	caller := newGeneratorCaller()
