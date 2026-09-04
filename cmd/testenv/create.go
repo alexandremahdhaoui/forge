@@ -101,7 +101,7 @@ func cmdCreate(stageName string) (string, error) {
 		// Call the engine's create tool directly
 		fmt.Fprintf(os.Stderr, "Setting up %s...\n", setupSpec)
 
-		command, args, err := resolveEngineURI(setupSpec)
+		engine, err := resolveEngineURI(setupSpec)
 		if err != nil {
 			_ = os.RemoveAll(tmpDir)
 			return "", fmt.Errorf("failed to resolve engine %s: %w", setupSpec, err)
@@ -118,7 +118,7 @@ func cmdCreate(stageName string) (string, error) {
 			params["tmpDir"] = env.TmpDir
 		}
 
-		result, err := callMCPEngine(command, args, "create", params)
+		result, err := callMCPEngine(engine, "create", params)
 		if err != nil {
 			_ = os.RemoveAll(tmpDir)
 			return "", fmt.Errorf("failed to create with %s: %w", setupSpec, err)
@@ -324,7 +324,7 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 		}
 
 		// Resolve engine URI to binary path
-		command, args, err := resolveEngineURI(subengine.Engine)
+		engine, err := resolveEngineURI(subengine.Engine)
 		if err != nil {
 			return fmt.Errorf("failed to resolve engine %s: %w", subengine.Engine, err)
 		}
@@ -365,7 +365,7 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 		}
 
 		// Call subengine's create tool via MCP
-		result, err := callMCPEngine(command, args, "create", params)
+		result, err := callMCPEngine(engine, "create", params)
 		if err != nil {
 			return fmt.Errorf("failed to create with %s: %w", subengine.Engine, err)
 		}

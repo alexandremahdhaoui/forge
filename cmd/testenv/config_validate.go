@@ -131,7 +131,7 @@ func validateTestenvSpec(ctx context.Context, input mcptypes.ConfigValidateInput
 		subengineSpec := getSubengineConfig(subengine.Engine, subengine.Spec, input.ForgeSpec)
 
 		// Resolve the engine URI to command and args
-		command, args, err := resolveEngineURI(subengine.Engine)
+		engine, err := resolveEngineURI(subengine.Engine)
 		if err != nil {
 			results = append(results, validationResult{
 				Ref: engineReference{
@@ -160,7 +160,7 @@ func validateTestenvSpec(ctx context.Context, input mcptypes.ConfigValidateInput
 		params := configValidateInputToParams(subInput)
 
 		// Call the subengine's config-validate tool
-		result, err := callMCPEngine(command, args, "config-validate", params)
+		result, err := callMCPEngine(engine, "config-validate", params)
 		if err != nil {
 			results = append(results, validationResult{
 				Ref: engineReference{
