@@ -49,6 +49,10 @@ func resolveWorkspace() error {
 		return fmt.Errorf("cannot get working directory: %w", err)
 	}
 
+	if cwdIsARepo(cwd) {
+		return nil
+	}
+
 	absUseDirs := make([]string, 0, len(useDirs))
 	for _, useDir := range useDirs {
 		var absUseDir string
@@ -85,6 +89,12 @@ func resolveWorkspace() error {
 	}
 
 	return nil
+}
+
+func cwdIsARepo(cwd string) bool {
+	_, err := os.Stat(filepath.Join(cwd, "forge.yaml"))
+
+	return err == nil
 }
 
 func isInsideDir(path, dir string) bool {

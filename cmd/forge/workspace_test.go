@@ -217,6 +217,55 @@ func TestResolveWorkspace_CWDIsWorkspaceRoot(t *testing.T) {
 	requireNoLocalModeFlag(t)
 }
 
+func TestARepoOutsideGoWorkKeepsItsOwnForgeYamlWhenTheWorkspaceCarriesForge(t *testing.T) {
+	savedDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(savedDir)
+		skipWorkspaceResolution = false
+	})
+
+	tmpDir := t.TempDir()
+	tmpDir, err = filepath.EvalSymlinks(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to eval symlinks: %v", err)
+	}
+
+	forgeDir := filepath.Join(tmpDir, "forge-repo")
+	if err := os.MkdirAll(forgeDir, 0o755); err != nil {
+		t.Fatalf("failed to create forge-repo dir: %v", err)
+	}
+	makeForgeRepo(t, forgeDir)
+
+	rustRepo := filepath.Join(tmpDir, "rust-repo")
+	if err := os.MkdirAll(rustRepo, 0o755); err != nil {
+		t.Fatalf("failed to create rust-repo dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(rustRepo, "forge.yaml"), []byte("name: rust-repo\n"), 0o644); err != nil {
+		t.Fatalf("failed to write forge.yaml: %v", err)
+	}
+
+	goWorkContent := "go 1.21\n\nuse ./forge-repo\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.work"), []byte(goWorkContent), 0o644); err != nil {
+		t.Fatalf("failed to write go.work: %v", err)
+	}
+
+	if err := os.Chdir(rustRepo); err != nil {
+		t.Fatalf("failed to chdir to rust-repo: %v", err)
+	}
+
+	if err := resolveWorkspace(); err != nil {
+		t.Fatalf("resolveWorkspace() unexpected error: %v", err)
+	}
+
+	cwd, _ := os.Getwd()
+	if cwd != rustRepo {
+		t.Errorf("CWD should stay in the repo that has a forge.yaml: got %q, want %q", cwd, rustRepo)
+	}
+}
+
 func TestResolveWorkspace_SkipFlag(t *testing.T) {
 	savedDir, err := os.Getwd()
 	if err != nil {
