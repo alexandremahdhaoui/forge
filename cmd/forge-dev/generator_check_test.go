@@ -18,8 +18,10 @@ package main
 
 import (
 	"context"
+	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
@@ -164,9 +166,68 @@ func TestARecordedEntryThatEscapesTheEngineDirectoryIsSkippedInsteadOfRemoved(t 
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(runnable, []byte(string(raw)+"  - ../../x\n"), 0o644))
 
+	logged := captureLog(t)
+
 	require.NoError(t, generateCell(t, dir, answerWith("zz_generated_a.rs")))
 
 	require.FileExists(t, outside)
+	require.Contains(t, logged.String(),
+		"forge-dev: skipped the recorded entry ../../x, it is not removable, "+
+			"it must be named zz_generated and stay inside the engine directory")
+}
+
+func TestACellWithNoGeneratorSweepsNothing(t *testing.T) {
+	dir := t.TempDir()
+	writeKindFixture(t, dir, coreCellYaml())
+
+	_, err := generate(context.Background(), mcptypes.BuildInput{
+		Name: "plain-tool", Src: dir, Engine: "forge://forge-dev", Force: true,
+	})
+	require.NoError(t, err)
+
+	planted := filepath.Join(dir, "zz_generated_planted.go")
+	require.NoError(t, os.WriteFile(planted, []byte("// planted\n"), 0o644))
+
+	runnable := filepath.Join(dir, GeneratedRunnableFile)
+	raw, err := os.ReadFile(runnable)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(
+		runnable, []byte(string(raw)+"files:\n  - zz_generated_planted.go\n"), 0o644))
+
+	recorded, err := ReadGeneratedFiles(runnable)
+	require.NoError(t, err)
+	require.Equal(t, []string{"zz_generated_planted.go"}, recorded)
+
+	_, err = generate(context.Background(), mcptypes.BuildInput{
+		Name: "plain-tool", Src: dir, Engine: "forge://forge-dev", Force: true,
+	})
+	require.NoError(t, err)
+
+	require.FileExists(t, planted)
+}
+
+func coreCellYaml() string {
+	return `name: plain-tool
+kind: binary
+version: 0.1.0
+openapi:
+  specPath: ./spec.openapi.yaml
+generate:
+  packageName: main
+  docsBaseURL: https://example.com/raw
+`
+}
+
+func captureLog(t *testing.T) *strings.Builder {
+	t.Helper()
+
+	var logged strings.Builder
+
+	previousOutput := log.Writer()
+	log.SetOutput(&logged)
+	t.Cleanup(func() { log.SetOutput(previousOutput) })
+
+	return &logged
 }
 
 func TestAFileTheUserWroteInTheCellSurvivesEveryRun(t *testing.T) {
