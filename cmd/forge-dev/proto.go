@@ -80,7 +80,7 @@ func (c *Config) validateSpecSources() []ValidationError {
 	return nil
 }
 
-func validateProtoOnlyCell(config *Config, configPath string, warnings []mcptypes.ValidationWarning) *mcptypes.ConfigValidateOutput {
+func validateCellWithNoOpenAPI(config *Config, configPath string, warnings []mcptypes.ValidationWarning) *mcptypes.ConfigValidateOutput {
 	warnings = warnMissingProto(config, configPath, warnings)
 	warnings = warnMissingWiring(config, configPath, warnings)
 

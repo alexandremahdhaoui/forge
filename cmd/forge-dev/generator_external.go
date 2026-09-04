@@ -112,13 +112,12 @@ var newGeneratorCaller = func() generatorCaller {
 }
 
 // externalCall is one dispatch to a generator: which engine, what spec it
-// reads, where its answer lands, and what the previous run left behind.
+// reads, and where its answer lands.
 type externalCall struct {
 	srcDir      string
 	config      *Config
 	generator   string
 	checksum    string
-	previous    []string
 	openAPISpec string
 	outputDir   string
 }
@@ -215,7 +214,7 @@ func generateExternal(call externalCall) ([]string, error) {
 		written = append(written, clean)
 	}
 
-	if err := checkGeneratedAnswer(srcDir, generatorURI, output, written, call.previous); err != nil {
+	if err := checkGeneratedAnswer(srcDir, generatorURI, output, written); err != nil {
 		return nil, err
 	}
 
@@ -251,9 +250,10 @@ func escapesEngineDir(clean string) bool {
 const GeneratedCellManifestFile = "zz_generated_cell.yaml"
 
 // checkGeneratedAnswer holds the rules that need the written answer: a
-// declared manifest is present and the previous answer's leftovers go. The
-// path rules run before anything is written.
-func checkGeneratedAnswer(srcDir, generatorURI string, output GeneratorOutput, written, previous []string) error {
+// declared manifest is present and the answer joins the recorded list. The
+// path rules run before anything is written. The stale sweep runs once,
+// after every generator of the cell has answered.
+func checkGeneratedAnswer(srcDir, generatorURI string, output GeneratorOutput, written []string) error {
 	if err := checkCellManifest(generatorURI, output, written); err != nil {
 		return err
 	}
@@ -265,13 +265,20 @@ func checkGeneratedAnswer(srcDir, generatorURI string, output GeneratorOutput, w
 		return err
 	}
 
-	kept := append(append([]string{}, recorded...), written...)
+	return recordGeneratedFiles(runnablePath, append(append([]string{}, recorded...), written...))
+}
 
-	if err := removeStaleGeneratedFiles(srcDir, previous, kept); err != nil {
+// sweepStaleGeneratedFiles removes what the previous run recorded and no
+// generator of this run answered. The recorded list is the union of every
+// generator's answer, so a cell with a main generator and a config
+// generator keeps both sets.
+func sweepStaleGeneratedFiles(srcDir string, previous []string) error {
+	kept, err := ReadGeneratedFiles(filepath.Join(srcDir, GeneratedRunnableFile))
+	if err != nil {
 		return err
 	}
 
-	return recordGeneratedFiles(runnablePath, kept)
+	return removeStaleGeneratedFiles(srcDir, previous, kept)
 }
 
 func checkGeneratedPaths(generatorURI string, written []string) error {
@@ -314,7 +321,7 @@ func removeStaleGeneratedFiles(srcDir string, previous, written []string) error 
 		}
 
 		if !removableGeneratedPath(path) {
-			log.Printf("forge-dev: skipped the recorded entry %s, it is not a generated file inside the engine directory", path)
+			log.Printf("forge-dev: skipped the recorded entry %s, it is not removable, it must be named zz_generated and stay inside the engine directory", path)
 
 			continue
 		}

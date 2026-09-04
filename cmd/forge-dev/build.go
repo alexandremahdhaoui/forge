@@ -189,7 +189,19 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	generatedFiles = append(generatedFiles, GeneratedRunnableFile)
 	log.Printf("forge-dev: generated %s", runnablePath)
 
+	sweepStale := func() error {
+		if config.Generator == "" && !config.declaresConfigGenerator() {
+			return nil
+		}
+
+		return sweepStaleGeneratedFiles(srcDir, previouslyGenerated)
+	}
+
 	finish := func() (*forge.Artifact, error) {
+		if err := sweepStale(); err != nil {
+			return nil, err
+		}
+
 		if err := generateSharedDocs(srcDir, config, types, checksum, &generatedFiles); err != nil {
 			return nil, err
 		}
@@ -225,7 +237,6 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 			config:      config,
 			generator:   config.ConfigGenerator.Engine,
 			checksum:    checksum,
-			previous:    previouslyGenerated,
 			openAPISpec: configSpec,
 			outputDir:   config.ConfigGenerator.OutputDir,
 		})
@@ -251,7 +262,6 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 			config:      config,
 			generator:   config.Generator,
 			checksum:    checksum,
-			previous:    previouslyGenerated,
 			openAPISpec: openAPISpec,
 		})
 		if err != nil {

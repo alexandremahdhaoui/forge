@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -144,6 +145,33 @@ func TestTheMainGeneratorFilesSurviveASecondRunWithAConfigGenerator(t *testing.T
 
 	require.FileExists(t, filepath.Join(dir, "zz_generated_lib.rs"))
 	require.FileExists(t, filepath.Join(dir, "zz_generated_config.rs"))
+}
+
+func TestASecondRunOfACellWithAConfigGeneratorRemovesNothing(t *testing.T) {
+	dir := t.TempDir()
+	writeKindFixture(t, dir, hexagonalCellYaml(
+		"configGenerator: forge://example.com/org/configgen/cmd/configgen-gen\n"))
+
+	answers := []map[string]interface{}{
+		answerWith("zz_generated_lib.rs"),
+		answerWith("zz_generated_config.rs"),
+	}
+
+	withTwoStubs(t, &twoStubCaller{answers: answers})
+	_, err := generate(context.Background(), mcptypes.BuildInput{Name: "fixture-gui", Src: dir, Engine: "forge://forge-dev", Force: true})
+	require.NoError(t, err)
+
+	var logged strings.Builder
+
+	previousOutput := log.Writer()
+	log.SetOutput(&logged)
+	t.Cleanup(func() { log.SetOutput(previousOutput) })
+
+	withTwoStubs(t, &twoStubCaller{answers: answers})
+	_, err = generate(context.Background(), mcptypes.BuildInput{Name: "fixture-gui", Src: dir, Engine: "forge://forge-dev", Force: true})
+	require.NoError(t, err)
+
+	require.NotContains(t, logged.String(), "removed the stale generated file")
 }
 
 func TestTheConfigGeneratorReadsTheCellLocalSchemaWhenTheMainGeneratorWroteOne(t *testing.T) {

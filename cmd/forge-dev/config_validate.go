@@ -125,7 +125,7 @@ func validateForgeDevConfig(input mcptypes.ConfigValidateInput) *mcptypes.Config
 	// waits for the build. A file that exists and fails to parse remains an
 	// error - that is a broken spec, not an unresolved one.
 	if !config.declaresOpenAPI() {
-		return validateProtoOnlyCell(config, configPath, warnings)
+		return validateCellWithNoOpenAPI(config, configPath, warnings)
 	}
 
 	specPath := filepath.Join(configPath, config.OpenAPI.SpecPath)

@@ -2,7 +2,7 @@
 
 forge-dev generates programs from typed sources along two axes. Kind says
 what the program is. Language says what emits it. A generator fills one
-kind and language cell. The defaults ship here; a custom generator is any
+kind and language cell. The defaults ship here. A custom generator is any
 forge engine, so a new cell never touches forge-dev.
 
 ## What core owns and generators never do
@@ -21,7 +21,7 @@ redefine the runnable manifest.
 | mcp-server | `layout.tools` | stdio JSON-RPC server, config-validate derived from the Spec schema |
 | rest-api | the OpenAPI paths | HTTP server: typed handler per operation, mux from the paths verbatim, LISTENING line on bind. A nil handler answers 501, never a 404 |
 | cli | `layout.commands` | argv dispatcher, exit codes pass through, unknown command fails loud |
-| binary | none | nothing; the runnable manifest and the docs are the output |
+| binary | none | nothing. The runnable manifest and the docs are the output |
 
 A custom kind is any other name plus whatever layout its generator
 defines. Core passes the layout through opaquely and the generator
@@ -43,8 +43,8 @@ framework wiring, data internal to the mcp-server kind.
 
 ## Language, axis two
 
-Builtin cells today: mcp-server in go, rust, python and typescript
-(profiles are go only); cli and rest-api in go; binary in every language.
+Builtin cells today. mcp-server in go, rust, python and typescript.
+Profiles are go only. cli and rest-api in go. binary in every language.
 Every other cell is external.
 
 ## Generator, the extension door
