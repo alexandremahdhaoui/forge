@@ -16,21 +16,21 @@ redefine the runnable manifest.
 
 ## Kind, axis one
 
-| Kind | Surface | The generated skeleton |
+| Kind | Layout | The generated skeleton |
 |---|---|---|
-| mcp-server | `surface.tools` | stdio JSON-RPC server, config-validate derived from the Spec schema |
+| mcp-server | `layout.tools` | stdio JSON-RPC server, config-validate derived from the Spec schema |
 | rest-api | the OpenAPI paths | HTTP server: typed handler per operation, mux from the paths verbatim, LISTENING line on bind. A nil handler answers 501, never a 404 |
-| cli | `surface.commands` | argv dispatcher, exit codes pass through, unknown command fails loud |
+| cli | `layout.commands` | argv dispatcher, exit codes pass through, unknown command fails loud |
 | binary | none | nothing; the runnable manifest and the docs are the output |
 
-A custom kind is any other name plus whatever surface its generator
-defines. Core passes the surface through opaquely and the generator
+A custom kind is any other name plus whatever layout its generator
+defines. Core passes the layout through opaquely and the generator
 validates it. Every kind's runnable manifest has the same `inputs:`
 shape, so forge-factory checks inputs without knowing kinds.
 
 ### mcp-server profiles
 
-The old engine types survive as profiles: preset tool surfaces plus the
+The old engine types survive as profiles: preset tool lists plus the
 framework wiring, data internal to the mcp-server kind.
 
 | Profile | Handler the author writes |
@@ -39,7 +39,7 @@ framework wiring, data internal to the mcp-server kind.
 | test-runner | `Run(ctx, RunInput, *Spec) (*TestReport, error)` |
 | testenv-subengine | `Create` and `Delete` |
 | dependency-detector | the detect tool registration |
-| none, the default | one handler per `surface.tools` entry |
+| none, the default | one handler per `layout.tools` entry |
 
 ## Language, axis two
 
@@ -54,7 +54,7 @@ name: my-gui
 kind: gui
 language: rust
 generator: forge://github.com/x/gui-gen/engines/gui-gen
-surface:
+layout:
   windows:
     - name: main-window
 ```
@@ -65,9 +65,9 @@ normalized model and answers files:
 ```json
 // input
 {"name","version","description","kind","language","packageName",
- "surface","runtime","openapiSpec","checksum","srcDir"}
+ "layout","runtime","openapiSpec","protoSpec","wiringSpec","checksum","srcDir"}
 // output
-{"files":[{"path":"zz_generated_gui.rs","content":"..."}]}
+{"files":[{"path":"zz_generated_gui.rs","content":"..."}],"manifest":false}
 ```
 
 Paths are relative to the engine directory and never escape it. The
@@ -75,24 +75,60 @@ generator resolves like every engine: `forge://` through the factory and
 register, so a generator is versioned, proven and cached like anything
 else it generates for.
 
-## The config surface: the spec is the source of truth
+## The wiring spec
 
-A cli or binary cell may name a `configGenerator:` beside the builtin
-cell. It speaks the same `generate` contract, but fills only the config
-surface: the Spec schema of the engine's own OpenAPI document decides the
-keys, and the generator answers a typed loader for them - flag beats env
-beats default, a required key with no value is an error, an unknown flag
-is an error. Nothing declares a key twice: the schema that validates the
-engine's spec is the one that grows its flags and env.
+A cell may name a `wiring.specPath:` beside `openapi:` and `proto:`. Its
+text travels to the generator as `wiringSpec`, and its path joins the
+source checksum, so an edit to the wiring file regenerates the cell.
+
+```yaml
+wiring:
+  specPath: ./wiring.yaml
+```
+
+`config-validate` warns when the file does not exist yet, the same way it
+warns for an unresolved OpenAPI or proto spec.
+
+## What core checks after a generator answers
+
+Three rules run on every answer, before the build calls it a success.
+
+1. Every returned path is named `zz_generated`. A path that is not fails
+   with the path and the generator URI.
+2. The returned list lands in `zz_generated.runnable.yaml` under `files`.
+   On the next run a file the previous list held and the new answer does
+   not is removed, and the removal is logged.
+3. An answer with `manifest: true` must hold `zz_generated_cell.yaml`. An
+   answer without it fails naming the generator.
+
+## The config keys: the spec is the source of truth
+
+Any cell may name a `configGenerator:`. It speaks the same `generate`
+contract, but fills only the config keys: a Spec schema decides the keys,
+and the generator answers a typed loader for them - flag beats env beats
+default, a required key with no value is an error, an unknown flag is an
+error. Nothing declares a key twice: the schema that validates the spec
+is the one that grows its flags and env.
 
 ```yaml
 kind: cli
 configGenerator: forge://github.com/alexandremahdhaoui/golden-configgen/cmd/configgen-gen
 ```
 
-A full `generator:` owns the whole cell, config included, so the two keys
-are mutually exclusive. mcp-server derives config-validate from the same
-schema already and takes neither.
+The block form names the directory the answer lands in. Every path the
+config generator answers is prefixed with it.
+
+```yaml
+configGenerator:
+  engine: forge://github.com/alexandremahdhaoui/golden-configgen/cmd/configgen-gen
+  outputDir: src/config
+```
+
+A `generator:` and a `configGenerator:` sit together. The main generator
+runs first, then the config generator, then the docs. A main generator
+that writes `zz_generated_config_spec.yaml` hands the config generator
+that schema instead of the cell's `openapi.specPath`, so a cell whose
+keys are derived rather than declared still gets a loader.
 
 ## Migration from type:
 
@@ -101,4 +137,10 @@ schema already and takes neither.
 - `type: builder` and the other three: `kind: mcp-server` plus
   `profile: X`.
 - `type: generic`: `kind: mcp-server` and move `generate.tools` to
-  `surface.tools`.
+  `layout.tools`.
+
+## Migration from surface:
+
+`surface:` is the old name of `layout:`. A file that still carries it
+fails to read with one line: surface was renamed to layout on 2026-09-04,
+rename the block.

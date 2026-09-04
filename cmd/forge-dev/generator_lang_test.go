@@ -52,7 +52,7 @@ openapi:
 generate:
   packageName: main
   docsBaseURL: https://example.com/raw
-surface:
+layout:
   tools:
     - name: echo
       description: Echo the input back.

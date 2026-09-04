@@ -26,7 +26,7 @@ func genericConfigWith(tools ...ToolConfig) *Config {
 	c := &Config{Name: "ci-state-git", Kind: KindMCPServer, Version: "0.1.0"}
 	c.Generate.PackageName = "main"
 	if len(tools) > 0 {
-		c.Surface = &SurfaceConfig{Tools: tools}
+		c.Layout = &LayoutConfig{Tools: tools}
 	}
 
 	return c
@@ -49,7 +49,7 @@ func hasError(errs []ValidationError, field, message string) bool {
 func TestGenericRequiresAtLeastOneTool(t *testing.T) {
 	errs := ValidateConfig(genericConfigWith())
 
-	if !hasError(errs, "surface.tools", "at least one tool is required for an mcp-server without a profile") {
+	if !hasError(errs, "layout.tools", "at least one tool is required for an mcp-server without a profile") {
 		t.Errorf("a generic engine with no tools was accepted: %v", errs)
 	}
 }
@@ -59,7 +59,7 @@ func TestToolsAreRejectedOnEveryProfile(t *testing.T) {
 		c := genericConfigWith(validTool())
 		c.Profile = string(profile)
 
-		if !hasError(ValidateConfig(c), "surface.tools", "only an mcp-server without a profile declares tools") {
+		if !hasError(ValidateConfig(c), "layout.tools", "only an mcp-server without a profile declares tools") {
 			t.Errorf("%s accepted a tools block", profile)
 		}
 	}
@@ -69,7 +69,7 @@ func TestTheOldTypeKeyFailsLoudNamingTheMigration(t *testing.T) {
 	c := genericConfigWith(validTool())
 	c.Type = "builder"
 
-	if !hasError(ValidateConfig(c), "type", "removed; use kind: mcp-server with profile: builder, and surface.tools for generic") {
+	if !hasError(ValidateConfig(c), "type", "removed; use kind: mcp-server with profile: builder, and layout.tools for generic") {
 		t.Errorf("a stale type: key did not fail with the migration line: %v", ValidateConfig(c))
 	}
 }
@@ -79,7 +79,7 @@ func TestTheOldGenerateToolsKeyFailsLoud(t *testing.T) {
 	c.Generate.PackageName = "main"
 	c.Generate.Tools = []ToolConfig{validTool()}
 
-	if !hasError(ValidateConfig(c), "generate.tools", "moved; declare the tools under surface.tools") {
+	if !hasError(ValidateConfig(c), "generate.tools", "moved; declare the tools under layout.tools") {
 		t.Errorf("a stale generate.tools block did not fail with the move line: %v", ValidateConfig(c))
 	}
 }
@@ -94,39 +94,39 @@ func TestEveryToolFieldIsChecked(t *testing.T) {
 		{
 			"no name",
 			ToolConfig{Description: "x", Input: "In"},
-			"surface.tools[0].name", "required field is missing",
+			"layout.tools[0].name", "required field is missing",
 		},
 		{
 			"name is not an identifier",
 			ToolConfig{Name: "1bad", Description: "x", Input: "In"},
-			"surface.tools[0].name",
+			"layout.tools[0].name",
 			"must be alphanumeric with hyphens or underscores, starting with a letter",
 		},
 		{
 			"name is reserved",
 			ToolConfig{Name: "config-validate", Description: "x", Input: "In"},
-			"surface.tools[0].name", `"config-validate" is reserved and registered automatically`,
+			"layout.tools[0].name", `"config-validate" is reserved and registered automatically`,
 		},
 		{
 			"no description",
 			ToolConfig{Name: "get", Input: "In"},
-			"surface.tools[0].description", "required field is missing",
+			"layout.tools[0].description", "required field is missing",
 		},
 		{
 			"no input",
 			ToolConfig{Name: "get", Description: "x"},
-			"surface.tools[0].input", "required field is missing",
+			"layout.tools[0].input", "required field is missing",
 		},
 		{
 			"input is not a schema name",
 			ToolConfig{Name: "get", Description: "x", Input: "notCamel"},
-			"surface.tools[0].input",
+			"layout.tools[0].input",
 			"must be a schema name from components.schemas, CamelCase starting with an uppercase letter",
 		},
 		{
 			"output is not a schema name",
 			ToolConfig{Name: "get", Description: "x", Input: "In", Output: "notCamel"},
-			"surface.tools[0].output",
+			"layout.tools[0].output",
 			"must be a schema name from components.schemas, CamelCase starting with an uppercase letter",
 		},
 	} {
@@ -141,7 +141,7 @@ func TestEveryToolFieldIsChecked(t *testing.T) {
 func TestDuplicateToolNamesAreRejected(t *testing.T) {
 	errs := ValidateConfig(genericConfigWith(validTool(), validTool()))
 
-	if !hasError(errs, "surface.tools[1].name", `duplicate tool name "get"`) {
+	if !hasError(errs, "layout.tools[1].name", `duplicate tool name "get"`) {
 		t.Errorf("two tools named get were accepted: %v", errs)
 	}
 }
@@ -197,7 +197,7 @@ func TestCrossReferenceFindsAMissingSchema(t *testing.T) {
 
 	errs := ValidateGenericTools(c, knownTypes("Spec", "StateGetInput"))
 
-	if !hasError(errs, "surface.tools[0].output", `schema "StateGetOutput" not found in components.schemas`) {
+	if !hasError(errs, "layout.tools[0].output", `schema "StateGetOutput" not found in components.schemas`) {
 		t.Errorf("a tool naming a missing output schema was accepted: %v", errs)
 	}
 }
@@ -224,7 +224,7 @@ func TestCrossReferenceCatchesAGeneratedNameCollision(t *testing.T) {
 
 	errs := ValidateGenericTools(c, knownTypes("In", "GetFunc"))
 
-	if !hasError(errs, "surface.tools[0].name",
+	if !hasError(errs, "layout.tools[0].name",
 		`tool name "get" generates type "GetFunc", which collides with a schema of that name`) {
 		t.Errorf("a tool colliding with a schema was accepted: %v", errs)
 	}
@@ -238,7 +238,7 @@ func TestCrossReferenceCatchesTwoToolsGeneratingOneType(t *testing.T) {
 
 	errs := ValidateGenericTools(c, knownTypes("In"))
 
-	if !hasError(errs, "surface.tools[1].name",
+	if !hasError(errs, "layout.tools[1].name",
 		`tool names "state-get" and "state_get" both generate type "StateGetFunc"`) {
 		t.Errorf("two tools generating one type were accepted: %v", errs)
 	}
@@ -249,7 +249,7 @@ func TestCrossReferenceRejectsASchemaNamedHandlers(t *testing.T) {
 
 	errs := ValidateGenericTools(c, knownTypes("In", "Handlers"))
 
-	if !hasError(errs, "surface.tools",
+	if !hasError(errs, "layout.tools",
 		`a schema named "Handlers" collides with the generated Handlers struct`) {
 		t.Errorf("a schema named Handlers was accepted: %v", errs)
 	}

@@ -28,7 +28,7 @@ import (
 // ConfigFileName is the expected name of the forge-dev configuration file.
 const ConfigFileName = "forge-dev.yaml"
 
-// EngineType is the mcp-server kind's profile: the preset tool surface and
+// EngineType is the mcp-server kind's profile: the preset tool list and
 // framework wiring a generated MCP engine carries. It survives from the old
 // type: key as data internal to the mcp-server kind.
 type EngineType string
@@ -46,12 +46,12 @@ const (
 	// forge-dev.yaml rather than fixed by the engine family. Their inputs and
 	// outputs are schemas from components.schemas, so a sibling repository can
 	// generate an engine forge has never heard of. It is the default profile:
-	// an mcp-server with no profile key and a surface.tools list is generic.
+	// an mcp-server with no profile key and a layout.tools list is generic.
 	EngineTypeGeneric EngineType = "generic"
 )
 
 // ValidProfiles are the named mcp-server profiles. Generic is not named: it
-// is the absence of a profile plus a surface.tools list.
+// is the absence of a profile plus a layout.tools list.
 var ValidProfiles = []EngineType{
 	EngineTypeBuilder,
 	EngineTypeTestRunner,
@@ -63,14 +63,14 @@ var ValidProfiles = []EngineType{
 // generator fills one kind and language cell. An unknown kind is allowed
 // exactly when a generator: URI owns it.
 const (
-	// KindMCPServer answers MCP over stdio. Surface: tools.
+	// KindMCPServer answers MCP over stdio. Layout: tools.
 	KindMCPServer = "mcp-server"
 	// KindRestAPI serves the operations of the OpenAPI paths over HTTP.
 	// Defined; no builtin cell yet, so it needs a generator: URI.
 	KindRestAPI = "rest-api"
-	// KindCLI parses argv into commands. Surface: commands.
+	// KindCLI parses argv into commands. Layout: commands.
 	KindCLI = "cli"
-	// KindBinary is a plain entrypoint. No surface, no generated code; the
+	// KindBinary is a plain entrypoint. No layout, no generated code; the
 	// runnable manifest and the docs are the whole output.
 	KindBinary = "binary"
 )
@@ -88,24 +88,24 @@ type Config struct {
 	// rest-api, cli, binary, or a custom name owned by a generator.
 	Kind string `yaml:"kind"`
 
-	// Profile selects an mcp-server preset surface: builder, test-runner,
+	// Profile selects an mcp-server preset layout: builder, test-runner,
 	// testenv-subengine or dependency-detector. Absent means generic, whose
-	// tools come from surface.tools.
+	// tools come from layout.tools.
 	Profile string `yaml:"profile,omitempty"`
 
 	// Generator names a forge:// engine that emits this kind and language
 	// cell instead of a builtin. Required for a custom kind.
 	Generator string `yaml:"generator,omitempty"`
 
-	// ConfigGenerator names a forge:// engine that emits the config surface
-	// of a cli or binary cell from the Spec schema: typed loading, flag
-	// beats env beats default, unknown flag fails loud. The builtin cell
-	// keeps everything else, so the spec stays the one source of the keys.
-	ConfigGenerator string `yaml:"configGenerator,omitempty"`
+	// ConfigGenerator names a forge:// engine that emits the config keys
+	// of a cell from the Spec schema: typed loading, flag beats env beats
+	// default, unknown flag fails loud. The rest of the cell keeps
+	// everything else, so the spec stays the one source of the keys.
+	ConfigGenerator ConfigGeneratorConfig `yaml:"configGenerator,omitempty"`
 
-	// Surface is the kind's vocabulary: tools for mcp-server, commands for
+	// Layout is the kind's vocabulary: tools for mcp-server, commands for
 	// cli, anything the owning generator defines for a custom kind.
-	Surface *SurfaceConfig `yaml:"surface,omitempty"`
+	Layout *LayoutConfig `yaml:"layout,omitempty"`
 
 	// Type is removed. It fails validation with one line naming kind and
 	// profile, so a stale file never generates silently.
@@ -131,6 +131,8 @@ type Config struct {
 
 	Proto ProtoConfig `yaml:"proto,omitempty"`
 
+	Wiring WiringConfig `yaml:"wiring,omitempty"`
+
 	// Generate contains code generation settings.
 	Generate GenerateConfig `yaml:"generate"`
 }
@@ -146,14 +148,43 @@ type RuntimeConfig struct {
 // ValidLanguages are the template sets forge-dev can generate.
 var ValidLanguages = []string{"go", "rust", "python", "typescript"}
 
-// SurfaceConfig is the kind vocabulary. Exactly one block fits a builtin
+// ConfigGeneratorConfig names the engine that emits the config loader and
+// the directory its files land in. A plain string is the engine with no
+// directory of its own.
+type ConfigGeneratorConfig struct {
+	Engine    string `yaml:"engine,omitempty"`
+	OutputDir string `yaml:"outputDir,omitempty"`
+}
+
+func (c *ConfigGeneratorConfig) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind == yaml.ScalarNode {
+		return node.Decode(&c.Engine)
+	}
+
+	type block ConfigGeneratorConfig
+
+	var decoded block
+	if err := node.Decode(&decoded); err != nil {
+		return err
+	}
+
+	*c = ConfigGeneratorConfig(decoded)
+
+	return nil
+}
+
+func (c *Config) declaresConfigGenerator() bool {
+	return c.ConfigGenerator.Engine != ""
+}
+
+// LayoutConfig is the kind vocabulary. Exactly one block fits a builtin
 // kind; a custom kind carries whatever its generator defines in Extra.
-type SurfaceConfig struct {
+type LayoutConfig struct {
 	// Tools declares the MCP tools of an mcp-server without a profile.
 	Tools []ToolConfig `yaml:"tools,omitempty"`
 	// Commands declares the subcommands of a cli.
 	Commands []CommandConfig `yaml:"commands,omitempty"`
-	// Extra carries a custom kind's surface, validated by its generator.
+	// Extra carries a custom kind's layout, validated by its generator.
 	Extra map[string]interface{} `yaml:",inline"`
 }
 
@@ -177,20 +208,20 @@ func (c *Config) engineType() EngineType {
 
 // tools answers the declared MCP tools of a generic mcp-server.
 func (c *Config) tools() []ToolConfig {
-	if c.Surface == nil {
+	if c.Layout == nil {
 		return nil
 	}
 
-	return c.Surface.Tools
+	return c.Layout.Tools
 }
 
 // commands answers the declared subcommands of a cli.
 func (c *Config) commands() []CommandConfig {
-	if c.Surface == nil {
+	if c.Layout == nil {
 		return nil
 	}
 
-	return c.Surface.Commands
+	return c.Layout.Commands
 }
 
 func isBuiltinKind(kind string) bool {
@@ -223,7 +254,7 @@ type GenerateConfig struct {
 	DeleteFunc string `yaml:"deleteFunc,omitempty"`
 	// SpecTypes configures external spec types generation (optional).
 	SpecTypes *SpecTypesConfig `yaml:"specTypes,omitempty"`
-	// Tools is removed. It fails validation naming surface.tools.
+	// Tools is removed. It fails validation naming layout.tools.
 	Tools []ToolConfig `yaml:"tools,omitempty"`
 	// HandlersFunc names the constructor the engine author writes to return
 	// Handlers. Defaults to NewHandlers.
@@ -338,12 +369,28 @@ func ReadConfig(dir string) (*Config, error) {
 		return nil, fmt.Errorf("reading config file %s: %w", configPath, err)
 	}
 
+	var renamed renamedBlocks
+	if err := yaml.Unmarshal(data, &renamed); err != nil {
+		return nil, fmt.Errorf("parsing config file %s: %w", configPath, err)
+	}
+
+	if renamed.Surface != nil {
+		return nil, fmt.Errorf("reading config file %s: %s", configPath, SurfaceRenamedMessage)
+	}
+
 	var config Config
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("parsing config file %s: %w", configPath, err)
 	}
 
 	return &config, nil
+}
+
+// SurfaceRenamedMessage names the rename a stale forge-dev.yaml must follow.
+const SurfaceRenamedMessage = "surface was renamed to layout on 2026-09-04, rename the block"
+
+type renamedBlocks struct {
+	Surface *yaml.Node `yaml:"surface"`
 }
 
 // nameRegexp validates that name is lowercase alphanumeric with hyphens, starting with a letter.
@@ -393,7 +440,7 @@ func validateLanguage(c *Config) []ValidationError {
 	if c.Kind == KindMCPServer && c.Profile != "" {
 		return []ValidationError{{
 			Field:   "language",
-			Message: "an mcp-server profile generates go only; drop the profile and declare surface.tools",
+			Message: "an mcp-server profile generates go only; drop the profile and declare layout.tools",
 		}}
 	}
 
@@ -415,21 +462,21 @@ func validateLanguage(c *Config) []ValidationError {
 }
 
 // validateKind enforces the two axis rules: what kinds exist, which need a
-// generator, and what each kind's surface may carry.
+// generator, and what each kind's layout may carry.
 func validateKind(c *Config) []ValidationError {
 	var errors []ValidationError
 
 	if c.Type != "" {
 		errors = append(errors, ValidationError{
 			Field:   "type",
-			Message: "removed; use kind: mcp-server with profile: " + c.Type + ", and surface.tools for generic",
+			Message: "removed; use kind: mcp-server with profile: " + c.Type + ", and layout.tools for generic",
 		})
 	}
 
 	if len(c.Generate.Tools) > 0 {
 		errors = append(errors, ValidationError{
 			Field:   "generate.tools",
-			Message: "moved; declare the tools under surface.tools",
+			Message: "moved; declare the tools under layout.tools",
 		})
 	}
 
@@ -440,27 +487,18 @@ func validateKind(c *Config) []ValidationError {
 		})
 	}
 
-	if c.ConfigGenerator != "" {
-		if !strings.HasPrefix(c.ConfigGenerator, "forge://") {
-			errors = append(errors, ValidationError{
-				Field:   "configGenerator",
-				Message: "must be a forge:// engine URI",
-			})
-		}
+	if c.declaresConfigGenerator() && !strings.HasPrefix(c.ConfigGenerator.Engine, "forge://") {
+		errors = append(errors, ValidationError{
+			Field:   "configGenerator",
+			Message: "must be a forge:// engine URI",
+		})
+	}
 
-		if c.Generator != "" {
-			errors = append(errors, ValidationError{
-				Field:   "configGenerator",
-				Message: "a generator: owns the whole cell, config included; drop one of the two",
-			})
-		}
-
-		if c.Kind != KindCLI && c.Kind != KindBinary {
-			errors = append(errors, ValidationError{
-				Field:   "configGenerator",
-				Message: "only the cli and binary kinds take a config generator; mcp-server derives config-validate from the Spec schema already",
-			})
-		}
+	if c.ConfigGenerator.OutputDir != "" && !c.declaresConfigGenerator() {
+		errors = append(errors, ValidationError{
+			Field:   "configGenerator.outputDir",
+			Message: "an output directory needs an engine: to answer files for it",
+		})
 	}
 
 	switch {
@@ -487,35 +525,35 @@ func validateKind(c *Config) []ValidationError {
 		} else if !isValidProfile(c.Profile) {
 			errors = append(errors, ValidationError{
 				Field:   "profile",
-				Message: fmt.Sprintf("must be one of: %s; generic is the default, drop the profile and declare surface.tools", profileStrings()),
+				Message: fmt.Sprintf("must be one of: %s; generic is the default, drop the profile and declare layout.tools", profileStrings()),
 			})
 		}
 	}
 
-	if c.Kind == KindBinary && c.Surface != nil {
+	if c.Kind == KindBinary && c.Layout != nil {
 		errors = append(errors, ValidationError{
-			Field:   "surface",
-			Message: "the binary kind has no surface",
+			Field:   "layout",
+			Message: "the binary kind has no layout",
 		})
 	}
 
-	if c.Kind == KindRestAPI && c.Generator == "" && c.Surface != nil {
+	if c.Kind == KindRestAPI && c.Generator == "" && c.Layout != nil {
 		errors = append(errors, ValidationError{
-			Field:   "surface",
-			Message: "the rest-api kind's surface is the OpenAPI paths; declare operations in the spec",
+			Field:   "layout",
+			Message: "the rest-api kind's layout is the OpenAPI paths; declare operations in the spec",
 		})
 	}
 
 	if c.Kind == KindCLI && c.Generator == "" && len(c.commands()) == 0 {
 		errors = append(errors, ValidationError{
-			Field:   "surface.commands",
+			Field:   "layout.commands",
 			Message: "at least one command is required for the cli kind",
 		})
 	}
 
 	if c.Kind != KindCLI && len(c.commands()) > 0 {
 		errors = append(errors, ValidationError{
-			Field:   "surface.commands",
+			Field:   "layout.commands",
 			Message: "only the cli kind declares commands",
 		})
 	}
@@ -523,7 +561,7 @@ func validateKind(c *Config) []ValidationError {
 	seen := map[string]bool{}
 
 	for i, cmd := range c.commands() {
-		field := fmt.Sprintf("surface.commands[%d]", i)
+		field := fmt.Sprintf("layout.commands[%d]", i)
 
 		switch {
 		case cmd.Name == "":
@@ -604,7 +642,7 @@ func validateTools(c *Config) []ValidationError {
 	if !generic {
 		if len(c.tools()) > 0 && c.Generator == "" {
 			errors = append(errors, ValidationError{
-				Field:   "surface.tools",
+				Field:   "layout.tools",
 				Message: "only an mcp-server without a profile declares tools",
 			})
 		}
@@ -614,7 +652,7 @@ func validateTools(c *Config) []ValidationError {
 
 	if len(c.tools()) == 0 {
 		errors = append(errors, ValidationError{
-			Field:   "surface.tools",
+			Field:   "layout.tools",
 			Message: "at least one tool is required for an mcp-server without a profile",
 		})
 
@@ -631,7 +669,7 @@ func validateTools(c *Config) []ValidationError {
 	seen := map[string]bool{}
 
 	for i, t := range c.tools() {
-		field := fmt.Sprintf("surface.tools[%d]", i)
+		field := fmt.Sprintf("layout.tools[%d]", i)
 		errors = append(errors, validateTool(field, t, seen)...)
 	}
 

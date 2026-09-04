@@ -41,12 +41,15 @@ generate:
 |-------|------|----------|-------------|
 | `name` | string | Yes | Engine name. Must be lowercase alphanumeric with hyphens, starting with a letter. Max 64 characters. |
 | `kind` | string | Yes | What the program is. One of `mcp-server`, `rest-api`, `cli`, `binary`, or a custom kind owned by a `generator:` |
-| `profile` | enum | No | mcp-server preset. One of `builder`, `test-runner`, `testenv-subengine`, `dependency-detector`. Absent means generic: declare `surface.tools` |
+| `profile` | enum | No | mcp-server preset. One of `builder`, `test-runner`, `testenv-subengine`, `dependency-detector`. Absent means generic: declare `layout.tools` |
 | `generator` | string | No | A `forge://` engine that emits this kind and language cell instead of a builtin |
-| `surface` | object | No | The kind vocabulary: `tools` for mcp-server, `commands` for cli, anything for a custom kind |
+| `layout` | object | No | The kind vocabulary: `tools` for mcp-server, `commands` for cli, anything for a custom kind |
 | `version` | string | Yes | Semantic version in format `x.y.z` |
 | `description` | string | No | Human-readable description of the engine |
 | `openapi.specPath` | string | Yes | Relative path to the OpenAPI spec file |
+| `proto.specPath` | string | No | Relative path to the proto file. Joins the source checksum and travels to the generator as `protoSpec` |
+| `wiring.specPath` | string | No | Relative path to the wiring file. Joins the source checksum and travels to the generator as `wiringSpec` |
+| `configGenerator` | string or object | No | A `forge://` engine that emits the config loader. The object form takes `engine` and `outputDir` |
 | `generate.packageName` | string | Yes | Go package name for generated files. Must be a valid Go identifier. |
 
 ### Engine Types

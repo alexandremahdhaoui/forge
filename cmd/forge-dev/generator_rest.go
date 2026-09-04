@@ -30,7 +30,7 @@ import (
 const GeneratedRESTFile = "zz_generated.rest.go"
 
 // RESTOperation is one operation of the OpenAPI paths. The rest-api kind's
-// surface is exactly this list: the spec declares it, nothing else does.
+// layout is exactly this list: the spec declares it, nothing else does.
 type RESTOperation struct {
 	// Method is the HTTP method, upper case.
 	Method string
@@ -58,7 +58,7 @@ type RESTTemplateData struct {
 // operation has nothing to dispatch to.
 func restOperations(spec *openapi3.T) ([]RESTOperation, error) {
 	if spec.Paths == nil || spec.Paths.Len() == 0 {
-		return nil, fmt.Errorf("reading the OpenAPI paths: a rest-api engine's surface is its paths, and there are none")
+		return nil, fmt.Errorf("reading the OpenAPI paths: a rest-api engine's layout is its paths, and there are none")
 	}
 
 	ops := []RESTOperation{}

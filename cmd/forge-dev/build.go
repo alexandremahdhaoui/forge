@@ -33,7 +33,27 @@ const (
 	GeneratedMCPFile      = "zz_generated.mcp.go"
 	GeneratedMainFile     = "zz_generated.main.go"
 	GeneratedDocsFile     = "zz_generated.docs.go"
+	// GeneratedConfigSpecFile is the schema a cell's main generator writes
+	// for the config generator that runs after it.
+	GeneratedConfigSpecFile = "zz_generated_config_spec.yaml"
 )
+
+// configGeneratorSpecText prefers the schema the cell's main generator
+// wrote and falls back to the cell's own OpenAPI document.
+func configGeneratorSpecText(srcDir string, config *Config) (string, error) {
+	path := filepath.Join(srcDir, GeneratedConfigSpecFile)
+
+	_, err := os.Stat(path)
+	if err == nil {
+		return readSpecText(path)
+	}
+
+	if !os.IsNotExist(err) {
+		return "", fmt.Errorf("looking for %s: %w", GeneratedConfigSpecFile, err)
+	}
+
+	return config.openAPISpecText(srcDir)
+}
 
 // generate is the main code generation function for forge-dev.
 // It reads forge-dev.yaml and spec.openapi.yaml from the input.Src directory,
@@ -153,6 +173,12 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	runnableSchema := ForgeTypesToSpecSchema(types)
 
 	runnablePath := filepath.Join(srcDir, GeneratedRunnableFile)
+
+	previouslyGenerated, err := ReadGeneratedFiles(runnablePath)
+	if err != nil {
+		return nil, err
+	}
+
 	runnableContent, err := GenerateRunnableYAML(config, runnableSchema, checksum)
 	if err != nil {
 		return nil, fmt.Errorf("generating runnable manifest: %w", err)
@@ -179,28 +205,30 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		}, nil
 	}
 
-	// An external generator owns the whole cell: it answers the files and
-	// core writes them. The manifest above and the docs below stay core's.
-	if config.Generator != "" {
-		files, err := generateExternal(srcDir, config, config.Generator, checksum)
-		if err != nil {
-			return nil, err
-		}
-
-		generatedFiles = append(generatedFiles, files...)
-
-		return finish()
-	}
-
-	// A config generator fills only the config surface of a builtin cli or
-	// binary cell: the Spec schema decides the keys, the generator answers
-	// the loader, and the builtin cell keeps everything else.
+	// A config generator fills only the config keys of a cell: the Spec
+	// schema decides the keys, the generator answers the loader, and the
+	// rest of the cell keeps everything else. A cell whose main generator
+	// wrote its own schema is read from that schema instead of the cell's
+	// openapi.specPath.
 	generateConfig := func() error {
-		if config.ConfigGenerator == "" {
+		if !config.declaresConfigGenerator() {
 			return nil
 		}
 
-		files, err := generateExternal(srcDir, config, config.ConfigGenerator, checksum)
+		configSpec, err := configGeneratorSpecText(srcDir, config)
+		if err != nil {
+			return err
+		}
+
+		files, err := generateExternal(externalCall{
+			srcDir:      srcDir,
+			config:      config,
+			generator:   config.ConfigGenerator.Engine,
+			checksum:    checksum,
+			previous:    previouslyGenerated,
+			openAPISpec: configSpec,
+			outputDir:   config.ConfigGenerator.OutputDir,
+		})
 		if err != nil {
 			return err
 		}
@@ -208,6 +236,35 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		generatedFiles = append(generatedFiles, files...)
 
 		return nil
+	}
+
+	// An external generator owns the whole cell: it answers the files and
+	// core writes them. The manifest above and the docs below stay core's.
+	if config.Generator != "" {
+		openAPISpec, err := config.openAPISpecText(srcDir)
+		if err != nil {
+			return nil, err
+		}
+
+		files, err := generateExternal(externalCall{
+			srcDir:      srcDir,
+			config:      config,
+			generator:   config.Generator,
+			checksum:    checksum,
+			previous:    previouslyGenerated,
+			openAPISpec: openAPISpec,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		generatedFiles = append(generatedFiles, files...)
+
+		if err := generateConfig(); err != nil {
+			return nil, err
+		}
+
+		return finish()
 	}
 
 	// The binary kind is an entrypoint the author owns: the manifest, the
@@ -245,7 +302,7 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 
 	// The rest-api kind generates the handler set, the mux and the main
 	// from the OpenAPI paths; the author writes the handlers next to it.
-	// The spec is the surface, so the route table cannot drift from it.
+	// The spec is the route table's one source, so it cannot drift from it.
 	if config.Kind == KindRestAPI {
 		restContent, err := GenerateRESTFile(config, spec, checksum)
 		if err != nil {

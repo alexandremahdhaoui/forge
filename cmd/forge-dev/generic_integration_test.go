@@ -92,7 +92,7 @@ openapi:
 generate:
   packageName: main
   docsBaseURL: https://raw.githubusercontent.com/alexandremahdhaoui/forge-ci/refs/heads/main
-surface:
+layout:
   tools:
     - name: get
       description: Read one record.

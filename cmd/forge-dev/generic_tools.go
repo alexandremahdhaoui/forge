@@ -91,7 +91,7 @@ func ValidateGenericTools(config *Config, types []ForgeTypeDefinition) []Validat
 	generated := map[string]string{}
 
 	for i, t := range config.tools() {
-		field := fmt.Sprintf("surface.tools[%d]", i)
+		field := fmt.Sprintf("layout.tools[%d]", i)
 
 		errors = append(errors, requireObjectSchema(field+".input", t.Input, known)...)
 
@@ -123,7 +123,7 @@ func ValidateGenericTools(config *Config, types []ForgeTypeDefinition) []Validat
 
 	if _, clash := known["Handlers"]; clash {
 		errors = append(errors, ValidationError{
-			Field:   "surface.tools",
+			Field:   "layout.tools",
 			Message: `a schema named "Handlers" collides with the generated Handlers struct`,
 		})
 	}

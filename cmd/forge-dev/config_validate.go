@@ -137,6 +137,8 @@ func validateForgeDevConfig(input mcptypes.ConfigValidateInput) *mcptypes.Config
 				config.OpenAPI.SpecPath),
 		})
 
+		warnings = warnMissingWiring(config, configPath, warnings)
+
 		return &mcptypes.ConfigValidateOutput{Valid: true, Errors: errors, Warnings: warnings}
 	}
 
@@ -207,6 +209,7 @@ func validateForgeDevConfig(input mcptypes.ConfigValidateInput) *mcptypes.Config
 	}
 
 	warnings = warnMissingProto(config, configPath, warnings)
+	warnings = warnMissingWiring(config, configPath, warnings)
 
 	if len(errors) > 0 {
 		return &mcptypes.ConfigValidateOutput{

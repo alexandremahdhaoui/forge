@@ -112,7 +112,7 @@ openapi:
 generate:
   packageName: main
   docsBaseURL: https://example.com/raw
-surface:
+layout:
   commands:
     - name: greet
       description: Print the greeting.
@@ -267,7 +267,7 @@ openapi:
 generate:
   packageName: main
   docsBaseURL: https://example.com/raw
-surface:
+layout:
   windows:
     - name: main-window
 `
@@ -297,8 +297,8 @@ func TestAnExternalGeneratorOwnsACustomKind(t *testing.T) {
 		t.Errorf("the model must carry the cell, got kind %q language %q", stub.model.Kind, stub.model.Language)
 	}
 
-	if stub.model.Surface["windows"] == nil {
-		t.Errorf("a custom surface must pass through opaquely: %v", stub.model.Surface)
+	if stub.model.Layout["windows"] == nil {
+		t.Errorf("a custom layout must pass through opaquely: %v", stub.model.Layout)
 	}
 
 	if !strings.Contains(stub.model.OpenAPISpec, "greeting") {
@@ -348,14 +348,14 @@ func TestKindValidationRules(t *testing.T) {
 			"kind", `"gui" is not a builtin kind, so a generator: URI must own it`,
 		},
 		{
-			"the rest-api surface is the paths",
+			"the rest-api layout is the paths",
 			func() *Config {
 				c := base(KindRestAPI)
-				c.Surface = &SurfaceConfig{Tools: []ToolConfig{{Name: "x"}}}
+				c.Layout = &LayoutConfig{Tools: []ToolConfig{{Name: "x"}}}
 
 				return c
 			}(),
-			"surface", "the rest-api kind's surface is the OpenAPI paths; declare operations in the spec",
+			"layout", "the rest-api kind's layout is the OpenAPI paths; declare operations in the spec",
 		},
 		{
 			"a profile outside mcp-server fails",
@@ -363,19 +363,19 @@ func TestKindValidationRules(t *testing.T) {
 			"profile", "only the mcp-server kind has profiles",
 		},
 		{
-			"the binary kind has no surface",
+			"the binary kind has no layout",
 			func() *Config {
 				c := base(KindBinary)
-				c.Surface = &SurfaceConfig{Commands: []CommandConfig{{Name: "x", Description: "y"}}}
+				c.Layout = &LayoutConfig{Commands: []CommandConfig{{Name: "x", Description: "y"}}}
 
 				return c
 			}(),
-			"surface", "the binary kind has no surface",
+			"layout", "the binary kind has no layout",
 		},
 		{
 			"the cli kind needs commands",
 			base(KindCLI),
-			"surface.commands", "at least one command is required for the cli kind",
+			"layout.commands", "at least one command is required for the cli kind",
 		},
 		{
 			"a generator must be a forge URI",
@@ -397,7 +397,7 @@ func TestTheCLIKindIsGoOnlyWithoutAGenerator(t *testing.T) {
 	c := &Config{Name: "x", Kind: KindCLI, Version: "0.1.0", Language: "rust"}
 	c.OpenAPI.SpecPath = "./spec.openapi.yaml"
 	c.Generate.PackageName = "main"
-	c.Surface = &SurfaceConfig{Commands: []CommandConfig{{Name: "run", Description: "Run."}}}
+	c.Layout = &LayoutConfig{Commands: []CommandConfig{{Name: "run", Description: "Run."}}}
 
 	if !hasError(ValidateConfig(c), "language", "the builtin cli cell generates go only; name a generator: for another language") {
 		t.Errorf("a rust cli without a generator was accepted: %v", ValidateConfig(c))
@@ -409,7 +409,7 @@ func TestTheCLIKindIsGoOnlyWithoutAGenerator(t *testing.T) {
 	}
 }
 
-func TestAConfigGeneratorFillsTheConfigSurfaceOfACLICell(t *testing.T) {
+func TestAConfigGeneratorFillsTheConfigKeysOfACLICell(t *testing.T) {
 	dir := t.TempDir()
 	writeKindFixture(t, dir, cliFixtureYaml()+
 		"configGenerator: forge://example.com/org/configgen/cmd/configgen-generator\n")
@@ -448,45 +448,50 @@ func TestConfigGeneratorValidationRules(t *testing.T) {
 		c := &Config{Name: "x", Kind: kind, Version: "0.1.0"}
 		c.OpenAPI.SpecPath = "./spec.openapi.yaml"
 		c.Generate.PackageName = "main"
-		c.ConfigGenerator = "forge://example.com/org/configgen/cmd/configgen-generator"
+		c.ConfigGenerator = ConfigGeneratorConfig{Engine: "forge://example.com/org/configgen/cmd/configgen-generator"}
 
 		return c
 	}
 
-	cases := []struct {
-		name    string
-		config  *Config
-		message string
-	}{
-		{
-			"only cli and binary take one",
-			func() *Config { c := base(KindMCPServer); return c }(),
-			"only the cli and binary kinds take a config generator; mcp-server derives config-validate from the Spec schema already",
-		},
-		{
-			"a full generator owns config too",
-			func() *Config {
-				c := base("gui")
-				c.Generator = "forge://example.com/org/gui-gen/engines/gui-gen"
+	t.Run("a config generator must be a forge URI", func(t *testing.T) {
+		c := base(KindBinary)
+		c.ConfigGenerator = ConfigGeneratorConfig{Engine: "https://example.com"}
 
-				return c
-			}(),
-			"a generator: owns the whole cell, config included; drop one of the two",
-		},
-		{
-			"a config generator must be a forge URI",
-			func() *Config { c := base(KindBinary); c.ConfigGenerator = "https://example.com"; return c }(),
-			"must be a forge:// engine URI",
-		},
-	}
+		if !hasError(ValidateConfig(c), "configGenerator", "must be a forge:// engine URI") {
+			t.Errorf("a non forge config generator was accepted: %v", ValidateConfig(c))
+		}
+	})
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if !hasError(ValidateConfig(tc.config), "configGenerator", tc.message) {
-				t.Errorf("want configGenerator: %s, got %v", tc.message, ValidateConfig(tc.config))
+	t.Run("an output directory needs an engine", func(t *testing.T) {
+		c := base(KindBinary)
+		c.ConfigGenerator = ConfigGeneratorConfig{OutputDir: "src/config"}
+
+		if !hasError(ValidateConfig(c), "configGenerator.outputDir", "an output directory needs an engine: to answer files for it") {
+			t.Errorf("a lone output directory was accepted: %v", ValidateConfig(c))
+		}
+	})
+
+	t.Run("any kind may carry a config generator", func(t *testing.T) {
+		for _, kind := range []string{KindMCPServer, KindCLI, KindBinary} {
+			c := base(kind)
+			for _, e := range ValidateConfig(c) {
+				if e.Field == "configGenerator" {
+					t.Errorf("kind %s refused a config generator: %v", kind, e)
+				}
 			}
-		})
-	}
+		}
+	})
+
+	t.Run("a generator and a config generator sit together", func(t *testing.T) {
+		c := base("gui")
+		c.Generator = "forge://example.com/org/gui-gen/engines/gui-gen"
+
+		for _, e := range ValidateConfig(c) {
+			if e.Field == "configGenerator" {
+				t.Errorf("a generator refused a config generator beside it: %v", e)
+			}
+		}
+	})
 }
 
 const restSpec = `openapi: 3.0.3
@@ -631,7 +636,7 @@ func TestARestAPISpecWithoutPathsFailsLoud(t *testing.T) {
 	writeKindFixture(t, dir, restFixtureYaml())
 
 	_, err := generate(context.Background(), mcptypes.BuildInput{Name: "fixture-rest", Src: dir, Engine: "forge://forge-dev"})
-	if err == nil || !strings.Contains(err.Error(), "surface is its paths") {
+	if err == nil || !strings.Contains(err.Error(), "layout is its paths") {
 		t.Fatalf("a pathless rest-api spec must fail naming the gap, got %v", err)
 	}
 }

@@ -51,6 +51,9 @@ func (c *Config) specPaths(srcDir string) []string {
 	if c.declaresProto() {
 		paths = append(paths, c.protoSpecPath(srcDir))
 	}
+	if c.declaresWiring() {
+		paths = append(paths, c.wiringSpecPath(srcDir))
+	}
 
 	return paths
 }
@@ -78,7 +81,10 @@ func (c *Config) validateSpecSources() []ValidationError {
 }
 
 func validateProtoOnlyCell(config *Config, configPath string, warnings []mcptypes.ValidationWarning) *mcptypes.ConfigValidateOutput {
-	return &mcptypes.ConfigValidateOutput{Valid: true, Warnings: warnMissingProto(config, configPath, warnings)}
+	warnings = warnMissingProto(config, configPath, warnings)
+	warnings = warnMissingWiring(config, configPath, warnings)
+
+	return &mcptypes.ConfigValidateOutput{Valid: true, Warnings: warnings}
 }
 
 func warnMissingProto(config *Config, configPath string, warnings []mcptypes.ValidationWarning) []mcptypes.ValidationWarning {

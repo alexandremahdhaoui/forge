@@ -52,7 +52,7 @@ openapi:
   specPath: spec.openapi.yaml
 generate:
   packageName: main
-surface:
+layout:
   tools:
     - name: reconcile
       description: probe
