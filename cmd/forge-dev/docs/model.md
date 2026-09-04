@@ -87,17 +87,22 @@ wiring:
 ```
 
 `config-validate` warns when the file does not exist yet, the same way it
-warns for an unresolved OpenAPI or proto spec.
+warns for an unresolved OpenAPI or proto spec. A cell that declares
+`wiring.specPath:` and a `generator:` needs no `openapi.specPath:`.
 
 ## What core checks after a generator answers
 
 Three rules run on every answer, before the build calls it a success.
 
-1. Every returned path is named `zz_generated`. A path that is not fails
-   with the path and the generator URI.
+1. Every returned path stays inside the engine directory and is named
+   `zz_generated`. A path that is not fails with the path and the
+   generator URI, and the whole answer is refused before anything is
+   written.
 2. The returned list lands in `zz_generated.runnable.yaml` under `files`.
    On the next run a file the previous list held and the new answer does
-   not is removed, and the removal is logged.
+   not is removed, and the removal is logged. A recorded entry that
+   escapes the engine directory or is not named `zz_generated` is skipped
+   and logged instead of removed.
 3. An answer with `manifest: true` must hold `zz_generated_cell.yaml`. An
    answer without it fails naming the generator.
 
@@ -105,7 +110,7 @@ Three rules run on every answer, before the build calls it a success.
 
 Any cell may name a `configGenerator:`. It speaks the same `generate`
 contract, but fills only the config keys: a Spec schema decides the keys,
-and the generator answers a typed loader for them - flag beats env beats
+and the generator answers a typed loader for them. Flag beats env beats
 default, a required key with no value is an error, an unknown flag is an
 error. Nothing declares a key twice: the schema that validates the spec
 is the one that grows its flags and env.
@@ -116,7 +121,8 @@ configGenerator: forge://github.com/alexandremahdhaoui/golden-configgen/cmd/conf
 ```
 
 The block form names the directory the answer lands in. Every path the
-config generator answers is prefixed with it.
+config generator answers is prefixed with it. An `outputDir:` that is
+absolute or escapes the engine directory fails validation naming it.
 
 ```yaml
 configGenerator:

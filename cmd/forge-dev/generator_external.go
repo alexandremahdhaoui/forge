@@ -183,13 +183,25 @@ func generateExternal(call externalCall) ([]string, error) {
 		return nil, fmt.Errorf("generator %s answered no files", generatorURI)
 	}
 
-	written := []string{}
+	placed := make([]string, 0, len(output.Files))
 
 	for _, file := range output.Files {
 		clean, err := placeAnsweredPath(generatorURI, call.outputDir, file.Path)
 		if err != nil {
 			return nil, err
 		}
+
+		placed = append(placed, clean)
+	}
+
+	if err := checkGeneratedPaths(generatorURI, placed); err != nil {
+		return nil, err
+	}
+
+	written := []string{}
+
+	for i, file := range output.Files {
+		clean := placed[i]
 
 		full := filepath.Join(srcDir, clean)
 		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
@@ -238,14 +250,10 @@ func escapesEngineDir(clean string) bool {
 // manifest: true and must then answer.
 const GeneratedCellManifestFile = "zz_generated_cell.yaml"
 
-// checkGeneratedAnswer holds the three rules every generator answer obeys:
-// every path is generated, the previous answer's leftovers go, and a
-// declared manifest is present.
+// checkGeneratedAnswer holds the rules that need the written answer: a
+// declared manifest is present and the previous answer's leftovers go. The
+// path rules run before anything is written.
 func checkGeneratedAnswer(srcDir, generatorURI string, output GeneratorOutput, written, previous []string) error {
-	if err := checkGeneratedPaths(generatorURI, written); err != nil {
-		return err
-	}
-
 	if err := checkCellManifest(generatorURI, output, written); err != nil {
 		return err
 	}
@@ -305,6 +313,12 @@ func removeStaleGeneratedFiles(srcDir string, previous, written []string) error 
 			continue
 		}
 
+		if !removableGeneratedPath(path) {
+			log.Printf("forge-dev: skipped the recorded entry %s, it is not a generated file inside the engine directory", path)
+
+			continue
+		}
+
 		if err := os.Remove(filepath.Join(srcDir, path)); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("removing the stale generated file %s: %w", path, err)
 		}
@@ -313,6 +327,15 @@ func removeStaleGeneratedFiles(srcDir string, previous, written []string) error 
 	}
 
 	return nil
+}
+
+func removableGeneratedPath(path string) bool {
+	clean := filepath.Clean(path)
+	if escapesEngineDir(clean) {
+		return false
+	}
+
+	return strings.HasPrefix(filepath.Base(clean), "zz_generated")
 }
 
 func recordGeneratedFiles(runnablePath string, written []string) error {

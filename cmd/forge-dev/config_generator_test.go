@@ -20,6 +20,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
@@ -234,4 +235,61 @@ func TestAConfigGeneratorPathThatIsNotNamedZzGeneratedFailsTheSameWay(t *testing
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "config.rs is not named zz_generated")
 	require.Contains(t, err.Error(), "forge://example.com/org/configgen/cmd/configgen-gen")
+}
+
+func TestTheRestAPIKindRunsTheConfigGeneratorItNames(t *testing.T) {
+	dir := t.TempDir()
+	createRequiredDocs(t, dir)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "forge-dev.yaml"),
+		[]byte(restFixtureYaml()+"configGenerator: forge://example.com/org/configgen/cmd/configgen-gen\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "spec.openapi.yaml"), []byte(restSpec), 0o644))
+
+	stub := &twoStubCaller{answers: []map[string]interface{}{
+		answerWith("zz_generated_config.go"),
+	}}
+	withTwoStubs(t, stub)
+
+	_, err := generate(context.Background(), mcptypes.BuildInput{Name: "fixture-rest", Src: dir, Engine: "forge://forge-dev"})
+	require.NoError(t, err)
+
+	require.Equal(t, 1, stub.calls)
+	require.FileExists(t, filepath.Join(dir, "zz_generated_config.go"))
+}
+
+func TestAnOutputDirectoryThatEscapesTheEngineDirectoryFailsValidationNamingIt(t *testing.T) {
+	for _, outputDir := range []string{"/etc/config", "../outside"} {
+		config := &Config{
+			Name:            "fixture-gui",
+			Kind:            KindBinary,
+			Version:         "0.1.0",
+			OpenAPI:         OpenAPIConfig{SpecPath: "./spec.openapi.yaml"},
+			Generate:        GenerateConfig{PackageName: "main"},
+			ConfigGenerator: ConfigGeneratorConfig{Engine: "forge://example.com/org/configgen/cmd/configgen-gen", OutputDir: outputDir},
+		}
+
+		errs := ValidateConfig(config)
+
+		var found bool
+		for _, e := range errs {
+			if e.Field == "configGenerator.outputDir" && strings.Contains(e.Message, outputDir) {
+				found = true
+			}
+		}
+		require.True(t, found, "%s must be refused by name, got %+v", outputDir, errs)
+	}
+}
+
+func TestAnOutputDirectoryInsideTheEngineDirectoryPassesValidation(t *testing.T) {
+	config := &Config{
+		Name:            "fixture-gui",
+		Kind:            KindBinary,
+		Version:         "0.1.0",
+		OpenAPI:         OpenAPIConfig{SpecPath: "./spec.openapi.yaml"},
+		Generate:        GenerateConfig{PackageName: "main"},
+		ConfigGenerator: ConfigGeneratorConfig{Engine: "forge://example.com/org/configgen/cmd/configgen-gen", OutputDir: "src/config"},
+	}
+
+	for _, e := range ValidateConfig(config) {
+		require.NotEqual(t, "configGenerator.outputDir", e.Field)
+	}
 }

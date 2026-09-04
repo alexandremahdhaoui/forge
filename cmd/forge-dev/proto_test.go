@@ -220,3 +220,43 @@ func TestConfigValidateAcceptsAProtoOnlyCellAndWarnsWhenTheProtoIsNotThereYet(t 
 	require.True(t, output.Valid, "%+v", output.Errors)
 	require.Empty(t, output.Warnings)
 }
+
+func TestAWiringOnlyCellWithAGeneratorPassesValidation(t *testing.T) {
+	config := &Config{
+		Name:      "hello-node",
+		Kind:      "hexagonal",
+		Version:   "0.1.0",
+		Language:  "rust",
+		Generator: "forge://example.com/org/codegen/cmd/hexrust",
+		Wiring:    WiringConfig{SpecPath: "./wiring.yaml"},
+		Generate:  GenerateConfig{PackageName: "main"},
+	}
+
+	errs := ValidateConfig(config)
+
+	var fields []string
+	for _, e := range errs {
+		fields = append(fields, e.Field)
+	}
+	require.NotContains(t, fields, "openapi.specPath")
+	require.NotContains(t, fields, "generator")
+}
+
+func TestAWiringOnlyCellWithoutAGeneratorFailsNamingTheGenerator(t *testing.T) {
+	config := &Config{
+		Name:     "hello-node",
+		Kind:     KindBinary,
+		Version:  "0.1.0",
+		Wiring:   WiringConfig{SpecPath: "./wiring.yaml"},
+		Generate: GenerateConfig{PackageName: "main"},
+	}
+
+	errs := ValidateConfig(config)
+
+	var fields []string
+	for _, e := range errs {
+		fields = append(fields, e.Field)
+	}
+	require.Contains(t, fields, "generator")
+	require.NotContains(t, fields, "openapi.specPath")
+}

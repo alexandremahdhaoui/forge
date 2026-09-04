@@ -501,6 +501,13 @@ func validateKind(c *Config) []ValidationError {
 		})
 	}
 
+	if c.ConfigGenerator.OutputDir != "" && escapesEngineDir(filepath.Clean(c.ConfigGenerator.OutputDir)) {
+		errors = append(errors, ValidationError{
+			Field:   "configGenerator.outputDir",
+			Message: "must stay inside the engine directory, and " + c.ConfigGenerator.OutputDir + " is absolute or escapes it",
+		})
+	}
+
 	switch {
 	case c.Kind == "":
 		errors = append(errors, ValidationError{

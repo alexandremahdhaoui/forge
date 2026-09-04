@@ -63,7 +63,7 @@ func (c *Config) validateSpecSources() []ValidationError {
 		return nil
 	}
 
-	if !c.declaresProto() {
+	if !c.declaresProto() && !c.declaresWiring() {
 		return []ValidationError{{
 			Field:   "openapi.specPath",
 			Message: "required field is missing",
@@ -73,7 +73,7 @@ func (c *Config) validateSpecSources() []ValidationError {
 	if c.Generator == "" {
 		return []ValidationError{{
 			Field:   "generator",
-			Message: "a cell that declares proto.specPath and no openapi.specPath needs a generator that reads the proto",
+			Message: "a cell that declares proto.specPath or wiring.specPath and no openapi.specPath needs a generator that reads it",
 		}}
 	}
 

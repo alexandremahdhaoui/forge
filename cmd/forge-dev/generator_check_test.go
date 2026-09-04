@@ -136,3 +136,70 @@ func TestAGeneratorThatDeclaresNoManifestNeedsNone(t *testing.T) {
 
 	require.NoError(t, generateCell(t, dir, answerWith("zz_generated_a.rs")))
 }
+
+func TestARefusedAnswerWritesNothing(t *testing.T) {
+	dir := t.TempDir()
+	writeKindFixture(t, dir, customKindYaml())
+
+	err := generateCell(t, dir, answerWith("zz_generated_a.rs", "src/hand_written.rs"))
+
+	require.Error(t, err)
+	require.NoFileExists(t, filepath.Join(dir, "zz_generated_a.rs"))
+	require.NoFileExists(t, filepath.Join(dir, "src", "hand_written.rs"))
+}
+
+func TestARecordedEntryThatEscapesTheEngineDirectoryIsSkippedInsteadOfRemoved(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "deep", "cell")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	writeKindFixture(t, dir, customKindYaml())
+
+	outside := filepath.Join(root, "x")
+	require.NoError(t, os.WriteFile(outside, []byte("mine\n"), 0o644))
+
+	require.NoError(t, generateCell(t, dir, answerWith("zz_generated_a.rs")))
+
+	runnable := filepath.Join(dir, GeneratedRunnableFile)
+	raw, err := os.ReadFile(runnable)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(runnable, []byte(string(raw)+"  - ../../x\n"), 0o644))
+
+	require.NoError(t, generateCell(t, dir, answerWith("zz_generated_a.rs")))
+
+	require.FileExists(t, outside)
+}
+
+func TestAFileTheUserWroteInTheCellSurvivesEveryRun(t *testing.T) {
+	dir := t.TempDir()
+	writeKindFixture(t, dir, customKindYaml())
+
+	handWritten := filepath.Join(dir, "src", "hand", "mine.rs")
+	require.NoError(t, os.MkdirAll(filepath.Dir(handWritten), 0o755))
+	require.NoError(t, os.WriteFile(handWritten, []byte("fn mine() {}\n"), 0o644))
+
+	require.NoError(t, generateCell(t, dir, answerWith("zz_generated_a.rs", "zz_generated_b.rs")))
+	require.FileExists(t, handWritten)
+
+	require.NoError(t, generateCell(t, dir, answerWith("zz_generated_a.rs")))
+	require.FileExists(t, handWritten)
+
+	require.NoError(t, generateCell(t, dir, answerWith("zz_generated_c.rs")))
+	require.FileExists(t, handWritten)
+}
+
+func TestAFirstRunWithNoRecordedListRemovesNothing(t *testing.T) {
+	dir := t.TempDir()
+	writeKindFixture(t, dir, customKindYaml())
+
+	neighbor := filepath.Join(dir, "zz_generated_stray.rs")
+	require.NoError(t, os.WriteFile(neighbor, []byte("// stray\n"), 0o644))
+
+	recorded, err := ReadGeneratedFiles(filepath.Join(dir, GeneratedRunnableFile))
+	require.NoError(t, err)
+	require.Empty(t, recorded)
+
+	require.NoError(t, generateCell(t, dir, answerWith("zz_generated_a.rs")))
+
+	require.FileExists(t, neighbor)
+	require.FileExists(t, filepath.Join(dir, "zz_generated_a.rs"))
+}

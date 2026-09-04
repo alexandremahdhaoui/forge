@@ -317,6 +317,10 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		generatedFiles = append(generatedFiles, GeneratedRESTFile)
 		log.Printf("forge-dev: generated %s", restPath)
 
+		if err := generateConfig(); err != nil {
+			return nil, err
+		}
+
 		return finish()
 	}
 
@@ -333,6 +337,10 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		}
 		generatedFiles = append(generatedFiles, langName)
 		log.Printf("forge-dev: generated %s", langPath)
+
+		if err := generateConfig(); err != nil {
+			return nil, err
+		}
 
 		return finish()
 	}
@@ -401,6 +409,10 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	}
 	generatedFiles = append(generatedFiles, GeneratedDocsFile)
 	log.Printf("forge-dev: generated %s", docsFilePath)
+
+	if err := generateConfig(); err != nil {
+		return nil, err
+	}
 
 	return finish()
 }
