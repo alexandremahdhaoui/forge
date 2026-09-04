@@ -83,12 +83,9 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		return nil, fmt.Errorf("docs/usage.md is required but not found at %s", usagePath)
 	}
 
-	// Step 2: Resolve spec.openapi.yaml path (relative to forge-dev.yaml location)
-	specPath := filepath.Join(srcDir, config.OpenAPI.SpecPath)
 	configPath := filepath.Join(srcDir, ConfigFileName)
 
-	// Step 3: Compute source checksum
-	checksum, err := ComputeSourceChecksum(configPath, specPath)
+	checksum, err := ComputeSourceChecksum(configPath, config.specPaths(srcDir)...)
 	if err != nil {
 		return nil, fmt.Errorf("computing source checksum: %w", err)
 	}
@@ -134,16 +131,9 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 		log.Printf("forge-dev: force flag set, regenerating %s", config.Name)
 	}
 
-	// Step 5: Load and parse OpenAPI spec using kin-openapi
-	spec, err := LoadOpenAPISpec(specPath)
+	spec, types, err := loadCellTypes(config, srcDir)
 	if err != nil {
-		return nil, fmt.Errorf("loading OpenAPI spec: %w", err)
-	}
-
-	// Generate types using new adapter
-	types, err := GenerateForgeTypes(spec, config.Generate.PackageName)
-	if err != nil {
-		return nil, fmt.Errorf("generating types: %w", err)
+		return nil, err
 	}
 
 	// A generic mcp-server names its inputs and outputs by schema. Cross
@@ -192,7 +182,7 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 	// An external generator owns the whole cell: it answers the files and
 	// core writes them. The manifest above and the docs below stay core's.
 	if config.Generator != "" {
-		files, err := generateExternal(srcDir, config, config.Generator, checksum, specPath)
+		files, err := generateExternal(srcDir, config, config.Generator, checksum)
 		if err != nil {
 			return nil, err
 		}
@@ -210,7 +200,7 @@ func generate(ctx context.Context, input mcptypes.BuildInput) (*forge.Artifact, 
 			return nil
 		}
 
-		files, err := generateExternal(srcDir, config, config.ConfigGenerator, checksum, specPath)
+		files, err := generateExternal(srcDir, config, config.ConfigGenerator, checksum)
 		if err != nil {
 			return err
 		}

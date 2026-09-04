@@ -30,25 +30,23 @@ const (
 	ChecksumHeaderPrefix = "// SourceChecksum: "
 )
 
-// ComputeSourceChecksum computes a SHA256 checksum of the concatenated contents of
-// the configuration file and the OpenAPI spec file.
-func ComputeSourceChecksum(configPath, specPath string) (string, error) {
-	// Read config file
+func ComputeSourceChecksum(configPath string, specPaths ...string) (string, error) {
 	configData, err := os.ReadFile(configPath)
 	if err != nil {
 		return "", fmt.Errorf("reading config file %s: %w", configPath, err)
 	}
 
-	// Read spec file
-	specData, err := os.ReadFile(specPath)
-	if err != nil {
-		return "", fmt.Errorf("reading spec file %s: %w", specPath, err)
-	}
-
-	// Concatenate contents and compute hash
 	h := sha256.New()
 	h.Write(configData)
-	h.Write(specData)
+
+	for _, specPath := range specPaths {
+		specData, err := os.ReadFile(specPath)
+		if err != nil {
+			return "", fmt.Errorf("reading spec file %s: %w", specPath, err)
+		}
+
+		h.Write(specData)
+	}
 
 	checksum := hex.EncodeToString(h.Sum(nil))
 	return ChecksumPrefix + checksum, nil

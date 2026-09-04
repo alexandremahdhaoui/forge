@@ -129,6 +129,8 @@ type Config struct {
 	// OpenAPI contains OpenAPI spec configuration.
 	OpenAPI OpenAPIConfig `yaml:"openapi"`
 
+	Proto ProtoConfig `yaml:"proto,omitempty"`
+
 	// Generate contains code generation settings.
 	Generate GenerateConfig `yaml:"generate"`
 }
@@ -728,13 +730,7 @@ func ValidateConfig(c *Config) []ValidationError {
 		})
 	}
 
-	// Validate openapi.specPath (required)
-	if c.OpenAPI.SpecPath == "" {
-		errors = append(errors, ValidationError{
-			Field:   "openapi.specPath",
-			Message: "required field is missing",
-		})
-	}
+	errors = append(errors, c.validateSpecSources()...)
 
 	// Validate generate.packageName (required)
 	if c.Generate.PackageName == "" {

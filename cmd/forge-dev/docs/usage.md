@@ -47,6 +47,20 @@ generate:
   packageName: main
 ```
 
+A cell whose generator reads a proto file declares `proto.specPath` instead of `openapi.specPath`. forge-dev then hands the raw file text to the generator as `protoSpec` and loads no OpenAPI spec. A cell may declare both, and the generator receives both texts.
+
+```yaml
+name: hello-grpc
+kind: grpc
+language: rust
+generator: forge://github.com/alexandremahdhaoui/forge-dev-codegen/cmd/grpc-rust-tonic
+version: 0.1.0
+proto:
+  specPath: ./proto/hello.v1.proto
+generate:
+  packageName: main
+```
+
 2. Create `spec.openapi.yaml` defining your Spec:
 
 ```yaml

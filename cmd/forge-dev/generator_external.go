@@ -39,6 +39,7 @@ type GeneratorModel struct {
 	Surface     map[string]interface{} `json:"surface,omitempty"`
 	Runtime     *RuntimeConfig         `json:"runtime,omitempty"`
 	OpenAPISpec string                 `json:"openapiSpec"`
+	ProtoSpec   string                 `json:"protoSpec,omitempty"`
 	Checksum    string                 `json:"checksum"`
 	SrcDir      string                 `json:"srcDir"`
 }
@@ -111,10 +112,15 @@ var newGeneratorCaller = func() generatorCaller {
 // directory: a generator emits code, never escapes. The same call serves a
 // generator: owning the whole cell and a configGenerator: filling only the
 // config surface of a builtin cell.
-func generateExternal(srcDir string, config *Config, generatorURI, checksum, specPath string) ([]string, error) {
-	rawSpec, err := os.ReadFile(specPath)
+func generateExternal(srcDir string, config *Config, generatorURI, checksum string) ([]string, error) {
+	openAPISpec, err := config.openAPISpecText(srcDir)
 	if err != nil {
-		return nil, fmt.Errorf("reading the OpenAPI spec for the generator: %w", err)
+		return nil, err
+	}
+
+	protoSpec, err := config.protoSpecText(srcDir)
+	if err != nil {
+		return nil, err
 	}
 
 	model := GeneratorModel{
@@ -126,7 +132,8 @@ func generateExternal(srcDir string, config *Config, generatorURI, checksum, spe
 		PackageName: config.Generate.PackageName,
 		Surface:     surfaceMap(config),
 		Runtime:     config.Runtime,
-		OpenAPISpec: string(rawSpec),
+		OpenAPISpec: openAPISpec,
+		ProtoSpec:   protoSpec,
 		Checksum:    checksum,
 		SrcDir:      srcDir,
 	}
