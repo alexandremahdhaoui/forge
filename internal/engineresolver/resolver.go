@@ -55,27 +55,26 @@ const GoSchemeError = "the go:// scheme is removed; use forge:// " +
 //   - command: "go" or "forge-factory" for forge:// URIs, aliasName for alias:// URIs
 //   - args: the command's arguments, nil for alias:// URIs
 //   - err: error if parsing fails
-func ParseEngineURI(engineURI, forgeVersion string) (engineType string, command string, args []string, err error) {
-	// Check for alias:// protocol - return marker for caller to handle
+func ParseEngineURI(engineURI, forgeVersion string) (engineType string, inv Invocation, err error) {
 	if strings.HasPrefix(engineURI, "alias://") {
 		aliasName := strings.TrimPrefix(engineURI, "alias://")
 		if aliasName == "" {
-			return "", "", nil, fmt.Errorf("empty alias name after alias://")
+			return "", Invocation{}, fmt.Errorf("empty alias name after alias://")
 		}
-		// Return special marker - caller will handle resolution
-		return EngineTypeAlias, aliasName, nil, nil
+
+		return EngineTypeAlias, Invocation{Command: aliasName}, nil
 	}
 
 	if strings.HasPrefix(engineURI, "go://") {
-		return "", "", nil, fmt.Errorf("%s: %s", engineURI, GoSchemeError)
+		return "", Invocation{}, fmt.Errorf("%s: %s", engineURI, GoSchemeError)
 	}
 
-	inv, err := ResolveForgeURI(engineURI, forgeVersion)
+	inv, err = ResolveForgeURI(engineURI, forgeVersion)
 	if err != nil {
-		return "", "", nil, err
+		return "", Invocation{}, err
 	}
 
-	return EngineTypeMCP, inv.Command, inv.Args, nil
+	return EngineTypeMCP, inv, nil
 }
 
 type Invocation struct {

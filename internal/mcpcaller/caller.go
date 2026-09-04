@@ -142,7 +142,7 @@ func (c *Caller) CallMCP(command string, args []string, toolName string, params 
 // Note: This only handles forge:// URIs. alias:// URIs are NOT supported here
 // because alias resolution requires forge.yaml spec access.
 func (c *Caller) ResolveEngine(engineURI string) (string, []string, error) {
-	engineType, command, args, err := engineresolver.ParseEngineURI(engineURI, c.forgeVersion)
+	engineType, inv, err := engineresolver.ParseEngineURI(engineURI, c.forgeVersion)
 	if err != nil {
 		return "", nil, err
 	}
@@ -151,7 +151,7 @@ func (c *Caller) ResolveEngine(engineURI string) (string, []string, error) {
 		return "", nil, fmt.Errorf("alias:// URIs not supported in parallel engines; use resolved forge:// URIs")
 	}
 
-	return command, args, nil
+	return inv.Command, inv.Args, nil
 }
 
 // GetMCPCaller returns a MCPCaller function that can be used with orchestrators.

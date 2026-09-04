@@ -227,10 +227,11 @@ func execThroughRunner(runSpec forge.RunSpec, location string, extra []string) e
 		os.Exit(code)
 	}
 
-	engineType, command, engineArgs, err := engineresolver.ParseEngineURI(runSpec.Engine, getVersion())
+	engineType, inv, err := engineresolver.ParseEngineURI(runSpec.Engine, getVersion())
 	if err != nil {
 		return err
 	}
+	command, engineArgs := inv.Command, inv.Args
 
 	if engineType != engineresolver.EngineTypeMCP {
 		return fmt.Errorf("run target %s: engine %s must be a forge:// URI", runSpec.Name, runSpec.Engine)

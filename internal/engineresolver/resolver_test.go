@@ -134,7 +134,8 @@ func TestParseEngineURI_GoProtocol(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			engineType, command, args, err := ParseEngineURI(tt.engineURI, tt.forgeVersion)
+			engineType, inv, err := ParseEngineURI(tt.engineURI, tt.forgeVersion)
+			command, args := inv.Command, inv.Args
 
 			if tt.wantErr {
 				if err == nil {
@@ -229,7 +230,8 @@ func TestParseEngineURI_AliasProtocol(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			engineType, command, args, err := ParseEngineURI(tt.engineURI, tt.forgeVersion)
+			engineType, inv, err := ParseEngineURI(tt.engineURI, tt.forgeVersion)
+			command, args := inv.Command, inv.Args
 
 			if tt.wantErr {
 				if err == nil {
@@ -297,7 +299,7 @@ func TestParseEngineURI_UnsupportedProtocol(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, _, err := ParseEngineURI(tt.engineURI, tt.forgeVersion)
+			_, _, err := ParseEngineURI(tt.engineURI, tt.forgeVersion)
 
 			if err == nil {
 				t.Errorf("ParseEngineURI() expected error for unsupported protocol, got nil")

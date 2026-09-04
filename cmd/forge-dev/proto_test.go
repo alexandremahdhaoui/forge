@@ -163,6 +163,21 @@ func TestACellWithNeitherSpecStillFailsOnTheOpenAPIPath(t *testing.T) {
 	require.Contains(t, fields, "openapi.specPath")
 }
 
+func TestConfigValidateWarnsWhenACellWithBothSpecsIsMissingItsProto(t *testing.T) {
+	dir := t.TempDir()
+	writeKindFixture(t, dir, customKindYaml()+"proto:\n  specPath: ./hello.v1.proto\n")
+
+	output := validateForgeDevConfig(mcptypes.ConfigValidateInput{Spec: map[string]interface{}{"configPath": dir}})
+
+	require.True(t, output.Valid, "%+v", output.Errors)
+
+	var fields []string
+	for _, w := range output.Warnings {
+		fields = append(fields, w.Field)
+	}
+	require.Contains(t, fields, "proto.specPath")
+}
+
 func TestConfigValidateAcceptsAProtoOnlyCellAndWarnsWhenTheProtoIsNotThereYet(t *testing.T) {
 	dir := t.TempDir()
 	createRequiredDocs(t, dir)

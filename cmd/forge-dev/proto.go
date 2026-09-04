@@ -77,18 +77,25 @@ func (c *Config) validateSpecSources() []ValidationError {
 	return nil
 }
 
-func validateProtoOnlyCell(config *Config, configPath string, errors []mcptypes.ValidationError, warnings []mcptypes.ValidationWarning) *mcptypes.ConfigValidateOutput {
-	protoPath := config.protoSpecPath(configPath)
-	if _, statErr := os.Stat(protoPath); os.IsNotExist(statErr) {
-		warnings = append(warnings, mcptypes.ValidationWarning{
-			Field: "proto.specPath",
-			Message: fmt.Sprintf(
-				"%s does not exist yet; the build's spec resolution materializes it, so its content is validated at build time",
-				config.Proto.SpecPath),
-		})
+func validateProtoOnlyCell(config *Config, configPath string, warnings []mcptypes.ValidationWarning) *mcptypes.ConfigValidateOutput {
+	return &mcptypes.ConfigValidateOutput{Valid: true, Warnings: warnMissingProto(config, configPath, warnings)}
+}
+
+func warnMissingProto(config *Config, configPath string, warnings []mcptypes.ValidationWarning) []mcptypes.ValidationWarning {
+	if !config.declaresProto() {
+		return warnings
 	}
 
-	return &mcptypes.ConfigValidateOutput{Valid: true, Errors: errors, Warnings: warnings}
+	if _, statErr := os.Stat(config.protoSpecPath(configPath)); !os.IsNotExist(statErr) {
+		return warnings
+	}
+
+	return append(warnings, mcptypes.ValidationWarning{
+		Field: "proto.specPath",
+		Message: fmt.Sprintf(
+			"%s does not exist yet; the build's spec resolution materializes it, so its content is validated at build time",
+			config.Proto.SpecPath),
+	})
 }
 
 func loadCellTypes(config *Config, srcDir string) (*openapi3.T, []ForgeTypeDefinition, error) {

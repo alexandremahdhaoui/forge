@@ -606,9 +606,13 @@ When forge encounters an engine URI:
    `forge://<module-path>[@rev]` for a factory member.
 2. **Own engines** (`forge://go-build`): run at the running forge's own
    version - an embedded `@version` is ignored so every engine matches the
-   CLI. With `FORGE_RUN_LOCAL_ENABLED=true` the engine is built from the
-   forge checkout into `build/local-engines/`; otherwise it runs via
+   CLI. When the enclosing `go.work` lists the forge module the engine runs
+   via `go run github.com/alexandremahdhaoui/forge/cmd/<name>` with no
+   version, from the caller's directory. Otherwise it runs via
    `go run github.com/alexandremahdhaoui/forge/cmd/<name>@<forge-version>`.
+   `FORGE_RUN_LOCAL_ENABLED=true` is a forced override that builds the engine
+   from the checkout named by `FORGE_RUN_LOCAL_BASEDIR` into
+   `build/local-engines/`.
 3. **Member engines** (`forge://github.com/x/repo/cmd/tool`): the enclosing
    Go workspace wins when it carries the module; otherwise
    `forge-factory run` materialises it and the version comes from the

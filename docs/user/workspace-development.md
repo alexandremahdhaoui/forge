@@ -93,7 +93,8 @@ When `--config` is a bare filename or omitted, forge stays in the current direct
 ## What about .envrc files?
 
 Each repo typically has its own `.envrc` (gitignored, copied from `.envrc.example`) that sets
-environment variables like `CONTAINER_BUILD_ENGINE` and `FORGE_RUN_LOCAL_ENABLED`. Since forge
+environment variables like `CONTAINER_BUILD_ENGINE`. Workspace mode needs no variable: when
+`go.work` lists the forge module, builtin engines run from that checkout. Since forge
 changes to the target repo's directory first, it sources that repo's `.envrc` automatically.
 
 Make sure each repo has its `.envrc` populated:

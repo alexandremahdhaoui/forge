@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/alexandremahdhaoui/forge/internal/forgepath"
+	"github.com/alexandremahdhaoui/forge/pkg/engineversion"
 	"github.com/alexandremahdhaoui/forge/pkg/toolresolver"
 	"github.com/stretchr/testify/require"
 )
@@ -73,29 +74,47 @@ func TestAMemberOutsideTheWorkspaceMaterializesThroughForgeFactoryFromTheCallers
 	}, engine)
 }
 
+func pinTestenvVersion(t *testing.T, version string) {
+	t.Helper()
+
+	previous := versionInfo
+	versionInfo = &engineversion.Info{ToolName: "testenv", Version: version, CommitSHA: "abc1234", BuildTimestamp: "now"}
+	t.Cleanup(func() { versionInfo = previous })
+}
+
 func TestForgesOwnEngineRunsFromTheForgeModuleDirectory(t *testing.T) {
 	forgeRepo, err := forgepath.FindForgeRepo()
 	require.NoError(t, err)
 
 	chdirIntoWorkspaceMember(t, "example.com/member")
+	pinTestenvVersion(t, "v1.2.3")
 
 	engine, err := resolveEngineURI("forge://testenv-kind")
 	require.NoError(t, err)
 
 	require.Equal(t, "go", engine.command)
-	require.Equal(t, "run", engine.args[0])
-	require.Contains(t, engine.args[1], "github.com/alexandremahdhaoui/forge/cmd/testenv-kind@")
+	require.Equal(t, []string{"run", "github.com/alexandremahdhaoui/forge/cmd/testenv-kind@v1.2.3"}, engine.args)
 	require.Equal(t, forgeRepo, engine.dir)
 }
 
 func TestAFullForgeModulePathIsOneOfForgesOwnEngines(t *testing.T) {
 	chdirIntoWorkspaceMember(t, "example.com/member")
+	pinTestenvVersion(t, "v1.2.3")
 
 	engine, err := resolveEngineURI("forge://github.com/alexandremahdhaoui/forge/cmd/testenv-stub")
 	require.NoError(t, err)
 
 	require.Equal(t, "go", engine.command)
-	require.Contains(t, engine.args[1], "github.com/alexandremahdhaoui/forge/cmd/testenv-stub@")
+	require.Equal(t, []string{"run", "github.com/alexandremahdhaoui/forge/cmd/testenv-stub@v1.2.3"}, engine.args)
+}
+
+func TestADevTestenvOutsideAForgeWorkspaceRefusesToRunABuiltinAndNamesTheFix(t *testing.T) {
+	chdirIntoWorkspaceMember(t, "example.com/member")
+	pinTestenvVersion(t, "dev")
+
+	_, err := resolveEngineURI("forge://testenv-kind")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "go.work")
 }
 
 func TestForgesOwnEngineRunsFromTheCallersDirectoryWhenTheWorkspaceCarriesForge(t *testing.T) {

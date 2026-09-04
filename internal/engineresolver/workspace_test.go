@@ -72,12 +72,22 @@ func TestABuiltinOutsideAWorkspaceCarryingForgeKeepsThePinnedVersion(t *testing.
 func TestParseEngineURIAndResolveForgeURIAgreeOnABuiltin(t *testing.T) {
 	chdirIntoWorkspaceWith(t, "example.com/caller", forgeModulePath)
 
-	engineType, command, args, err := ParseEngineURI("forge://testenv", "v1.2.3")
+	engineType, parsed, err := ParseEngineURI("forge://testenv", "v1.2.3")
 	require.NoError(t, err)
 	require.Equal(t, EngineTypeMCP, engineType)
 
 	inv, err := ResolveForgeURI("forge://testenv", "v1.2.3")
 	require.NoError(t, err)
-	require.Equal(t, inv.Command, command)
-	require.Equal(t, inv.Args, args)
+	require.Equal(t, inv, parsed)
+}
+
+func TestAnUnversionedMemberOutsideTheWorkspaceGoesToForgeFactoryWithNoVersion(t *testing.T) {
+	chdirIntoWorkspaceWith(t, "example.com/caller")
+
+	inv, err := ResolveForgeURI("forge://example.com/other/cmd/tool", "v1.2.3")
+	require.NoError(t, err)
+
+	require.NotEqual(t, "go", inv.Command)
+	require.Equal(t, "", inv.Dir)
+	require.Equal(t, []string{"run", "--quiet", "example.com/other/cmd/tool", "--", "--mcp"}, inv.Args[len(inv.Args)-5:])
 }

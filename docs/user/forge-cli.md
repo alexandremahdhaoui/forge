@@ -1070,19 +1070,21 @@ Forge respects several environment variables:
 
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `FORGE_RUN_LOCAL_ENABLED` | Enable local development mode (runs engines from source) | `false` | `FORGE_RUN_LOCAL_ENABLED=true forge build` |
-| `FORGE_RUN_LOCAL_BASEDIR` | Base directory for forge repository when running locally | Auto-detected if in forge repo | `FORGE_RUN_LOCAL_BASEDIR=/path/to/forge forge build` |
+| `FORGE_RUN_LOCAL_ENABLED` | Forced override: build engines from a forge checkout instead of resolving them | unset | `FORGE_RUN_LOCAL_ENABLED=true forge build` |
+| `FORGE_RUN_LOCAL_BASEDIR` | The forge checkout the override builds from | Auto-detected if in forge repo | `FORGE_RUN_LOCAL_BASEDIR=/path/to/forge forge build` |
 | `FORGE_REPO_PATH` | Legacy variable for forge repository location | None | `FORGE_REPO_PATH=/path/to/forge forge build` |
 
-**Local Development Mode (FORGE_RUN_LOCAL_ENABLED=true):**
-- Runs engines using `go run /path/to/forge/cmd/<tool>`
-- Required for development when forge is built without version ldflags
-- Auto-detects forge repo if running from forge directory
+**Workspace mode (no variable needed):**
+- When the `go.work` above the current directory lists `github.com/alexandremahdhaoui/forge`, engines run using `go run github.com/alexandremahdhaoui/forge/cmd/<tool>` with no version, from the caller's directory
+- The workspace checkout of forge is what runs
 
-**Production Mode (default):**
+**Pinned mode (default outside such a workspace):**
 - Runs engines using `go run github.com/alexandremahdhaoui/forge/cmd/<tool>@<version>`
 - Ensures correct dependency resolution when using forge from other projects
-- Requires forge to be built with version ldflags or installed via `go install`
+- Requires forge to be built with version ldflags or installed via `go install`; a `dev` version is refused
+
+**Forced override (FORGE_RUN_LOCAL_ENABLED=true):**
+- Builds each engine from the checkout named by `FORGE_RUN_LOCAL_BASEDIR` into `build/local-engines/` and runs the binary
 
 ### Build-Related
 

@@ -125,7 +125,7 @@ func validateForgeDevConfig(input mcptypes.ConfigValidateInput) *mcptypes.Config
 	// waits for the build. A file that exists and fails to parse remains an
 	// error - that is a broken spec, not an unresolved one.
 	if !config.declaresOpenAPI() {
-		return validateProtoOnlyCell(config, configPath, errors, warnings)
+		return validateProtoOnlyCell(config, configPath, warnings)
 	}
 
 	specPath := filepath.Join(configPath, config.OpenAPI.SpecPath)
@@ -205,6 +205,8 @@ func validateForgeDevConfig(input mcptypes.ConfigValidateInput) *mcptypes.Config
 			Message: "Spec schema has no properties defined (empty spec)",
 		})
 	}
+
+	warnings = warnMissingProto(config, configPath, warnings)
 
 	if len(errors) > 0 {
 		return &mcptypes.ConfigValidateOutput{
