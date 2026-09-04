@@ -133,6 +133,8 @@ type TestReport struct {
 	// ErrorMessage contains error details if the test run failed
 	ErrorMessage string `json:"errorMessage,omitempty"`
 
+	TestenvID string `json:"testenvID,omitempty"`
+
 	// CreatedAt is when this report was stored
 	CreatedAt time.Time `json:"createdAt"`
 

@@ -270,6 +270,7 @@ func testDeleteEnv(testSpec *forge.TestSpec, args []string) error {
 	}
 
 	envID := args[0]
+	force := stringSliceContains(args[1:], "--force")
 
 	// Check if this is a test-report stage
 	if IsTestReportStage(testSpec) {
@@ -291,19 +292,33 @@ func testDeleteEnv(testSpec *forge.TestSpec, args []string) error {
 			return fmt.Errorf("failed to get artifact store path: %w", err)
 		}
 
-		// Use AtomicDeleteTestEnvironment to avoid race conditions with concurrent writes
+		reports, err := guardEnvironmentReports(artifactStorePath, envID, force)
+		if err != nil {
+			return err
+		}
+
 		if err := forge.AtomicDeleteTestEnvironment(artifactStorePath, envID); err != nil {
 			return fmt.Errorf("failed to delete test environment: %w", err)
 		}
 
 		fmt.Printf("Deleted test environment: %s\n", envID)
-		return nil
+
+		return removeEnvironmentReports(artifactStorePath, reports)
 	}
 
-	// Resolve engine path
 	config, err := forge.ReadSpec()
 	if err != nil {
 		return fmt.Errorf("failed to read forge.yaml: %w", err)
+	}
+
+	artifactStorePath, err := forge.GetArtifactStorePath(config.ArtifactStorePath)
+	if err != nil {
+		return fmt.Errorf("failed to get artifact store path: %w", err)
+	}
+
+	reports, err := guardEnvironmentReports(artifactStorePath, envID, force)
+	if err != nil {
+		return err
 	}
 
 	command, args, err := resolveEngine(testSpec.Testenv, &config)
@@ -325,7 +340,6 @@ func testDeleteEnv(testSpec *forge.TestSpec, args []string) error {
 		return fmt.Errorf("failed to delete: %w", err)
 	}
 
-	// Print result (may contain deletion details)
 	if resultMap, ok := result.(map[string]any); ok {
 		if success, ok := resultMap["success"].(bool); ok && success {
 			fmt.Printf("Successfully deleted: %s\n", envID)
@@ -336,7 +350,7 @@ func testDeleteEnv(testSpec *forge.TestSpec, args []string) error {
 		fmt.Printf("Deleted: %s\n", envID)
 	}
 
-	return nil
+	return removeEnvironmentReports(artifactStorePath, reports)
 }
 
 // testListEnvironments lists test environments for a stage.
@@ -740,7 +754,7 @@ func testRun(config *forge.Spec, testSpec *forge.TestSpec, args []string) (strin
 	}
 
 	// Store test report in artifact store
-	if err := storeTestReportFromResult(result, config); err != nil {
+	if err := storeTestReportFromResult(result, config, testID); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to store test report: %v\n", err)
 	}
 
@@ -853,14 +867,12 @@ func runWithSingleTestRunner(
 	return result, nil
 }
 
-// storeTestReportFromResult stores a test report from MCP engine result.
-func storeTestReportFromResult(result any, config *forge.Spec) error {
+func storeTestReportFromResult(result any, config *forge.Spec, testenvID string) error {
 	resultMap, ok := result.(map[string]any)
 	if !ok {
 		return fmt.Errorf("result is not a map")
 	}
 
-	// Convert map to TestReport
 	reportJSON, err := json.Marshal(resultMap)
 	if err != nil {
 		return fmt.Errorf("failed to marshal result: %w", err)
@@ -871,7 +883,8 @@ func storeTestReportFromResult(result any, config *forge.Spec) error {
 		return fmt.Errorf("failed to unmarshal test report: %w", err)
 	}
 
-	// Get artifact store path (use proper default if not set)
+	report.TestenvID = testenvID
+
 	artifactStorePath, err := forge.GetArtifactStorePath(config.ArtifactStorePath)
 	if err != nil {
 		return fmt.Errorf("failed to get artifact store path: %w", err)
