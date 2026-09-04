@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -77,6 +78,29 @@ func TestAProtoOnlyCellHandsTheGeneratorTheRawProtoAndLoadsNoOpenAPI(t *testing.
 	require.Empty(t, stub.model.OpenAPISpec)
 	require.FileExists(t, filepath.Join(dir, "zz_generated_grpc.rs"))
 	require.FileExists(t, filepath.Join(dir, GeneratedRunnableFile))
+}
+
+func TestAProtoOnlyCellSendsNoOpenAPISpecKeyOnTheWire(t *testing.T) {
+	dir := t.TempDir()
+	writeProtoCell(t, dir, protoOnlyCellYaml())
+
+	stub := &stubGeneratorCaller{answer: generatedRustFile()}
+	withStubGenerator(t, stub)
+
+	_, err := generate(context.Background(), mcptypes.BuildInput{Name: "hello-grpc", Src: dir, Engine: "forge://forge-dev"})
+	require.NoError(t, err)
+
+	wire, err := json.Marshal(stub.model)
+	require.NoError(t, err)
+
+	var keys map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(wire, &keys))
+	require.NotContains(t, keys, "openapiSpec")
+	require.Contains(t, keys, "protoSpec")
+	require.Contains(t, keys, "name")
+	require.Contains(t, keys, "kind")
+	require.Contains(t, keys, "checksum")
+	require.Contains(t, keys, "srcDir")
 }
 
 func TestACellThatDeclaresBothSpecsHandsTheGeneratorBoth(t *testing.T) {

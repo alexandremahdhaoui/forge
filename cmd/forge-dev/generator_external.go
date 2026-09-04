@@ -38,7 +38,7 @@ type GeneratorModel struct {
 	PackageName string                 `json:"packageName"`
 	Surface     map[string]interface{} `json:"surface,omitempty"`
 	Runtime     *RuntimeConfig         `json:"runtime,omitempty"`
-	OpenAPISpec string                 `json:"openapiSpec"`
+	OpenAPISpec string                 `json:"openapiSpec,omitempty"`
 	ProtoSpec   string                 `json:"protoSpec,omitempty"`
 	Checksum    string                 `json:"checksum"`
 	SrcDir      string                 `json:"srcDir"`
