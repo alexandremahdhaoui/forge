@@ -213,6 +213,38 @@ func TestTheConfigGeneratorFallsBackToTheCellSpecWhenThereIsNoLocalSchema(t *tes
 	require.Contains(t, stub.models[1].OpenAPISpec, "greeting")
 }
 
+func TestTheConfigGeneratorReceivesIdentityAndTheSpecSchemaAndNeitherLayoutNorWiringNorProto(t *testing.T) {
+	dir := t.TempDir()
+	writeKindFixture(t, dir, customKindYaml()+
+		"proto:\n  specPath: ./hello.v1.proto\n"+
+		"wiring:\n  specPath: ./wiring.yaml\n"+
+		"configGenerator: forge://example.com/org/configgen/cmd/configgen-gen\n")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "hello.v1.proto"), []byte(smallProto), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "wiring.yaml"), []byte(smallWiring), 0o644))
+
+	stub := &twoStubCaller{answers: []map[string]interface{}{
+		answerWith("zz_generated_lib.rs"),
+		answerWith("zz_generated_config.rs"),
+	}}
+	withTwoStubs(t, stub)
+
+	_, err := generate(context.Background(), mcptypes.BuildInput{Name: "fixture-gui", Src: dir, Engine: "forge://forge-dev"})
+	require.NoError(t, err)
+	require.Len(t, stub.models, 2)
+
+	main, config := stub.models[0], stub.models[1]
+
+	require.NotNil(t, main.Layout)
+	require.Equal(t, smallProto, main.ProtoSpec)
+	require.Equal(t, smallWiring, main.WiringSpec)
+
+	require.Equal(t, "fixture-gui", config.Name)
+	require.Nil(t, config.Layout)
+	require.Empty(t, config.ProtoSpec)
+	require.Empty(t, config.WiringSpec)
+	require.NotEmpty(t, config.OpenAPISpec)
+}
+
 func TestTheConfigGeneratorFilesLandUnderTheOutputDirectoryTheCellNames(t *testing.T) {
 	dir := t.TempDir()
 	writeKindFixture(t, dir, hexagonalCellYaml(

@@ -111,9 +111,6 @@ var newGeneratorCaller = func() generatorCaller {
 	return mcpcaller.NewCaller(Version)
 }
 
-// externalCall is one dispatch to a generator: which engine, what spec it
-// reads, and where its answer lands. configOnly marks a configGenerator
-// dispatch, which reads the Spec schema and nothing else.
 type externalCall struct {
 	srcDir      string
 	config      *Config
@@ -129,11 +126,6 @@ type externalCall struct {
 // directory: a generator emits code, never escapes. The same call serves a
 // generator: owning the whole cell and a configGenerator: filling only the
 // config keys.
-//
-// A configGenerator receives identity plus the Spec schema. The layout, the
-// proto and the wiring belong to the generator that owns the cell, and a
-// config generator has no field for them: sending them makes its schema
-// refuse the call on an unexpected property.
 func generateExternal(call externalCall) ([]string, error) {
 	srcDir, config, generatorURI := call.srcDir, call.config, call.generator
 
