@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 )
@@ -59,10 +60,7 @@ func Run(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestR
 		args = input.Args
 	}
 
-	env := spec.Env
-	if len(env) == 0 {
-		env = input.Env
-	}
+	env := engineframework.BuildTestEnv(input, spec.Env)
 
 	envFile := spec.EnvFile
 	if envFile == "" {
