@@ -98,6 +98,18 @@ func TestAFullForgeModulePathIsOneOfForgesOwnEngines(t *testing.T) {
 	require.Contains(t, engine.args[1], "github.com/alexandremahdhaoui/forge/cmd/testenv-stub@")
 }
 
+func TestForgesOwnEngineRunsFromTheCallersDirectoryWhenTheWorkspaceCarriesForge(t *testing.T) {
+	chdirIntoWorkspaceMember(t, "github.com/alexandremahdhaoui/forge")
+
+	engine, err := resolveEngineURI("forge://testenv-kind")
+	require.NoError(t, err)
+
+	require.Equal(t, engineInvocation{
+		command: "go",
+		args:    []string{"run", "github.com/alexandremahdhaoui/forge/cmd/testenv-kind"},
+	}, engine)
+}
+
 func TestAnEngineURIWithoutTheForgeSchemeIsRefused(t *testing.T) {
 	_, err := resolveEngineURI("alias://setup")
 	require.Error(t, err)

@@ -140,6 +140,10 @@ func forgeModuleDirForGoRun(command string, args []string) string {
 		return ""
 	}
 
+	if forgepath.IsForgeWorkspaceMember() {
+		return ""
+	}
+
 	forgeRepo, err := forgepath.FindForgeRepo()
 	if err != nil {
 		return ""

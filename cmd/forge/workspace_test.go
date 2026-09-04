@@ -133,18 +133,22 @@ func TestResolveWorkspace_CWDInsideUseDir(t *testing.T) {
 		t.Fatalf("resolveWorkspace() unexpected error: %v", err)
 	}
 
-	// CWD should remain unchanged (already inside member)
 	cwd, _ := os.Getwd()
 	if cwd != forgeDir {
 		t.Errorf("CWD should not change: got %q, want %q", cwd, forgeDir)
 	}
 
-	// Env vars should be set
-	if val := os.Getenv("FORGE_RUN_LOCAL_ENABLED"); val != "true" {
-		t.Errorf("FORGE_RUN_LOCAL_ENABLED = %q, want %q", val, "true")
+	requireNoLocalModeFlag(t)
+}
+
+func requireNoLocalModeFlag(t *testing.T) {
+	t.Helper()
+
+	if val := os.Getenv("FORGE_RUN_LOCAL_ENABLED"); val != "" {
+		t.Errorf("FORGE_RUN_LOCAL_ENABLED should stay unset in a workspace, got %q", val)
 	}
-	if val := os.Getenv("FORGE_RUN_LOCAL_BASEDIR"); val != forgeDir {
-		t.Errorf("FORGE_RUN_LOCAL_BASEDIR = %q, want %q", val, forgeDir)
+	if val := os.Getenv("FORGE_RUN_LOCAL_BASEDIR"); val != "" {
+		t.Errorf("FORGE_RUN_LOCAL_BASEDIR should stay unset in a workspace, got %q", val)
 	}
 }
 
@@ -205,19 +209,12 @@ func TestResolveWorkspace_CWDIsWorkspaceRoot(t *testing.T) {
 		t.Fatalf("resolveWorkspace() unexpected error: %v", err)
 	}
 
-	// CWD should change to forge-repo member
 	cwd, _ := os.Getwd()
 	if cwd != forgeDir {
 		t.Errorf("CWD should change to forge repo member: got %q, want %q", cwd, forgeDir)
 	}
 
-	// Env vars should be set
-	if val := os.Getenv("FORGE_RUN_LOCAL_ENABLED"); val != "true" {
-		t.Errorf("FORGE_RUN_LOCAL_ENABLED = %q, want %q", val, "true")
-	}
-	if val := os.Getenv("FORGE_RUN_LOCAL_BASEDIR"); val != forgeDir {
-		t.Errorf("FORGE_RUN_LOCAL_BASEDIR = %q, want %q", val, forgeDir)
-	}
+	requireNoLocalModeFlag(t)
 }
 
 func TestResolveWorkspace_SkipFlag(t *testing.T) {

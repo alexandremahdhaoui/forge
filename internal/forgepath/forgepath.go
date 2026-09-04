@@ -320,22 +320,32 @@ func cwdHasModuleContext() bool {
 	}
 }
 
-// EngineCommand answers how to launch one of forge's own engines. In local
-// development mode it builds the engine from the forge checkout into a cached
-// binary and answers that path, because `go run` can neither cross module
-// boundaries with an absolute path nor keep the caller's working directory
-// with -C - and engines resolve their inputs against the caller's cwd. In
-// production it answers the versioned `go run` form.
 func EngineCommand(packageName, forgeVersion string) (string, []string, error) {
-	if os.Getenv("FORGE_RUN_LOCAL_ENABLED") != "true" {
-		args, err := BuildGoRunCommand(packageName, forgeVersion)
-		if err != nil {
-			return "", nil, err
-		}
-
-		return "go", args, nil
+	if os.Getenv("FORGE_RUN_LOCAL_ENABLED") == "true" {
+		return buildLocalEngine(packageName)
 	}
 
+	if packageName == "" {
+		return "", nil, fmt.Errorf("package name cannot be empty")
+	}
+
+	if IsForgeWorkspaceMember() {
+		return "go", []string{"run", forgeModule + "/cmd/" + packageName}, nil
+	}
+
+	args, err := BuildGoRunCommand(packageName, forgeVersion)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return "go", args, nil
+}
+
+func IsForgeWorkspaceMember() bool {
+	return isWorkspaceModule(forgeModule)
+}
+
+func buildLocalEngine(packageName string) (string, []string, error) {
 	baseDir := os.Getenv("FORGE_RUN_LOCAL_BASEDIR")
 	if baseDir == "" {
 		baseDir = os.Getenv(forgeRepoEnvVar)

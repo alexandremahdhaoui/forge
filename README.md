@@ -198,7 +198,7 @@ build:
 ```
 
 **How do I run Forge from a Go workspace?**
-Forge auto-detects Go workspaces. When forge detects a `go.work` file in the directory tree above CWD, it enables workspace mode by setting `FORGE_RUN_LOCAL_ENABLED=true` so engine resolution uses local source. If CWD is the workspace root or not inside a `use` directive member, forge also changes to the forge repo member directory. If CWD is already inside a member repo, forge keeps CWD unchanged but still enables workspace mode. Use `--skip-workspace-resolution` to disable auto-detection. See [workspace-development.md](./docs/user/workspace-development.md).
+Forge auto-detects Go workspaces. When the `go.work` above CWD lists the forge module, every builtin engine resolves to `go run github.com/alexandremahdhaoui/forge/cmd/<name>` with no version, from the caller's directory, so the workspace checkout runs. When it does not, the engine runs at the pinned forge version. No environment variable is needed. `FORGE_RUN_LOCAL_ENABLED=true` remains a forced override that builds engines from the checkout named by `FORGE_RUN_LOCAL_BASEDIR`. If CWD is the workspace root or not inside a `use` directive member, forge changes to the forge repo member directory. Use `--skip-workspace-resolution` to disable auto-detection. See [workspace-development.md](./docs/user/workspace-development.md).
 
 **How do MCP clients set the working directory?**
 All 12 MCP tool inputs accept a `cwd` field (JSON key `"cwd"`) that overrides the server's working directory for the request. This replaces the previous `projectDir` field.
