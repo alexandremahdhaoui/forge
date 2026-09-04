@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/alexandremahdhaoui/forge/internal/forgepath"
+	"github.com/alexandremahdhaoui/forge/pkg/toolresolver"
 	"github.com/stretchr/testify/require"
 )
 
@@ -57,24 +58,19 @@ func TestAWorkspaceMemberRunsUnversionedFromTheCallersDirectoryWithoutTheLocalFl
 	}, engine)
 }
 
-func TestAnExternalModuleOutsideTheWorkspaceKeepsItsVersionAndRunsFromTheCallersDirectory(t *testing.T) {
+func TestAMemberOutsideTheWorkspaceMaterializesThroughForgeFactoryFromTheCallersDirectory(t *testing.T) {
 	chdirIntoWorkspaceMember(t, "example.com/member")
+
+	factory, err := toolresolver.ForgeFactory()
+	require.NoError(t, err)
 
 	engine, err := resolveEngineURI("forge://example.com/other/cmd/tool@v2.0.0")
 	require.NoError(t, err)
 
 	require.Equal(t, engineInvocation{
-		command: "go",
-		args:    []string{"run", "example.com/other/cmd/tool@v2.0.0"},
+		command: factory.Path,
+		args:    append(append([]string{}, factory.Args...), "run", "--quiet", "example.com/other/cmd/tool@v2.0.0", "--", "--mcp"),
 	}, engine)
-}
-
-func TestAnExternalModuleOutsideTheWorkspaceWithNoVersionIsRefused(t *testing.T) {
-	chdirIntoWorkspaceMember(t, "example.com/member")
-
-	_, err := resolveEngineURI("forge://example.com/other/cmd/tool")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "example.com/other/cmd/tool")
 }
 
 func TestForgesOwnEngineRunsFromTheForgeModuleDirectory(t *testing.T) {

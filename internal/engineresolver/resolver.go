@@ -70,60 +70,80 @@ func ParseEngineURI(engineURI, forgeVersion string) (engineType string, command 
 		return "", "", nil, fmt.Errorf("%s: %s", engineURI, GoSchemeError)
 	}
 
+	inv, err := ResolveForgeURI(engineURI, forgeVersion)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	return EngineTypeMCP, inv.Command, inv.Args, nil
+}
+
+type Invocation struct {
+	Command string
+	Args    []string
+	Dir     string
+}
+
+func ResolveForgeURI(engineURI, forgeVersion string) (Invocation, error) {
 	if !strings.HasPrefix(engineURI, "forge://") {
-		return "", "", nil, fmt.Errorf("unsupported engine protocol: %s (must start with forge:// or alias://)", engineURI)
+		return Invocation{}, fmt.Errorf("unsupported engine protocol: %s (must start with forge:// or alias://)", engineURI)
 	}
 
 	path := strings.TrimPrefix(engineURI, "forge://")
 	if path == "" {
-		return "", "", nil, fmt.Errorf("empty engine path after forge://")
+		return Invocation{}, fmt.Errorf("empty engine path after forge://")
 	}
 
-	// A member form names a repo by URL-ish module path. The enclosing Go
-	// workspace wins when it carries the module - the engine twin of run's
-	// rule 2 - and go run uses the local copy. Otherwise forge-factory owns
-	// materializing it: clone, resolve its factory and register, sync,
-	// build; the run cache makes warm starts a plain exec. Forge's own
-	// module path stays a built-in: forge resolves itself with no factory.
-	bare := strings.SplitN(path, "@", 2)[0]
+	bare, _, _ := strings.Cut(path, "@")
 	if forgepath.IsExternalModule(bare) && !forgepath.IsForgeModulePath(bare) {
-		if forgepath.IsWorkspaceModule(bare) {
-			return EngineTypeMCP, "go", []string{"run", bare}, nil
-		}
-
-		// forge-factory materialises the member; it resolves through the
-		// shared rule so a machine without it installed still gets the
-		// pinned companion, never latest.
-		inv, err := toolresolver.ForgeFactory()
-		if err != nil {
-			return "", "", nil, fmt.Errorf("resolving forge-factory for %s: %w", engineURI, err)
-		}
-
-		return EngineTypeMCP, inv.Path,
-			append(append([]string{}, inv.Args...), "run", "--quiet", path, "--", "--mcp"), nil
+		return resolveMember(engineURI, path, bare)
 	}
 
-	// A short form is one of forge's own engines at the running forge version.
-	// Embedded versions are IGNORED for internal engines to ensure consistency.
-	packageName := path
-	if idx := strings.Index(path, "@"); idx != -1 {
-		packageName = path[:idx]
+	return resolveBuiltin(engineURI, bare, forgeVersion)
+}
+
+func resolveMember(engineURI, path, bare string) (Invocation, error) {
+	if forgepath.IsWorkspaceModule(bare) {
+		return Invocation{Command: "go", Args: []string{"run", bare}}, nil
 	}
 
-	if strings.Contains(packageName, "/") {
-		// Sub-path like "cmd/tool" - extract last component
-		parts := strings.Split(packageName, "/")
-		packageName = parts[len(parts)-1]
+	factory, err := toolresolver.ForgeFactory()
+	if err != nil {
+		return Invocation{}, fmt.Errorf("resolving forge-factory for %s: %w", engineURI, err)
+	}
+
+	args := append(append([]string{}, factory.Args...), "run", "--quiet", path, "--", "--mcp")
+
+	return Invocation{Command: factory.Path, Args: args}, nil
+}
+
+func resolveBuiltin(engineURI, bare, forgeVersion string) (Invocation, error) {
+	packageName := bare
+	if idx := strings.LastIndex(bare, "/"); idx != -1 {
+		packageName = bare[idx+1:]
 	}
 
 	if packageName == "" {
-		return "", "", nil, fmt.Errorf("could not extract package name from engine URI: %s", engineURI)
+		return Invocation{}, fmt.Errorf("could not extract package name from engine URI: %s", engineURI)
 	}
 
-	engineCmd, runArgs, err := forgepath.EngineCommand(packageName, forgeVersion)
+	command, args, err := forgepath.EngineCommand(packageName, forgeVersion)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to resolve engine command for %s: %w", packageName, err)
+		return Invocation{}, fmt.Errorf("failed to resolve engine command for %s: %w", packageName, err)
 	}
 
-	return EngineTypeMCP, engineCmd, runArgs, nil
+	return Invocation{Command: command, Args: args, Dir: forgeModuleDirForGoRun(command, args)}, nil
+}
+
+func forgeModuleDirForGoRun(command string, args []string) string {
+	if command != "go" || len(args) == 0 || args[0] != "run" {
+		return ""
+	}
+
+	forgeRepo, err := forgepath.FindForgeRepo()
+	if err != nil {
+		return ""
+	}
+
+	return forgeRepo
 }

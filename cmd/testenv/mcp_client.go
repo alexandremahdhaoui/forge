@@ -19,10 +19,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 
-	"github.com/alexandremahdhaoui/forge/internal/forgepath"
+	"github.com/alexandremahdhaoui/forge/internal/engineresolver"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -95,60 +94,10 @@ func callMCPEngine(engine engineInvocation, toolName string, params interface{})
 }
 
 func resolveEngineURI(engineURI string) (engineInvocation, error) {
-	if !strings.HasPrefix(engineURI, "forge://") {
-		return engineInvocation{}, fmt.Errorf("unsupported engine protocol: %s (must start with forge://)", engineURI)
-	}
-
-	packagePath := strings.TrimPrefix(engineURI, "forge://")
-	if packagePath == "" {
-		return engineInvocation{}, fmt.Errorf("empty engine path after forge://")
-	}
-
-	modulePath, version, _ := strings.Cut(packagePath, "@")
-
-	if forgepath.IsExternalModule(modulePath) && !forgepath.IsForgeModulePath(modulePath) {
-		return resolveExternalEngine(modulePath, version)
-	}
-
-	return resolveForgeEngine(modulePath)
-}
-
-func resolveExternalEngine(modulePath, version string) (engineInvocation, error) {
-	if forgepath.IsWorkspaceModule(modulePath) {
-		return engineInvocation{command: "go", args: []string{"run", modulePath}}, nil
-	}
-
-	runArgs, err := forgepath.BuildExternalGoRunCommand(modulePath, version)
+	inv, err := engineresolver.ResolveForgeURI(engineURI, getVersion())
 	if err != nil {
-		return engineInvocation{}, fmt.Errorf("failed to build go run command for external module %s: %w", modulePath, err)
+		return engineInvocation{}, fmt.Errorf("resolving engine %s: %w", engineURI, err)
 	}
 
-	return engineInvocation{command: "go", args: runArgs}, nil
-}
-
-func resolveForgeEngine(modulePath string) (engineInvocation, error) {
-	packageName := modulePath
-	if idx := strings.LastIndex(modulePath, "/"); idx != -1 {
-		packageName = modulePath[idx+1:]
-	}
-
-	engineCmd, runArgs, err := forgepath.EngineCommand(packageName, getVersion())
-	if err != nil {
-		return engineInvocation{}, fmt.Errorf("failed to build go run command for %s: %w", packageName, err)
-	}
-
-	return engineInvocation{command: engineCmd, args: runArgs, dir: forgeModuleDirForGoRun(engineCmd, runArgs)}, nil
-}
-
-func forgeModuleDirForGoRun(command string, args []string) string {
-	if command != "go" || len(args) == 0 || args[0] != "run" {
-		return ""
-	}
-
-	forgeRepo, err := forgepath.FindForgeRepo()
-	if err != nil {
-		return ""
-	}
-
-	return forgeRepo
+	return engineInvocation{command: inv.Command, args: inv.Args, dir: inv.Dir}, nil
 }

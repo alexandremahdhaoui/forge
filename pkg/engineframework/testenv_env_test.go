@@ -73,6 +73,15 @@ func TestADisabledPolicyPassesNoTestenvVariableButStillExportsTheForgeMetadata(t
 	}, env)
 }
 
+func TestADisabledPolicyBeatsANonEmptyWhitelist(t *testing.T) {
+	env := BuildTestEnv(mcptypes.RunInput{
+		TestenvEnv:     testenvEnvFixture(),
+		EnvPropagation: &forge.EnvPropagation{Disabled: true, Whitelist: []string{"KUBECONFIG"}},
+	}, nil)
+
+	require.Empty(t, env)
+}
+
 func TestAnEmptyWhitelistAndAnEmptyBlacklistMeanNoFiltering(t *testing.T) {
 	env := BuildTestEnv(mcptypes.RunInput{
 		TestenvEnv:     testenvEnvFixture(),

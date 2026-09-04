@@ -49,7 +49,6 @@ type ExecuteOutput struct {
 // Run is the core business logic for executing a test command.
 // It implements the TestRunnerFunc signature defined in zz_generated.mcp.go.
 func Run(ctx context.Context, input mcptypes.RunInput, spec *Spec) (*forge.TestReport, error) {
-	// Use spec values, falling back to input values for compatibility
 	command := spec.Command
 	if command == "" {
 		command = input.Command

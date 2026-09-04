@@ -512,11 +512,6 @@ build:
     src: ./containers/for-testing-purposes/Containerfile
     engine: forge://container-build
 
-factory:
-  module: github.com/alexandremahdhaoui/forge
-  goVersion: "1.26.5"
-  manifest: committed
-
 # Example: OpenAPI code generation
 # Generates client and/or server code from OpenAPI specifications
 # NOTE: Uncomment and customize for your API specs
@@ -547,4 +542,9 @@ factory:
 #     server:
 #       enabled: false
 #       packageName: exampleserver
+
+factory:
+  module: github.com/alexandremahdhaoui/forge
+  goVersion: "1.26.5"
+  manifest: committed
 
