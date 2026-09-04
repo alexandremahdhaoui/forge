@@ -22,6 +22,14 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
 
+func deleteEnvArgs(envID string, force bool) []string {
+	if force {
+		return []string{envID, "--force"}
+	}
+
+	return []string{envID}
+}
+
 func reportsOfEnvironment(store *forge.ArtifactStore, envID string) []*forge.TestReport {
 	if envID == "" {
 		return nil

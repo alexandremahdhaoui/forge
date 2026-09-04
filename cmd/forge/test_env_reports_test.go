@@ -128,6 +128,19 @@ func writeFixtureForgeYaml(t *testing.T, dir, storePath string) {
 	t.Chdir(dir)
 }
 
+func TestDeleteEnvOverMCPCanForceAndDefaultsToRefusing(t *testing.T) {
+	require.Equal(t, []string{"env-1", "--force"}, deleteEnvArgs("env-1", true))
+	require.Equal(t, []string{"env-1"}, deleteEnvArgs("env-1", false))
+}
+
+func TestDeleteEnvRejectsAnEnvironmentIDThatStartsWithADash(t *testing.T) {
+	err := testDeleteEnv(&forge.TestSpec{Name: "integration", Testenv: "alias://setup"}, []string{"--force", "env-1"})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "[--force]")
+	require.Contains(t, err.Error(), `"--force"`)
+}
+
 func TestARunInAnEnvironmentRecordsTheEnvironmentOnItsReport(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "artifact-store.yaml")

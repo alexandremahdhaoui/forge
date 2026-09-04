@@ -96,3 +96,21 @@ func TestAnEmptyBuiltinNameIsRefused(t *testing.T) {
 	_, _, err := EngineCommand("", "v1.2.3")
 	require.Error(t, err)
 }
+
+func TestASiblingModuleNeverMatchesAWorkspaceMemberByPrefix(t *testing.T) {
+	chdirIntoWorkspaceListing(t, "example.com/caller", forgeModule)
+
+	require.True(t, IsWorkspaceModule(forgeModule))
+	require.True(t, IsWorkspaceModule(forgeModule+"/cmd/go-build"))
+	require.False(t, IsWorkspaceModule(forgeModule+"-ci"))
+	require.False(t, IsWorkspaceModule(forgeModule+"-ci/cmd/forge-ci"))
+}
+
+func TestADevVersionOutsideAForgeWorkspaceIsRefusedWithTheFix(t *testing.T) {
+	chdirIntoWorkspaceListing(t, "example.com/caller", "example.com/other")
+
+	_, _, err := EngineCommand("go-build", "dev")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "dev")
+	require.Contains(t, err.Error(), "go.work")
+}

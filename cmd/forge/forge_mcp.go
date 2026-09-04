@@ -125,6 +125,7 @@ type TestGetInput struct {
 type TestDeleteInput struct {
 	Stage  string `json:"stage" jsonschema:"Test stage name from forge.yaml test[].name"`
 	TestID string `json:"testID" jsonschema:"Test environment ID to delete"`
+	Force  bool   `json:"force,omitempty" jsonschema:"Also delete the test reports that ran in this environment. Without it the call refuses when such reports exist."`
 	CWD    string `json:"cwd,omitempty" jsonschema:"Absolute or relative path to the project directory containing forge.yaml. Overrides the server working directory."`
 }
 
@@ -687,8 +688,7 @@ func handleTestDeleteTool(
 		}, nil, nil
 	}
 
-	// Call testDeleteEnv
-	if err := testDeleteEnv(testSpec, []string{input.TestID}); err != nil {
+	if err := testDeleteEnv(testSpec, deleteEnvArgs(input.TestID, input.Force)); err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
 				&mcp.TextContent{Text: fmt.Sprintf("Failed to delete test environment: %v", err)},

@@ -203,10 +203,12 @@ func BuildGoRunCommand(packageName, forgeVersion string) ([]string, error) {
 		return []string{"-C", baseDir, "run", fmt.Sprintf("./cmd/%s", packageName)}, nil
 	}
 
-	// Production mode: use versioned module syntax
-	// This ensures the tool runs with its own dependencies
-	// Strip dirty suffixes for module resolution
-	// git describe uses "-dirty", build info uses "+dirty"
+	if forgeVersion == "dev" {
+		return nil, fmt.Errorf(
+			"forge version is dev and no go.work above %s carries %s, so there is no version to run %s at; run from a workspace whose go.work lists forge, install a released forge, or set FORGE_RUN_LOCAL_ENABLED=true with FORGE_RUN_LOCAL_BASEDIR",
+			cwdOrDot(), forgeModule, packageName)
+	}
+
 	moduleVersion := forgeVersion
 	moduleVersion = strings.TrimSuffix(moduleVersion, "-dirty")
 	moduleVersion = strings.TrimSuffix(moduleVersion, "+dirty")
@@ -246,56 +248,6 @@ func IsExternalModule(path string) bool {
 	firstSlash := strings.Index(path, "/")
 	firstSegment := path[:firstSlash]
 	return strings.Contains(firstSegment, ".")
-}
-
-// BuildExternalGoRunCommand constructs the command arguments for executing an external
-// Go module via `go run`. Unlike BuildGoRunCommand, this function uses the full module
-// path directly without prepending the forge module prefix.
-//
-// Parameters:
-//   - modulePath: Full module path (e.g., "github.com/user/repo/cmd/tool")
-//   - version: Version to use (e.g., "v1.0.0"). Required: latest is never a
-//     fallback, so an empty version is an error naming the fix
-//
-// Returns:
-//   - []string: Command arguments for exec.Command("go", args...)
-//   - error: If modulePath is empty
-//
-// Example usage:
-//
-//	args, err := BuildExternalGoRunCommand("github.com/user/repo/cmd/tool", "v1.0.0")
-//	// Returns: ["run", "github.com/user/repo/cmd/tool@v1.0.0"]
-//	cmd := exec.Command("go", args...)
-func BuildExternalGoRunCommand(modulePath, version string) ([]string, error) {
-	if modulePath == "" {
-		return nil, fmt.Errorf("module path cannot be empty")
-	}
-
-	// When running in local development mode inside a Go workspace,
-	// check if the external module is a workspace member. If so, drop
-	// the @version suffix so `go run` uses the local workspace copy
-	// instead of downloading a published version.
-	localEnabled := os.Getenv("FORGE_RUN_LOCAL_ENABLED")
-	if localEnabled == "true" && cwdHasModuleContext() {
-		if isWorkspaceModule(modulePath) {
-			return []string{"run", modulePath}, nil
-		}
-	}
-
-	// Latest is never a fallback: a floating version makes every run
-	// non-reproducible and shadows the register, which owns adoptable
-	// versions. Fail loud and name the fix.
-	if version == "" {
-		return nil, fmt.Errorf(
-			"module %s: no version given and nothing pins one; name an @version or resolve it through its register (forge-factory run)",
-			modulePath)
-	}
-
-	// Strip dirty suffixes for module resolution (consistent with BuildGoRunCommand)
-	version = strings.TrimSuffix(version, "-dirty")
-	version = strings.TrimSuffix(version, "+dirty")
-
-	return []string{"run", fmt.Sprintf("%s@%s", modulePath, version)}, nil
 }
 
 // cwdHasModuleContext checks whether the current working directory is inside
@@ -341,8 +293,34 @@ func EngineCommand(packageName, forgeVersion string) (string, []string, error) {
 	return "go", args, nil
 }
 
+var (
+	forgeMemberMu    sync.Mutex
+	forgeMemberByCwd = map[string]bool{}
+)
+
 func IsForgeWorkspaceMember() bool {
-	return isWorkspaceModule(forgeModule)
+	key := cwdOrDot() + "\x00" + os.Getenv("GOWORK")
+
+	forgeMemberMu.Lock()
+	defer forgeMemberMu.Unlock()
+
+	if answer, known := forgeMemberByCwd[key]; known {
+		return answer
+	}
+
+	answer := isWorkspaceModule(forgeModule)
+	forgeMemberByCwd[key] = answer
+
+	return answer
+}
+
+func cwdOrDot() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "."
+	}
+
+	return cwd
 }
 
 func buildLocalEngine(packageName string) (string, []string, error) {
@@ -414,12 +392,16 @@ func isWorkspaceModule(modulePath string) bool {
 		}
 
 		modPath := readModulePath(filepath.Join(absDir, "go.mod"))
-		if modPath != "" && strings.HasPrefix(modulePath, modPath) {
+		if modPath != "" && moduleCarries(modPath, modulePath) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func moduleCarries(modPath, packagePath string) bool {
+	return packagePath == modPath || strings.HasPrefix(packagePath, modPath+"/")
 }
 
 // findGoWork walks up from CWD looking for a go.work file and returns the

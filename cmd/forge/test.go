@@ -39,7 +39,7 @@ func runTest(args []string) error {
 			"  list-env              List test environments\n" +
 			"  get-env <ENV_ID>      Get test environment details\n" +
 			"  create-env            Create test environment\n" +
-			"  delete-env <ENV_ID>   Delete test environment")
+			"  delete-env <ENV_ID> [--force]   Delete test environment; --force also drops the reports that ran in it")
 	}
 
 	subcommand := args[0]
@@ -266,10 +266,13 @@ func testGetEnvironment(testSpec *forge.TestSpec, args []string) error {
 // testDeleteEnv deletes a test environment via the engine.
 func testDeleteEnv(testSpec *forge.TestSpec, args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: forge test delete-env <STAGE> <ENV-ID>")
+		return fmt.Errorf("usage: forge test delete-env <STAGE> <ENV-ID> [--force]")
 	}
 
 	envID := args[0]
+	if strings.HasPrefix(envID, "-") {
+		return fmt.Errorf("usage: forge test delete-env <STAGE> <ENV-ID> [--force]: the environment id comes first, got %q", envID)
+	}
 	force := stringSliceContains(args[1:], "--force")
 
 	// Check if this is a test-report stage

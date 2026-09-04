@@ -111,7 +111,7 @@ func cleanupTestEnvironmentByID(testSpec *forge.TestSpec, testID string) error {
 		return fmt.Errorf("testID is required for cleanup")
 	}
 
-	if err := testDeleteEnv(testSpec, []string{testID, "--force"}); err != nil {
+	if err := testDeleteEnv(testSpec, deleteEnvArgs(testID, true)); err != nil {
 		return fmt.Errorf("failed to delete environment %s: %w", testID, err)
 	}
 
