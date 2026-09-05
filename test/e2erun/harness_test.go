@@ -314,11 +314,16 @@ func (u *universe) factoryRepo(name string, members map[string]string, registerU
 	})
 }
 
+// trackJSON writes the record the register keeps for an internal track:
+// provenance sits beside current. It sat in a history array once, and the
+// fixture kept that shape after forge-factory stopped reading it, so the two
+// remote-run cases failed on "no proving revision" against a record that
+// named one (forge-self run 93 found it; it was red on every laptop too).
 func trackJSON(module, version, provenance string) (string, string) {
 	path := filepath.Join("index", "internal", strings.TrimPrefix(module, "/"), "0.json")
 	content := fmt.Sprintf(
-		`{"current":%q,"ecosystem":"internal","package":%q,"prefix":"0","history":[{"version":%q,"provenance":%q}]}`,
-		version, module, version, provenance)
+		`{"current":%q,"ecosystem":"internal","package":%q,"prefix":"0","provenance":%q}`,
+		version, module, provenance)
 
 	return path, content
 }
