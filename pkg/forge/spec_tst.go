@@ -40,6 +40,11 @@ type TestSpec struct {
 	// Optional filtering applied at test runner level (whitelist/blacklist)
 	// Note: This is for test runner filtering only - testenv sub-engine EnvPropagation is separate
 	EnvPropagation *EnvPropagation `json:"envPropagation,omitempty"`
+
+	// Manual marks a stage that test-all skips.
+	// A manual stage runs only through forge test run <name>.
+	// Use it for a dev machine step that a normal gate must not trigger.
+	Manual bool `json:"manual,omitempty"`
 }
 
 // Validate validates the TestSpec

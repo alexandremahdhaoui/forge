@@ -61,6 +61,10 @@ func runTestAll(_ []string, forceRebuild, frozenBuild bool) error {
 	// Step 3: Execute test stages with fail-fast
 	for i := range config.Test {
 		testSpec := &config.Test[i]
+		if testSpec.Manual {
+			fmt.Fprintf(os.Stderr, "\n--- Skipping manual stage: %s ---\n", testSpec.Name)
+			continue
+		}
 		fmt.Fprintf(os.Stderr, "\n--- Running test stage: %s ---\n", testSpec.Name)
 
 		// Execute the test stage - testRun returns the testID of the created environment
