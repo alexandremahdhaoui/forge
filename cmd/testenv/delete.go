@@ -22,7 +22,7 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
 
-func cmdDelete(testID string) error {
+func (c *testenvCommands) cmdDelete(testID string) error {
 	if testID == "" {
 		return fmt.Errorf("test ID is required")
 	}
@@ -68,7 +68,7 @@ func cmdDelete(testID string) error {
 				params["metadata"] = env.Metadata
 			}
 
-			if _, err := callEngine(testSpec.Testenv, "delete", params); err != nil {
+			if _, err := c.callEngine(testSpec.Testenv, "delete", params); err != nil {
 				cleanupErr = fmt.Errorf("failed to delete with %s: %w", testSpec.Testenv, err)
 			} else {
 				fmt.Fprintf(os.Stderr, "  ✓ %s teardown complete\n", testSpec.Testenv)
@@ -76,7 +76,7 @@ func cmdDelete(testID string) error {
 		} else {
 			setupAlias := strings.TrimPrefix(testSpec.Testenv, "alias://")
 
-			if err := orchestrateDelete(config, setupAlias, env); err != nil {
+			if err := c.orchestrateDelete(config, setupAlias, env); err != nil {
 				cleanupErr = fmt.Errorf("failed to orchestrate cleanup: %w", err)
 			}
 		}
@@ -100,7 +100,7 @@ func cmdDelete(testID string) error {
 	return nil
 }
 
-func orchestrateDelete(config forge.Spec, setupAlias string, env *forge.TestEnvironment) error {
+func (c *testenvCommands) orchestrateDelete(config forge.Spec, setupAlias string, env *forge.TestEnvironment) error {
 	var engineConfig *forge.EngineConfig
 	for i := range config.Engines {
 		if config.Engines[i].Alias == setupAlias {
@@ -122,10 +122,10 @@ func orchestrateDelete(config forge.Spec, setupAlias string, env *forge.TestEnvi
 		return fmt.Errorf("no testenv-subengines configured for %s", setupAlias)
 	}
 
-	return deleteSubenginesInReverse(subengines, env)
+	return c.deleteSubenginesInReverse(subengines, env)
 }
 
-func deleteSubenginesInReverse(subengines []forge.TestenvEngineSpec, env *forge.TestEnvironment) error {
+func (c *testenvCommands) deleteSubenginesInReverse(subengines []forge.TestenvEngineSpec, env *forge.TestEnvironment) error {
 	var cleanupErrors []error
 	for i := len(subengines) - 1; i >= 0; i-- {
 		subengine := subengines[i]
@@ -136,7 +136,7 @@ func deleteSubenginesInReverse(subengines []forge.TestenvEngineSpec, env *forge.
 			"metadata": env.Metadata,
 		}
 
-		if _, err := callEngine(subengine.Engine, "delete", params); err != nil {
+		if _, err := c.callEngine(subengine.Engine, "delete", params); err != nil {
 			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to delete with %s: %w", subengine.Engine, err))
 			continue
 		}

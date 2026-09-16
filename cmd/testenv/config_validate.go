@@ -38,14 +38,14 @@ import (
 //
 // 4. Calling each subengine's config-validate tool
 // 5. Aggregating all results
-func handleConfigValidate(
+func (c *testenvCommands) handleConfigValidate(
 	ctx context.Context,
 	_ *mcp.CallToolRequest,
 	input mcptypes.ConfigValidateInput,
 ) (*mcp.CallToolResult, any, error) {
 	log.Printf("testenv: validating configuration")
 
-	output := validateTestenvSpec(ctx, input)
+	output := c.validateTestenvSpec(ctx, input)
 
 	// Return as structured MCP result
 	// Note: We don't set IsError=true for validation failures.
@@ -63,7 +63,7 @@ func handleConfigValidate(
 }
 
 // validateTestenvSpec performs the recursive validation of the testenv spec.
-func validateTestenvSpec(ctx context.Context, input mcptypes.ConfigValidateInput) *mcptypes.ConfigValidateOutput {
+func (c *testenvCommands) validateTestenvSpec(ctx context.Context, input mcptypes.ConfigValidateInput) *mcptypes.ConfigValidateOutput {
 	var errors []mcptypes.ValidationError
 	var warnings []mcptypes.ValidationWarning
 
@@ -127,27 +127,8 @@ func validateTestenvSpec(ctx context.Context, input mcptypes.ConfigValidateInput
 			continue
 		}
 
-		// Determine the spec to pass to the subengine
 		subengineSpec := getSubengineConfig(subengine.Engine, subengine.Spec, input.ForgeSpec)
 
-		// Resolve the engine URI to command and args
-		engine, err := resolveEngineURI(subengine.Engine)
-		if err != nil {
-			results = append(results, validationResult{
-				Ref: engineReference{
-					URI:      subengine.Engine,
-					SpecType: "testenv-subengine",
-					SpecName: fmt.Sprintf("%s[%d]", input.SpecName, i),
-				},
-				Output: &mcptypes.ConfigValidateOutput{
-					Valid:      false,
-					InfraError: fmt.Sprintf("failed to resolve engine %s: %v", subengine.Engine, err),
-				},
-			})
-			continue
-		}
-
-		// Prepare ConfigValidateInput for the subengine
 		subInput := mcptypes.ConfigValidateInput{
 			Spec:       subengineSpec,
 			ForgeSpec:  input.ForgeSpec,
@@ -156,11 +137,9 @@ func validateTestenvSpec(ctx context.Context, input mcptypes.ConfigValidateInput
 			SpecName:   fmt.Sprintf("%s[%d]", input.SpecName, i),
 		}
 
-		// Convert to params map for MCP call
 		params := configValidateInputToParams(subInput)
 
-		// Call the subengine's config-validate tool
-		result, err := callMCPEngine(engine, "config-validate", params)
+		result, err := c.callEngine(subengine.Engine, "config-validate", params)
 		if err != nil {
 			results = append(results, validationResult{
 				Ref: engineReference{

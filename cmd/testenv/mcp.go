@@ -38,54 +38,44 @@ type DeleteInput struct {
 // runMCPServer starts the MCP server.
 func runMCPServer() error {
 	server := mcpserver.New("testenv", Version)
+	commands := newTestenvCommands()
 
-	// Register create tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "create",
 		Description: "Create a test environment for a given stage",
-	}, handleCreateTool)
+	}, commands.handleCreateTool)
 
-	// Register delete tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "delete",
 		Description: "Delete a test environment by ID",
-	}, handleDeleteTool)
+	}, commands.handleDeleteTool)
 
-	// Register config-validate tool
 	mcpserver.RegisterTool(server, &mcp.Tool{
 		Name:        "config-validate",
 		Description: "Validate testenv configuration and recursively validate subengines",
-	}, handleConfigValidate)
+	}, commands.handleConfigValidate)
 
-	// NOTE: get/list are NOT implemented here
-	// forge handles get/list by reading the artifact store directly
-
-	// Register docs tools
 	if err := enginedocs.RegisterDocsTools(server, *docsConfig); err != nil {
 		return err
 	}
 
-	// Run the MCP server
 	return server.RunDefault()
 }
 
-// handleCreateTool handles the "create" tool call from MCP clients.
-func handleCreateTool(
+func (c *testenvCommands) handleCreateTool(
 	ctx context.Context,
 	req *mcp.CallToolRequest,
 	input CreateInput,
 ) (*mcp.CallToolResult, any, error) {
 	log.Printf("Creating test environment: stage=%s", input.Stage)
 
-	// Validate inputs
 	if result := mcputil.ValidateRequiredWithPrefix("Create failed", map[string]string{
 		"stage": input.Stage,
 	}); result != nil {
 		return result, nil, nil
 	}
 
-	// Call cmdCreate to do the actual work (including orchestration)
-	testID, err := cmdCreate(input.Stage)
+	testID, err := c.cmdCreate(input.Stage)
 	if err != nil {
 		return mcputil.ErrorResult(fmt.Sprintf("Create failed: %v", err)), nil, nil
 	}
@@ -97,23 +87,20 @@ func handleCreateTool(
 	return result, returnedArtifact, nil
 }
 
-// handleDeleteTool handles the "delete" tool call from MCP clients.
-func handleDeleteTool(
+func (c *testenvCommands) handleDeleteTool(
 	ctx context.Context,
 	req *mcp.CallToolRequest,
 	input DeleteInput,
 ) (*mcp.CallToolResult, any, error) {
 	log.Printf("Deleting test environment: testID=%s", input.TestID)
 
-	// Validate inputs
 	if result := mcputil.ValidateRequiredWithPrefix("Delete failed", map[string]string{
 		"testID": input.TestID,
 	}); result != nil {
 		return result, nil, nil
 	}
 
-	// Delete test environment (call cmdDelete)
-	if err := cmdDelete(input.TestID); err != nil {
+	if err := c.cmdDelete(input.TestID); err != nil {
 		return mcputil.ErrorResult(fmt.Sprintf("Delete failed: %v", err)), nil, nil
 	}
 

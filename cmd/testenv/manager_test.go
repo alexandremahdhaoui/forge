@@ -113,8 +113,7 @@ test:
 	defer os.Chdir(oldWd)
 	os.Chdir(tmpDir)
 
-	// Run cmdCreate - will fail if forge://test-report isn't available
-	testID, err := cmdCreate("integration")
+	testID, err := newTestenvCommands().cmdCreate("integration")
 	if err != nil {
 		t.Fatalf("cmdCreate failed: %v", err)
 	}
@@ -211,8 +210,7 @@ artifactStorePath: ` + artifactStorePath
 	defer os.Chdir(oldWd)
 	os.Chdir(tmpDir)
 
-	// Run cmdDelete
-	err = cmdDelete(testEnv.ID)
+	err = newTestenvCommands().cmdDelete(testEnv.ID)
 	if err != nil {
 		t.Fatalf("cmdDelete failed: %v", err)
 	}
@@ -260,8 +258,7 @@ artifactStorePath: ` + artifactStorePath
 	defer os.Chdir(oldWd)
 	os.Chdir(tmpDir)
 
-	// Run cmdDelete with nonexistent ID
-	err = cmdDelete("nonexistent-id")
+	err = newTestenvCommands().cmdDelete("nonexistent-id")
 	if err == nil {
 		t.Error("Expected error for nonexistent ID")
 	}

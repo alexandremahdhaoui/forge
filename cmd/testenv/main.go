@@ -65,6 +65,7 @@ func main() {
 	// Check if running in direct CLI mode (testenv <command>)
 	if len(os.Args) >= 2 && os.Args[1] != "--mcp" && os.Args[1] != "version" && os.Args[1] != "--version" && os.Args[1] != "-v" && os.Args[1] != "help" && os.Args[1] != "--help" && os.Args[1] != "-h" {
 		command := os.Args[1]
+		commands := newTestenvCommands()
 
 		switch command {
 		case "create":
@@ -72,7 +73,7 @@ func main() {
 			if len(os.Args) >= 3 {
 				stageName = os.Args[2]
 			}
-			if _, err := cmdCreate(stageName); err != nil {
+			if _, err := commands.cmdCreate(stageName); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
@@ -83,7 +84,7 @@ func main() {
 				os.Exit(1)
 			}
 			testID := os.Args[2]
-			if err := cmdDelete(testID); err != nil {
+			if err := commands.cmdDelete(testID); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}

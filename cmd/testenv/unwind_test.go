@@ -47,15 +47,12 @@ func (f *fakeEngineRegistry) call(engineURI string, toolName string, params map[
 	return map[string]interface{}{}, nil
 }
 
-func installFakeEngineRegistry(t *testing.T, failures map[engineCall]error) *fakeEngineRegistry {
+func installFakeEngineRegistry(t *testing.T, failures map[engineCall]error) (*fakeEngineRegistry, *testenvCommands) {
 	t.Helper()
 
 	registry := &fakeEngineRegistry{failures: failures}
-	previous := callEngine
-	callEngine = registry.call
-	t.Cleanup(func() { callEngine = previous })
 
-	return registry
+	return registry, &testenvCommands{callEngine: registry.call}
 }
 
 func testenvSpecWithSubengines(artifactStorePath string, engines ...string) forge.Spec {
@@ -133,12 +130,12 @@ func TestAFailingSubengineUnwindsOnlyTheSubenginesThatAlreadySucceeded(t *testin
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			registry := installFakeEngineRegistry(t, map[engineCall]error{
+			registry, commands := installFakeEngineRegistry(t, map[engineCall]error{
 				{engine: tt.failingEngine, tool: "create"}: errors.New("engine refused"),
 			})
 
 			config := testenvSpecWithSubengines("", tt.subengines...)
-			err := orchestrateCreate(config, "setup", newTestEnvironment(t.TempDir()))
+			err := commands.orchestrateCreate(config, "setup", newTestEnvironment(t.TempDir()))
 			if err == nil {
 				t.Fatal("expected orchestrateCreate to return an error")
 			}
@@ -155,12 +152,12 @@ func TestAFailedUnwindReportsEverySubengineByNameAndKeepsTheRecord(t *testing.T)
 	artifactStorePath := filepath.Join(workDir, "artifact-store.yaml")
 	writeForgeSpec(t, workDir, artifactStorePath, "alias://setup")
 
-	registry := installFakeEngineRegistry(t, map[engineCall]error{
+	registry, commands := installFakeEngineRegistry(t, map[engineCall]error{
 		{engine: "forge://two", tool: "create"}: errors.New("two refused to create"),
 		{engine: "forge://one", tool: "delete"}: errors.New("one refused to delete"),
 	})
 
-	_, err := cmdCreate("integration")
+	_, err := commands.cmdCreate("integration")
 	if err == nil {
 		t.Fatal("expected cmdCreate to return an error")
 	}
@@ -213,9 +210,9 @@ func TestAFailedCreateLeavesTheEnvironmentAndItsTmpDirForALaterDelete(t *testing
 			artifactStorePath := filepath.Join(workDir, "artifact-store.yaml")
 			writeForgeSpec(t, workDir, artifactStorePath, tt.testenv)
 
-			installFakeEngineRegistry(t, tt.failures)
+			_, commands := installFakeEngineRegistry(t, tt.failures)
 
-			if _, err := cmdCreate("integration"); err == nil {
+			if _, err := commands.cmdCreate("integration"); err == nil {
 				t.Fatal("expected cmdCreate to return an error")
 			}
 
@@ -224,7 +221,7 @@ func TestAFailedCreateLeavesTheEnvironmentAndItsTmpDirForALaterDelete(t *testing
 				t.Errorf("expected tmpDir %s to survive a failed create, got %v", env.TmpDir, err)
 			}
 
-			if err := cmdDelete(env.ID); err != nil {
+			if err := commands.cmdDelete(env.ID); err != nil {
 				t.Fatalf("expected delete-env to reach the recorded environment, got %v", err)
 			}
 		})
@@ -239,17 +236,17 @@ func TestTheEnvironmentIsInTheArtifactStoreBeforeTheFirstSubengineRuns(t *testin
 	writeForgeSpec(t, workDir, artifactStorePath, "alias://setup")
 
 	recordedBeforeFirstSubengine := false
-	previous := callEngine
-	callEngine = func(engineURI string, toolName string, params map[string]any) (interface{}, error) {
-		if engineURI == "forge://one" && toolName == "create" {
-			store, err := forge.ReadArtifactStore(artifactStorePath)
-			recordedBeforeFirstSubengine = err == nil && len(store.TestEnvironments) == 1
-		}
-		return nil, errors.New("one refused to create")
+	commands := &testenvCommands{
+		callEngine: func(engineURI string, toolName string, params map[string]any) (interface{}, error) {
+			if engineURI == "forge://one" && toolName == "create" {
+				store, err := forge.ReadArtifactStore(artifactStorePath)
+				recordedBeforeFirstSubengine = err == nil && len(store.TestEnvironments) == 1
+			}
+			return nil, errors.New("one refused to create")
+		},
 	}
-	t.Cleanup(func() { callEngine = previous })
 
-	if _, err := cmdCreate("integration"); err == nil {
+	if _, err := commands.cmdCreate("integration"); err == nil {
 		t.Fatal("expected cmdCreate to return an error")
 	}
 

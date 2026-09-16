@@ -102,9 +102,13 @@ func resolveEngineURI(engineURI string) (engineInvocation, error) {
 	return engineInvocation{command: inv.Command, args: inv.Args, dir: inv.Dir}, nil
 }
 
-type engineCaller func(engineURI string, toolName string, params map[string]any) (interface{}, error)
+type testenvCommands struct {
+	callEngine func(engineURI string, toolName string, params map[string]any) (interface{}, error)
+}
 
-var callEngine engineCaller = invokeEngineTool
+func newTestenvCommands() *testenvCommands {
+	return &testenvCommands{callEngine: invokeEngineTool}
+}
 
 func invokeEngineTool(engineURI string, toolName string, params map[string]any) (interface{}, error) {
 	engine, err := resolveEngineURI(engineURI)

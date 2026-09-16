@@ -32,7 +32,7 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/testenvutil"
 )
 
-func cmdCreate(stageName string) (string, error) {
+func (c *testenvCommands) cmdCreate(stageName string) (string, error) {
 	if stageName == "" {
 		return "", fmt.Errorf("stage name is required")
 	}
@@ -87,7 +87,7 @@ func cmdCreate(stageName string) (string, error) {
 		return "", err
 	}
 
-	setupErr := runTestenvSetup(config, testSpec, env)
+	setupErr := c.runTestenvSetup(config, testSpec, env)
 
 	if err := recordEnvironment(config, env); err != nil {
 		return "", err
@@ -123,7 +123,7 @@ func recordEnvironment(config forge.Spec, env *forge.TestEnvironment) error {
 	return nil
 }
 
-func runTestenvSetup(config forge.Spec, testSpec *forge.TestSpec, env *forge.TestEnvironment) error {
+func (c *testenvCommands) runTestenvSetup(config forge.Spec, testSpec *forge.TestSpec, env *forge.TestEnvironment) error {
 	setupSpec := testSpec.Testenv
 
 	switch {
@@ -131,19 +131,19 @@ func runTestenvSetup(config forge.Spec, testSpec *forge.TestSpec, env *forge.Tes
 		fmt.Fprintf(os.Stderr, "No testenv configured for stage %s\n", env.Name)
 		return nil
 	case strings.HasPrefix(setupSpec, "forge://"):
-		if err := createWithDirectEngine(setupSpec, env); err != nil {
+		if err := c.createWithDirectEngine(setupSpec, env); err != nil {
 			return err
 		}
 		return nil
 	default:
-		if err := orchestrateCreate(config, strings.TrimPrefix(setupSpec, "alias://"), env); err != nil {
+		if err := c.orchestrateCreate(config, strings.TrimPrefix(setupSpec, "alias://"), env); err != nil {
 			return fmt.Errorf("failed to orchestrate testenv-subengines: %w", err)
 		}
 		return nil
 	}
 }
 
-func createWithDirectEngine(setupSpec string, env *forge.TestEnvironment) error {
+func (c *testenvCommands) createWithDirectEngine(setupSpec string, env *forge.TestEnvironment) error {
 	fmt.Fprintf(os.Stderr, "Setting up %s...\n", setupSpec)
 
 	params := map[string]any{
@@ -155,7 +155,7 @@ func createWithDirectEngine(setupSpec string, env *forge.TestEnvironment) error 
 		params["tmpDir"] = env.TmpDir
 	}
 
-	result, err := callEngine(setupSpec, "create", params)
+	result, err := c.callEngine(setupSpec, "create", params)
 	if err != nil {
 		return fmt.Errorf("failed to create with %s: %w", setupSpec, err)
 	}
@@ -209,7 +209,7 @@ func mergeSubengineResult(result interface{}, env *forge.TestEnvironment, accumu
 	}
 }
 
-func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvironment) error {
+func (c *testenvCommands) orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvironment) error {
 	var engineConfig *forge.EngineConfig
 	for i := range config.Engines {
 		if config.Engines[i].Alias == setupAlias {
@@ -246,7 +246,7 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 	envTracker := testenvutil.NewEnvSourceTracker()
 
 	unwind := func(succeeded int, cause error) error {
-		return errors.Join(cause, deleteSubenginesInReverse(subengines[:succeeded], env))
+		return errors.Join(cause, c.deleteSubenginesInReverse(subengines[:succeeded], env))
 	}
 
 	for subengineIndex, subengine := range subengines {
@@ -354,7 +354,7 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 			params["envPropagation"] = envPropagation
 		}
 
-		result, err := callEngine(subengine.Engine, "create", params)
+		result, err := c.callEngine(subengine.Engine, "create", params)
 		if err != nil {
 			return unwind(subengineIndex, fmt.Errorf("failed to create with %s: %w", subengine.Engine, err))
 		}

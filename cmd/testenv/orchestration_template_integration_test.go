@@ -158,13 +158,7 @@ func TestTemplateExpansionInOrchestration(t *testing.T) {
 			}
 			defer os.RemoveAll(env.TmpDir)
 
-			// Call orchestrateCreate - this is the integration point being tested
-			// This function should:
-			// 1. Iterate through sub-engines
-			// 2. For each sub-engine, expand templates using accumulated environment
-			// 3. Pass expanded spec to MCP engine (not original templated spec)
-			// 4. Return error if template expansion fails
-			err = orchestrateCreate(tt.config, tt.setupAlias, env)
+			err = newTestenvCommands().orchestrateCreate(tt.config, tt.setupAlias, env)
 
 			// Verify error expectations
 			if tt.wantError {
@@ -469,8 +463,7 @@ func TestDeferTemplatesInOrchestration(t *testing.T) {
 			}
 			defer os.RemoveAll(env.TmpDir)
 
-			// Call orchestrateCreate
-			err = orchestrateCreate(tt.config, tt.setupAlias, env)
+			err = newTestenvCommands().orchestrateCreate(tt.config, tt.setupAlias, env)
 
 			// Verify error expectations
 			if tt.wantTemplateExpansionError {

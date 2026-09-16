@@ -788,7 +788,7 @@ func TestValidateTestenvSpec_NoSubengines(t *testing.T) {
 		SpecName: "unit",
 	}
 
-	output := validateTestenvSpec(nil, input)
+	output := newTestenvCommands().validateTestenvSpec(nil, input)
 
 	if !output.Valid {
 		t.Error("Expected Valid=true when no subengines to validate")
@@ -808,7 +808,7 @@ func TestValidateTestenvSpec_SubengineWithoutEngine(t *testing.T) {
 		SpecName: "integration",
 	}
 
-	output := validateTestenvSpec(nil, input)
+	output := newTestenvCommands().validateTestenvSpec(nil, input)
 
 	if output.Valid {
 		t.Error("Expected Valid=false when subengine has no engine field")
@@ -837,7 +837,7 @@ func TestValidateTestenvSpec_InvalidSubenginesStructure(t *testing.T) {
 		SpecName: "integration",
 	}
 
-	output := validateTestenvSpec(nil, input)
+	output := newTestenvCommands().validateTestenvSpec(nil, input)
 
 	if output.Valid {
 		t.Error("Expected Valid=false for invalid subengines structure")
@@ -880,7 +880,7 @@ func TestValidateTestenvSpec_FromForgeSpec(t *testing.T) {
 
 	// Note: This will attempt MCP calls which will fail in unit tests.
 	// The test verifies the function doesn't panic and handles the error gracefully.
-	output := validateTestenvSpec(nil, input)
+	output := newTestenvCommands().validateTestenvSpec(nil, input)
 
 	// We expect some errors because MCP calls will fail in unit tests
 	// but the function should not panic
