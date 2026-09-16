@@ -221,6 +221,10 @@ func TestAFailedCreateLeavesTheEnvironmentAndItsTmpDirForALaterDelete(t *testing
 				t.Errorf("expected tmpDir %s to survive a failed create, got %v", env.TmpDir, err)
 			}
 
+			if env.Status != forge.TestStatusFailed {
+				t.Errorf("expected the recorded status to be %s, got %s", forge.TestStatusFailed, env.Status)
+			}
+
 			if err := commands.cmdDelete(env.ID); err != nil {
 				t.Fatalf("expected delete-env to reach the recorded environment, got %v", err)
 			}
@@ -241,6 +245,10 @@ func TestTheEnvironmentIsInTheArtifactStoreBeforeTheFirstSubengineRuns(t *testin
 			if engineURI == "forge://one" && toolName == "create" {
 				store, err := forge.ReadArtifactStore(artifactStorePath)
 				recordedBeforeFirstSubengine = err == nil && len(store.TestEnvironments) == 1
+				for _, recorded := range store.TestEnvironments {
+					recordedBeforeFirstSubengine = recordedBeforeFirstSubengine &&
+						recorded.Status == forge.TestStatusCreated
+				}
 			}
 			return nil, errors.New("one refused to create")
 		},

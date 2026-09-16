@@ -88,6 +88,9 @@ func (c *testenvCommands) cmdCreate(stageName string) (string, error) {
 	}
 
 	setupErr := c.runTestenvSetup(config, testSpec, env)
+	if setupErr != nil {
+		env.Status = forge.TestStatusFailed
+	}
 
 	if err := recordEnvironment(config, env); err != nil {
 		return "", err
