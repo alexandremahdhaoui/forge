@@ -79,7 +79,7 @@ type TestEnvironment struct {
 
 	Env map[string]string `json:"env,omitempty"`
 
-	Subengines []string `json:"subengines,omitempty"`
+	Subengines []string `json:"subengines"`
 }
 
 const (

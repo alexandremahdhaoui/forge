@@ -74,6 +74,8 @@ func (c *testenvCommands) cmdDelete(testID string) error {
 			} else {
 				fmt.Fprintf(os.Stderr, "  ✓ %s teardown complete\n", testSpec.Testenv)
 			}
+		} else if env.Subengines == nil {
+			return errRecordPredatesSubengineList(testID)
 		} else if err := c.deleteRecordedSubengines(env); err != nil {
 			cleanupErr = fmt.Errorf("failed to orchestrate cleanup: %w", err)
 		}
@@ -99,6 +101,15 @@ func (c *testenvCommands) cmdDelete(testID string) error {
 
 	fmt.Fprintf(os.Stderr, "Deleted test environment: %s\n", testID)
 	return nil
+}
+
+func errRecordPredatesSubengineList(testID string) error {
+	return fmt.Errorf(
+		"refusing to delete test environment %s: its record predates the subengine list, "+
+			"so forge cannot name what the create built and deleting the record would leak every resource it left standing. "+
+			"Run delete-env with the older forge that walked the declared alias, or clean up by hand",
+		testID,
+	)
 }
 
 func (c *testenvCommands) deleteRecordedSubengines(env *forge.TestEnvironment) error {

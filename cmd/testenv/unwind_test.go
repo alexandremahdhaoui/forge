@@ -297,6 +297,84 @@ func TestADeleteThatFailsTwiceKeepsItsSubengineOnTheRecord(t *testing.T) {
 	assertSubenginesEqual(t, singleRecordedEnvironment(t, artifactStorePath).Subengines, []string{"forge://one"})
 }
 
+func TestADeleteRefusesARecordThatPredatesTheSubengineListAndStillDeletesAnHonestlyEmptyOne(t *testing.T) {
+	const testID = "test-integration-20260916-abcdef01"
+
+	tests := []struct {
+		name            string
+		subengineLine   string
+		expectedRefusal []string
+	}{
+		{
+			name:            "a record written before the subengine list existed carries no key",
+			subengineLine:   "",
+			expectedRefusal: []string{testID, "predates the subengine list", "older forge", "by hand"},
+		},
+		{
+			name:            "a record whose create built nothing carries an empty list",
+			subengineLine:   "    subengines: []\n",
+			expectedRefusal: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			workDir := t.TempDir()
+			t.Chdir(workDir)
+
+			artifactStorePath := filepath.Join(workDir, "artifact-store.yaml")
+			writeForgeSpec(t, workDir, artifactStorePath, "alias://setup", "forge://one", "forge://two")
+			writeRecordedEnvironment(t, artifactStorePath, testID, tt.subengineLine)
+
+			registry, commands := installFakeEngineRegistry(t, nil)
+			err := commands.cmdDelete(testID)
+
+			if tt.expectedRefusal == nil {
+				if err != nil {
+					t.Fatalf("expected an empty subengine list to delete cleanly, got %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Fatal("expected cmdDelete to refuse by name")
+				}
+
+				for _, phrase := range tt.expectedRefusal {
+					if !strings.Contains(err.Error(), phrase) {
+						t.Errorf("expected the refusal to say %q, got %q", phrase, err.Error())
+					}
+				}
+
+				if singleRecordedEnvironment(t, artifactStorePath).ID != testID {
+					t.Error("expected the refusal to leave the record standing")
+				}
+			}
+
+			assertCallsEqual(t, registry.calls, nil)
+		})
+	}
+}
+
+func writeRecordedEnvironment(t *testing.T, artifactStorePath string, testID string, subengineLine string) {
+	t.Helper()
+
+	storeYAML := `version: "1.0"
+lastUpdated: 2026-09-16T00:00:00Z
+artifacts: []
+testEnvironments:
+  ` + testID + `:
+    id: ` + testID + `
+    name: integration
+    status: created
+    createdAt: 2026-09-16T00:00:00Z
+    updatedAt: 2026-09-16T00:00:00Z
+    managedResources: []
+` + subengineLine
+
+	if err := os.WriteFile(artifactStorePath, []byte(storeYAML), 0o644); err != nil {
+		t.Fatalf("writing artifact store: %v", err)
+	}
+}
+
 func assertSubenginesEqual(t *testing.T, got []string, want []string) {
 	t.Helper()
 

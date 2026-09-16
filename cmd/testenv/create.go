@@ -81,6 +81,7 @@ func (c *testenvCommands) cmdCreate(stageName string) (string, error) {
 		Files:            make(map[string]string),
 		ManagedResources: []string{tmpDir},
 		Metadata:         make(map[string]string),
+		Subengines:       []string{},
 	}
 
 	if err := recordEnvironment(config, env); err != nil {
