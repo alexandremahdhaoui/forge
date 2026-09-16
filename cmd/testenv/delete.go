@@ -107,7 +107,9 @@ func errRecordPredatesSubengineList(testID string) error {
 	return fmt.Errorf(
 		"refusing to delete test environment %s: its record predates the subengine list, "+
 			"so forge cannot name what the create built and deleting the record would leak every resource it left standing. "+
-			"Run delete-env with the older forge that walked the declared alias, or clean up by hand",
+			"Clean up by hand: delete the %s entry under testEnvironments in .forge/artifact-store.yaml, "+
+			"then delete the directory that entry names in its tmpDir field",
+		testID,
 		testID,
 	)
 }

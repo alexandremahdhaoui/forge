@@ -308,7 +308,13 @@ func TestADeleteRefusesARecordThatPredatesTheSubengineListAndStillDeletesAnHones
 		{
 			name:            "a record written before the subengine list existed carries no key",
 			subengineLine:   "",
-			expectedRefusal: []string{testID, "predates the subengine list", "older forge", "by hand"},
+			expectedRefusal: []string{
+				testID,
+				"predates the subengine list",
+				"by hand",
+				".forge/artifact-store.yaml",
+				"tmpDir",
+			},
 		},
 		{
 			name:            "a record whose create built nothing carries an empty list",
