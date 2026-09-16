@@ -20,6 +20,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
 
 func TestParseEngineURI_GoProtocol(t *testing.T) {
@@ -123,13 +125,6 @@ func TestParseEngineURI_GoProtocol(t *testing.T) {
 			wantErr:         true,
 			wantErrContains: "empty engine path",
 		},
-		{
-			name:            "empty forge version",
-			engineURI:       "forge://go-build",
-			forgeVersion:    "",
-			wantErr:         true,
-			wantErrContains: "forge version cannot be empty",
-		},
 	}
 
 	for _, tt := range tests {
@@ -187,6 +182,51 @@ func TestParseEngineURI_GoProtocol(t *testing.T) {
 				t.Errorf("ParseEngineURI() args = %v, want args containing %q", args, tt.wantArgsContains)
 			}
 		})
+	}
+}
+
+func TestABuiltinEngineWithNoForgeVersionIsRefusedByName(t *testing.T) {
+	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "")
+	t.Setenv("GOWORK", "off")
+
+	Use(Registry{})
+	t.Cleanup(func() { Use(Registry{}) })
+
+	const name = "go-build"
+
+	if _, _, ok := registry().Lookup(name); ok {
+		t.Fatalf("this case only exercises the builtin path while %s is in no ring", name)
+	}
+
+	_, _, err := ParseEngineURI("forge://"+name, "")
+	if err == nil || !strings.Contains(err.Error(), "forge version cannot be empty") {
+		t.Fatalf("expected a refusal naming the empty forge version, got %v", err)
+	}
+}
+
+func TestARegisteredSourceDirectoryNeedsNoForgeVersion(t *testing.T) {
+	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "")
+
+	module := t.TempDir()
+	writeFile(t, filepath.Join(module, "go.mod"), "module example.invalid/engines\n\ngo 1.24\n")
+	writeFile(t, filepath.Join(module, "cmd", "probe", "main.go"), "package main\n\nfunc main() {}\n")
+
+	registry, err := Load(&forge.Spec{Engines: []forge.EngineConfig{{Alias: "probe", Engine: "./cmd/probe"}}}, module)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	Use(registry)
+	t.Cleanup(func() { Use(Registry{}) })
+
+	engineType, inv, err := ParseEngineURI("forge://probe", "")
+	if err != nil {
+		t.Fatalf("a registered source directory carries no forge version requirement, got %v", err)
+	}
+
+	want := filepath.Join(module, "build", "local-engines", "probe")
+	if engineType != EngineTypeMCP || inv.Command != want || len(inv.Args) != 0 {
+		t.Fatalf("expected the built binary %s with no args, got %s %+v", want, engineType, inv)
 	}
 }
 
