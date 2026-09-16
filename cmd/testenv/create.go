@@ -18,6 +18,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,20 +32,16 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/testenvutil"
 )
 
-// cmdCreate creates a new test environment for the given stage.
-// Returns the generated test ID.
 func cmdCreate(stageName string) (string, error) {
 	if stageName == "" {
 		return "", fmt.Errorf("stage name is required")
 	}
 
-	// Read forge.yaml configuration
 	config, err := forge.ReadSpec()
 	if err != nil {
 		return "", fmt.Errorf("failed to read forge.yaml: %w", err)
 	}
 
-	// Find TestSpec for this stage
 	var testSpec *forge.TestSpec
 	for i := range config.Test {
 		if config.Test[i].Name == stageName {
@@ -57,11 +54,8 @@ func cmdCreate(stageName string) (string, error) {
 		return "", fmt.Errorf("test stage not found in forge.yaml: %s", stageName)
 	}
 
-	// Generate unique test ID
 	testID := generateTestID(stageName)
 
-	// Create tmpDir for this test environment in project's ./.forge/tmp directory
-	// Pattern: ./.forge/tmp/test-{stage}-{testID}
 	rootDir, err := os.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("failed to get working directory: %w", err)
@@ -72,13 +66,11 @@ func cmdCreate(stageName string) (string, error) {
 		return "", fmt.Errorf("failed to create tmp base directory: %w", err)
 	}
 
-	// testID already includes "test-{stage}-{date}-{hash}", so just use it directly
 	tmpDir := filepath.Join(tmpBase, testID)
 	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create tmpDir: %w", err)
 	}
 
-	// Initialize test environment
 	env := &forge.TestEnvironment{
 		ID:               testID,
 		Name:             stageName,
@@ -87,121 +79,137 @@ func cmdCreate(stageName string) (string, error) {
 		UpdatedAt:        time.Now().UTC(),
 		TmpDir:           tmpDir,
 		Files:            make(map[string]string),
-		ManagedResources: []string{tmpDir}, // tmpDir will be cleaned up
+		ManagedResources: []string{tmpDir},
 		Metadata:         make(map[string]string),
 	}
 
-	// Find the setup alias for this test stage
-	setupSpec := testSpec.Testenv
-	if setupSpec == "" {
-		// No setup configured, just create the environment entry
-		fmt.Fprintf(os.Stderr, "No testenv configured for stage %s\n", stageName)
-	} else if strings.HasPrefix(setupSpec, "forge://") {
-		// Direct engine URI (e.g., forge://test-report)
-		// Call the engine's create tool directly
-		fmt.Fprintf(os.Stderr, "Setting up %s...\n", setupSpec)
-
-		engine, err := resolveEngineURI(setupSpec)
-		if err != nil {
-			_ = os.RemoveAll(tmpDir)
-			return "", fmt.Errorf("failed to resolve engine %s: %w", setupSpec, err)
-		}
-
-		// Prepare parameters - test-report only needs stage, others need full params
-		params := map[string]any{
-			"stage": env.Name,
-		}
-
-		// For engines other than test-report, include full testenv parameters
-		if setupSpec != "forge://test-report" {
-			params["testID"] = env.ID
-			params["tmpDir"] = env.TmpDir
-		}
-
-		result, err := callMCPEngine(engine, "create", params)
-		if err != nil {
-			_ = os.RemoveAll(tmpDir)
-			return "", fmt.Errorf("failed to create with %s: %w", setupSpec, err)
-		}
-
-		// Extract response from structured content
-		if resultMap, ok := result.(map[string]interface{}); ok {
-			if files, ok := resultMap["files"].(map[string]interface{}); ok {
-				for key, value := range files {
-					if strValue, ok := value.(string); ok {
-						env.Files[key] = strValue
-					}
-				}
-			}
-			if metadata, ok := resultMap["metadata"].(map[string]interface{}); ok {
-				for key, value := range metadata {
-					if strValue, ok := value.(string); ok {
-						env.Metadata[key] = strValue
-					}
-				}
-			}
-			if resources, ok := resultMap["managedResources"].([]interface{}); ok {
-				for _, resource := range resources {
-					if strResource, ok := resource.(string); ok {
-						env.ManagedResources = append(env.ManagedResources, strResource)
-					}
-				}
-			}
-		}
-		fmt.Fprintf(os.Stderr, "  ✓ %s setup complete\n", setupSpec)
-	} else {
-		// Alias reference (e.g., alias://setup-integration)
-		setupAlias := strings.TrimPrefix(setupSpec, "alias://")
-
-		// Orchestrate testenv-subengines
-		if err := orchestrateCreate(config, setupAlias, env); err != nil {
-			// Cleanup tmpDir on failure
-			_ = os.RemoveAll(tmpDir)
-			return "", fmt.Errorf("failed to orchestrate testenv-subengines: %w", err)
-		}
+	if err := recordEnvironment(config, env); err != nil {
+		return "", err
 	}
 
-	// Get artifact store path from config
-	artifactStorePath, err := forge.GetArtifactStorePath(config.ArtifactStorePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to get artifact store path: %w", err)
+	setupErr := runTestenvSetup(config, testSpec, env)
+
+	if err := recordEnvironment(config, env); err != nil {
+		return "", err
 	}
 
-	store, err := forge.ReadOrCreateArtifactStore(artifactStorePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read artifact store: %w", err)
+	if setupErr != nil {
+		return "", setupErr
 	}
 
-	// Add test environment to store
-	forge.AddOrUpdateTestEnvironment(&store, env)
-
-	// Write artifact store
-	if err := forge.WriteArtifactStore(artifactStorePath, store); err != nil {
-		return "", fmt.Errorf("failed to write artifact store: %w", err)
-	}
-
-	// Output test ID to stderr (safe for both CLI and MCP usage)
 	fmt.Fprintln(os.Stderr, testID)
 
 	return testID, nil
 }
 
-// generateTestID generates a unique test environment ID.
-// Format: test-<stage>-YYYYMMDD-XXXXXXXX
+func recordEnvironment(config forge.Spec, env *forge.TestEnvironment) error {
+	artifactStorePath, err := forge.GetArtifactStorePath(config.ArtifactStorePath)
+	if err != nil {
+		return fmt.Errorf("failed to get artifact store path: %w", err)
+	}
+
+	store, err := forge.ReadOrCreateArtifactStore(artifactStorePath)
+	if err != nil {
+		return fmt.Errorf("failed to read artifact store: %w", err)
+	}
+
+	env.UpdatedAt = time.Now().UTC()
+	forge.AddOrUpdateTestEnvironment(&store, env)
+
+	if err := forge.WriteArtifactStore(artifactStorePath, store); err != nil {
+		return fmt.Errorf("failed to write artifact store: %w", err)
+	}
+
+	return nil
+}
+
+func runTestenvSetup(config forge.Spec, testSpec *forge.TestSpec, env *forge.TestEnvironment) error {
+	setupSpec := testSpec.Testenv
+
+	switch {
+	case setupSpec == "":
+		fmt.Fprintf(os.Stderr, "No testenv configured for stage %s\n", env.Name)
+		return nil
+	case strings.HasPrefix(setupSpec, "forge://"):
+		if err := createWithDirectEngine(setupSpec, env); err != nil {
+			return err
+		}
+		return nil
+	default:
+		if err := orchestrateCreate(config, strings.TrimPrefix(setupSpec, "alias://"), env); err != nil {
+			return fmt.Errorf("failed to orchestrate testenv-subengines: %w", err)
+		}
+		return nil
+	}
+}
+
+func createWithDirectEngine(setupSpec string, env *forge.TestEnvironment) error {
+	fmt.Fprintf(os.Stderr, "Setting up %s...\n", setupSpec)
+
+	params := map[string]any{
+		"stage": env.Name,
+	}
+
+	if setupSpec != "forge://test-report" {
+		params["testID"] = env.ID
+		params["tmpDir"] = env.TmpDir
+	}
+
+	result, err := callEngine(setupSpec, "create", params)
+	if err != nil {
+		return fmt.Errorf("failed to create with %s: %w", setupSpec, err)
+	}
+
+	mergeSubengineResult(result, env, nil)
+	fmt.Fprintf(os.Stderr, "  ✓ %s setup complete\n", setupSpec)
+
+	return nil
+}
+
 func generateTestID(stageName string) string {
-	// Generate random suffix
 	randBytes := make([]byte, 4)
 	_, _ = rand.Read(randBytes)
 	suffix := hex.EncodeToString(randBytes)
 
-	// Format: test-<stage>-YYYYMMDD-XXXXXXXX
 	dateStr := time.Now().Format("20060102")
 	return fmt.Sprintf("test-%s-%s-%s", stageName, dateStr, suffix)
 }
 
-// orchestrateCreate calls testenv-subengines in order to set up the test environment.
+func mergeSubengineResult(result interface{}, env *forge.TestEnvironment, accumulatedMetadata map[string]string) {
+	resultMap, ok := result.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	if files, ok := resultMap["files"].(map[string]interface{}); ok {
+		for key, value := range files {
+			if strValue, ok := value.(string); ok {
+				env.Files[key] = strValue
+			}
+		}
+	}
+
+	if metadata, ok := resultMap["metadata"].(map[string]interface{}); ok {
+		for key, value := range metadata {
+			if strValue, ok := value.(string); ok {
+				env.Metadata[key] = strValue
+				if accumulatedMetadata != nil {
+					accumulatedMetadata[key] = strValue
+				}
+			}
+		}
+	}
+
+	if resources, ok := resultMap["managedResources"].([]interface{}); ok {
+		for _, resource := range resources {
+			if strResource, ok := resource.(string); ok {
+				env.ManagedResources = append(env.ManagedResources, strResource)
+			}
+		}
+	}
+}
+
 func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvironment) error {
-	// Resolve the alias to get engine configuration
 	var engineConfig *forge.EngineConfig
 	for i := range config.Engines {
 		if config.Engines[i].Alias == setupAlias {
@@ -214,54 +222,48 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 		return fmt.Errorf("engine alias not found: %s", setupAlias)
 	}
 
-	// Verify it's a testenv type
 	if engineConfig.Type != "testenv" {
 		return fmt.Errorf("engine %s is not a testenv type (got: %s)", setupAlias, engineConfig.Type)
 	}
 
-	// Get the list of testenv-subengines
 	subengines := engineConfig.Testenv
 	if len(subengines) == 0 {
 		return fmt.Errorf("no testenv-subengines configured for %s", setupAlias)
 	}
 
-	// Get project root directory for path resolution in subengines
 	rootDir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	// Create the port allocator for allocateOpenPort template function
 	stateFilePath, err := portAllocStateFilePath()
 	if err != nil {
 		return fmt.Errorf("failed to resolve port allocation state path: %w", err)
 	}
 	allocator := portalloc.New(stateFilePath)
 
-	// Initialize environment accumulation
 	accumulatedMetadata := make(map[string]string)
 	envTracker := testenvutil.NewEnvSourceTracker()
 
-	// Call each subengine in order
+	unwind := func(succeeded int, cause error) error {
+		return errors.Join(cause, deleteSubenginesInReverse(subengines[:succeeded], env))
+	}
+
 	for subengineIndex, subengine := range subengines {
 		fmt.Fprintf(os.Stderr, "Setting up %s...\n", subengine.Engine)
 
-		// Determine spec to use - either expand templates or pass verbatim
 		var specToUse map[string]interface{}
 		if subengine.DeferTemplates {
-			// Skip template expansion - pass spec verbatim to sub-engine
 			specToUse = subengine.Spec
 		} else {
-			// Default: expand templates using accumulated environment
 			specToUse = subengine.Spec
 			var portEnvVars map[string]string
 			if len(subengine.Spec) > 0 {
 				portEnvVars = make(map[string]string)
 				accumulatedEnv := envTracker.ToMap()
 
-				// Open allocator (acquires flock, loads state) before template expansion
 				if err := allocator.Open(); err != nil {
-					return fmt.Errorf("failed to open port allocator: %w", err)
+					return unwind(subengineIndex, fmt.Errorf("failed to open port allocator: %w", err))
 				}
 
 				wrappedAllocate := func(args ...any) (string, error) {
@@ -306,16 +308,15 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 				var err error
 				specToUse, err = templateutil.ExpandTemplates(subengine.Spec, accumulatedEnv, templateutil.WithFuncMap(funcMap))
 
-				// Close allocator (writes state if dirty, releases flock) after template expansion
 				if closeErr := allocator.Close(); closeErr != nil {
 					if err != nil {
-						return fmt.Errorf("failed to expand templates for %s: %w (also failed to close port allocator: %v)", subengine.Engine, err, closeErr)
+						return unwind(subengineIndex, fmt.Errorf("failed to expand templates for %s: %w (also failed to close port allocator: %v)", subengine.Engine, err, closeErr))
 					}
-					return fmt.Errorf("failed to close port allocator: %w", closeErr)
+					return unwind(subengineIndex, fmt.Errorf("failed to close port allocator: %w", closeErr))
 				}
 
 				if err != nil {
-					return fmt.Errorf("failed to expand templates for %s: %w", subengine.Engine, err)
+					return unwind(subengineIndex, fmt.Errorf("failed to expand templates for %s: %w", subengine.Engine, err))
 				}
 			}
 			if len(portEnvVars) > 0 {
@@ -323,84 +324,44 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 			}
 		}
 
-		// Resolve engine URI to binary path
-		engine, err := resolveEngineURI(subengine.Engine)
-		if err != nil {
-			return fmt.Errorf("failed to resolve engine %s: %w", subengine.Engine, err)
-		}
-
-		// Extract EnvPropagation from spec if present
 		var envPropagation *forge.EnvPropagation
 		if envPropSpec, exists := subengine.Spec["envPropagation"]; exists {
-			// Convert map[string]interface{} to *EnvPropagation via JSON marshal/unmarshal
+			var err error
 			envPropagation, err = extractEnvPropagation(envPropSpec)
 			if err != nil {
-				return fmt.Errorf("failed to parse envPropagation for %s: %w", subengine.Engine, err)
+				return unwind(subengineIndex, fmt.Errorf("failed to parse envPropagation for %s: %w", subengine.Engine, err))
 			}
 
-			// Validate EnvPropagation
 			if err := envPropagation.Validate(); err != nil {
-				return fmt.Errorf("invalid envPropagation for %s: %w", subengine.Engine, err)
+				return unwind(subengineIndex, fmt.Errorf("invalid envPropagation for %s: %w", subengine.Engine, err))
 			}
 		}
 
-		// Prepare parameters for MCP call
 		params := map[string]any{
 			"testID":   env.ID,
 			"stage":    env.Name,
 			"tmpDir":   env.TmpDir,
 			"rootDir":  rootDir,
-			"metadata": accumulatedMetadata, // Pass accumulated metadata from previous subengines
-			"env":      envTracker.ToMap(),  // Pass accumulated environment from previous subengines
+			"metadata": accumulatedMetadata,
+			"env":      envTracker.ToMap(),
 		}
 
-		// Add spec if provided (either expanded or verbatim based on DeferTemplates)
 		if len(specToUse) > 0 {
 			params["spec"] = specToUse
 		}
 
-		// Add envPropagation if present
 		if envPropagation != nil {
 			params["envPropagation"] = envPropagation
 		}
 
-		// Call subengine's create tool via MCP
-		result, err := callMCPEngine(engine, "create", params)
+		result, err := callEngine(subengine.Engine, "create", params)
 		if err != nil {
-			return fmt.Errorf("failed to create with %s: %w", subengine.Engine, err)
+			return unwind(subengineIndex, fmt.Errorf("failed to create with %s: %w", subengine.Engine, err))
 		}
 
-		// Extract response from structured content
+		mergeSubengineResult(result, env, accumulatedMetadata)
+
 		if resultMap, ok := result.(map[string]interface{}); ok {
-			// Merge files from subengine response
-			if files, ok := resultMap["files"].(map[string]interface{}); ok {
-				for key, value := range files {
-					if strValue, ok := value.(string); ok {
-						env.Files[key] = strValue
-					}
-				}
-			}
-
-			// Merge metadata from subengine response and accumulate for next subengine
-			if metadata, ok := resultMap["metadata"].(map[string]interface{}); ok {
-				for key, value := range metadata {
-					if strValue, ok := value.(string); ok {
-						env.Metadata[key] = strValue
-						accumulatedMetadata[key] = strValue
-					}
-				}
-			}
-
-			// Add managed resources from subengine response
-			if resources, ok := resultMap["managedResources"].([]interface{}); ok {
-				for _, resource := range resources {
-					if strResource, ok := resource.(string); ok {
-						env.ManagedResources = append(env.ManagedResources, strResource)
-					}
-				}
-			}
-
-			// Merge environment variables from subengine response
 			if envMap, ok := resultMap["env"].(map[string]interface{}); ok {
 				newEnv := make(map[string]string)
 				for key, value := range envMap {
@@ -408,23 +369,18 @@ func orchestrateCreate(config forge.Spec, setupAlias string, env *forge.TestEnvi
 						newEnv[key] = strValue
 					}
 				}
-				// Merge with priority-based resolution
 				envTracker.Merge(newEnv, envPropagation, subengineIndex)
 			}
 		}
 
+		env.Env = envTracker.ToMap()
+
 		fmt.Fprintf(os.Stderr, "  ✓ %s setup complete\n", subengine.Engine)
 	}
-
-	// Store final merged environment in TestEnvironment
-	env.Env = envTracker.ToMap()
 
 	return nil
 }
 
-// portAllocStateFilePath returns the path to the port allocations state file.
-// Uses $XDG_STATE_HOME/forge/port-allocations.json if XDG_STATE_HOME is set,
-// otherwise ~/.local/state/forge/port-allocations.json.
 func portAllocStateFilePath() (string, error) {
 	stateDir := os.Getenv("XDG_STATE_HOME")
 	if stateDir == "" {
@@ -437,15 +393,12 @@ func portAllocStateFilePath() (string, error) {
 	return filepath.Join(stateDir, "forge", "port-allocations.json"), nil
 }
 
-// extractEnvPropagation converts map[string]interface{} to *EnvPropagation via JSON marshal/unmarshal.
 func extractEnvPropagation(envPropSpec interface{}) (*forge.EnvPropagation, error) {
-	// Marshal to JSON
 	jsonData, err := json.Marshal(envPropSpec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal envPropagation: %w", err)
 	}
 
-	// Unmarshal to EnvPropagation struct
 	var envProp forge.EnvPropagation
 	if err := json.Unmarshal(jsonData, &envProp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal envPropagation: %w", err)

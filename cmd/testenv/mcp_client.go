@@ -101,3 +101,16 @@ func resolveEngineURI(engineURI string) (engineInvocation, error) {
 
 	return engineInvocation{command: inv.Command, args: inv.Args, dir: inv.Dir}, nil
 }
+
+type engineCaller func(engineURI string, toolName string, params map[string]any) (interface{}, error)
+
+var callEngine engineCaller = invokeEngineTool
+
+func invokeEngineTool(engineURI string, toolName string, params map[string]any) (interface{}, error) {
+	engine, err := resolveEngineURI(engineURI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve engine %s: %w", engineURI, err)
+	}
+
+	return callMCPEngine(engine, toolName, params)
+}

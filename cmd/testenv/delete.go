@@ -22,19 +22,16 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
 
-// cmdDelete deletes a test environment by ID.
 func cmdDelete(testID string) error {
 	if testID == "" {
 		return fmt.Errorf("test ID is required")
 	}
 
-	// Read forge.yaml to get artifact store path
 	config, err := forge.ReadSpec()
 	if err != nil {
 		return fmt.Errorf("failed to read forge.yaml: %w", err)
 	}
 
-	// Get artifact store path from config
 	artifactStorePath, err := forge.GetArtifactStorePath(config.ArtifactStorePath)
 	if err != nil {
 		return fmt.Errorf("failed to get artifact store path: %w", err)
@@ -45,13 +42,11 @@ func cmdDelete(testID string) error {
 		return fmt.Errorf("failed to read artifact store: %w", err)
 	}
 
-	// Get test environment
 	env, err := forge.GetTestEnvironment(&store, testID)
 	if err != nil {
 		return fmt.Errorf("test environment not found: %s", testID)
 	}
 
-	// Find the test stage configuration
 	var testSpec *forge.TestSpec
 	for i := range config.Test {
 		if config.Test[i].Name == env.Name {
@@ -60,71 +55,56 @@ func cmdDelete(testID string) error {
 		}
 	}
 
-	// Orchestrate testenv-subengine cleanup in REVERSE order
-	var cleanupErr error
-	if testSpec != nil && testSpec.Testenv != "" {
-		if strings.HasPrefix(testSpec.Testenv, "forge://") {
-			// Direct engine URI - call delete tool directly
-			fmt.Fprintf(os.Stderr, "Tearing down %s...\n", testSpec.Testenv)
-
-			engine, err := resolveEngineURI(testSpec.Testenv)
-			if err != nil {
-				cleanupErr = fmt.Errorf("failed to resolve engine %s: %w", testSpec.Testenv, err)
-			} else {
-				// Prepare parameters - test-report uses reportID, others use testID
-				// Include metadata for proper resource identification during cleanup
-				params := map[string]any{}
-				if testSpec.Testenv == "forge://test-report" {
-					params["reportID"] = testID
-				} else {
-					params["testID"] = testID
-					params["metadata"] = env.Metadata // Pass metadata for proper cleanup
-				}
-
-				_, err = callMCPEngine(engine, "delete", params)
-				if err != nil {
-					cleanupErr = fmt.Errorf("failed to delete with %s: %w", testSpec.Testenv, err)
-				} else {
-					fmt.Fprintf(os.Stderr, "  ✓ %s teardown complete\n", testSpec.Testenv)
-				}
-			}
-		} else {
-			// Alias reference - orchestrate subengines
-			setupAlias := strings.TrimPrefix(testSpec.Testenv, "alias://")
-
-			if err := orchestrateDelete(config, setupAlias, env); err != nil {
-				cleanupErr = fmt.Errorf("failed to orchestrate cleanup: %w", err)
-			}
-		}
+	if err := runTestenvTeardown(config, testSpec, env); err != nil {
+		return err
 	}
 
-	// If cleanup failed, return error before removing from artifact store
-	// This prevents the cluster from being orphaned (removed from store but still running)
-	if cleanupErr != nil {
-		return cleanupErr
-	}
-
-	// Delete managed resources (including tmpDir)
 	for _, resource := range env.ManagedResources {
 		if err := os.RemoveAll(resource); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to remove resource %s: %v\n", resource, err)
 		}
 	}
 
-	// Atomically remove from artifact store
-	// Use AtomicDeleteTestEnvironment to avoid race conditions with concurrent writes
 	if err := forge.AtomicDeleteTestEnvironment(artifactStorePath, testID); err != nil {
 		return fmt.Errorf("failed to delete test environment: %w", err)
 	}
 
-	// Print to stderr to avoid interfering with MCP JSON output
 	fmt.Fprintf(os.Stderr, "Deleted test environment: %s\n", testID)
 	return nil
 }
 
-// orchestrateDelete calls testenv-subengines in REVERSE order to tear down the test environment.
+func runTestenvTeardown(config forge.Spec, testSpec *forge.TestSpec, env *forge.TestEnvironment) error {
+	if testSpec == nil || testSpec.Testenv == "" {
+		return nil
+	}
+
+	if !strings.HasPrefix(testSpec.Testenv, "forge://") {
+		if err := orchestrateDelete(config, strings.TrimPrefix(testSpec.Testenv, "alias://"), env); err != nil {
+			return fmt.Errorf("failed to orchestrate cleanup: %w", err)
+		}
+		return nil
+	}
+
+	fmt.Fprintf(os.Stderr, "Tearing down %s...\n", testSpec.Testenv)
+
+	params := map[string]any{}
+	if testSpec.Testenv == "forge://test-report" {
+		params["reportID"] = env.ID
+	} else {
+		params["testID"] = env.ID
+		params["metadata"] = env.Metadata
+	}
+
+	if _, err := callEngine(testSpec.Testenv, "delete", params); err != nil {
+		return fmt.Errorf("failed to delete with %s: %w", testSpec.Testenv, err)
+	}
+
+	fmt.Fprintf(os.Stderr, "  ✓ %s teardown complete\n", testSpec.Testenv)
+
+	return nil
+}
+
 func orchestrateDelete(config forge.Spec, setupAlias string, env *forge.TestEnvironment) error {
-	// Resolve the alias to get engine configuration
 	var engineConfig *forge.EngineConfig
 	for i := range config.Engines {
 		if config.Engines[i].Alias == setupAlias {
@@ -137,40 +117,30 @@ func orchestrateDelete(config forge.Spec, setupAlias string, env *forge.TestEnvi
 		return fmt.Errorf("engine alias not found: %s", setupAlias)
 	}
 
-	// Verify it's a testenv type
 	if engineConfig.Type != "testenv" {
 		return fmt.Errorf("engine %s is not a testenv type (got: %s)", setupAlias, engineConfig.Type)
 	}
 
-	// Get the list of testenv-subengines
 	subengines := engineConfig.Testenv
 	if len(subengines) == 0 {
 		return fmt.Errorf("no testenv-subengines configured for %s", setupAlias)
 	}
 
-	// Call each subengine in REVERSE order for cleanup
-	// Collect all errors - cleanup must not leak resources
+	return deleteSubenginesInReverse(subengines, env)
+}
+
+func deleteSubenginesInReverse(subengines []forge.TestenvEngineSpec, env *forge.TestEnvironment) error {
 	var cleanupErrors []error
 	for i := len(subengines) - 1; i >= 0; i-- {
 		subengine := subengines[i]
 		fmt.Fprintf(os.Stderr, "Tearing down %s...\n", subengine.Engine)
 
-		// Resolve engine URI to binary path
-		engine, err := resolveEngineURI(subengine.Engine)
-		if err != nil {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to resolve engine %s: %w", subengine.Engine, err))
-			continue
-		}
-
-		// Prepare parameters for MCP call
 		params := map[string]any{
 			"testID":   env.ID,
-			"metadata": env.Metadata, // Pass environment metadata for cleanup
+			"metadata": env.Metadata,
 		}
 
-		// Call subengine's delete tool via MCP
-		_, err = callMCPEngine(engine, "delete", params)
-		if err != nil {
+		if _, err := callEngine(subengine.Engine, "delete", params); err != nil {
 			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to delete with %s: %w", subengine.Engine, err))
 			continue
 		}
@@ -178,7 +148,6 @@ func orchestrateDelete(config forge.Spec, setupAlias string, env *forge.TestEnvi
 		fmt.Fprintf(os.Stderr, "  ✓ %s teardown complete\n", subengine.Engine)
 	}
 
-	// Return error if any cleanup failed - prevents silent resource leaks
 	if len(cleanupErrors) > 0 {
 		return fmt.Errorf("cleanup errors (resources may be leaked): %v", cleanupErrors)
 	}
