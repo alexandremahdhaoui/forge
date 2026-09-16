@@ -82,6 +82,7 @@ func newTestEnvironment(tmpDir string) *forge.TestEnvironment {
 		ID:               "test-integration-20260916-abcdef01",
 		Name:             "integration",
 		Status:           forge.TestStatusCreated,
+		Subengines:       []string{},
 		TmpDir:           tmpDir,
 		Files:            make(map[string]string),
 		ManagedResources: []string{tmpDir},
@@ -306,8 +307,8 @@ func TestADeleteRefusesARecordThatPredatesTheSubengineListAndStillDeletesAnHones
 		expectedRefusal []string
 	}{
 		{
-			name:            "a record written before the subengine list existed carries no key",
-			subengineLine:   "",
+			name:          "a record written before the subengine list existed carries no key",
+			subengineLine: "",
 			expectedRefusal: []string{
 				testID,
 				"predates the subengine list",
@@ -339,6 +340,8 @@ func TestADeleteRefusesARecordThatPredatesTheSubengineListAndStillDeletesAnHones
 				if err != nil {
 					t.Fatalf("expected an empty subengine list to delete cleanly, got %v", err)
 				}
+
+				assertNoRecordedEnvironment(t, artifactStorePath)
 			} else {
 				if err == nil {
 					t.Fatal("expected cmdDelete to refuse by name")
@@ -468,6 +471,19 @@ func singleRecordedEnvironment(t *testing.T, artifactStorePath string) *forge.Te
 	}
 
 	return nil
+}
+
+func assertNoRecordedEnvironment(t *testing.T, artifactStorePath string) {
+	t.Helper()
+
+	store, err := forge.ReadArtifactStore(artifactStorePath)
+	if err != nil {
+		t.Fatalf("reading artifact store: %v", err)
+	}
+
+	if len(store.TestEnvironments) != 0 {
+		t.Fatalf("expected the record to be gone, got %d recorded test environments", len(store.TestEnvironments))
+	}
 }
 
 func assertCallsEqual(t *testing.T, got []engineCall, want []engineCall) {
