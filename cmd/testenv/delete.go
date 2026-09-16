@@ -75,7 +75,7 @@ func (c *testenvCommands) cmdDelete(testID string) error {
 				fmt.Fprintf(os.Stderr, "  ✓ %s teardown complete\n", testSpec.Testenv)
 			}
 		} else if env.Subengines == nil {
-			return errRecordPredatesSubengineList(testID)
+			return errRecordPredatesSubengineList(testID, artifactStorePath)
 		} else if err := c.deleteRecordedSubengines(env); err != nil {
 			cleanupErr = fmt.Errorf("failed to orchestrate cleanup: %w", err)
 		}
@@ -103,14 +103,15 @@ func (c *testenvCommands) cmdDelete(testID string) error {
 	return nil
 }
 
-func errRecordPredatesSubengineList(testID string) error {
+func errRecordPredatesSubengineList(testID string, artifactStorePath string) error {
 	return fmt.Errorf(
 		"refusing to delete test environment %s: its record predates the subengine list, "+
 			"so forge cannot name what the create built and deleting the record would leak every resource it left standing. "+
-			"Clean up by hand: delete the %s entry under testEnvironments in .forge/artifact-store.yaml, "+
+			"Clean up by hand: delete the %s entry under testEnvironments in %s, "+
 			"then delete the directory that entry names in its tmpDir field",
 		testID,
 		testID,
+		artifactStorePath,
 	)
 }
 

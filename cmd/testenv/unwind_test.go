@@ -313,7 +313,6 @@ func TestADeleteRefusesARecordThatPredatesTheSubengineListAndStillDeletesAnHones
 				testID,
 				"predates the subengine list",
 				"by hand",
-				".forge/artifact-store.yaml",
 				"tmpDir",
 			},
 		},
@@ -347,7 +346,7 @@ func TestADeleteRefusesARecordThatPredatesTheSubengineListAndStillDeletesAnHones
 					t.Fatal("expected cmdDelete to refuse by name")
 				}
 
-				for _, phrase := range tt.expectedRefusal {
+				for _, phrase := range append(tt.expectedRefusal, artifactStorePath) {
 					if !strings.Contains(err.Error(), phrase) {
 						t.Errorf("expected the refusal to say %q, got %q", phrase, err.Error())
 					}
