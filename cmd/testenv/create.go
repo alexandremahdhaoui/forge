@@ -163,7 +163,7 @@ func (c *testenvCommands) createWithDirectEngine(setupSpec string, env *forge.Te
 		return fmt.Errorf("failed to create with %s: %w", setupSpec, err)
 	}
 
-	mergeSubengineResult(result, env, nil)
+	mergeSubengineResult(setupSpec, result, env, nil)
 	fmt.Fprintf(os.Stderr, "  ✓ %s setup complete\n", setupSpec)
 
 	return nil
@@ -178,7 +178,9 @@ func generateTestID(stageName string) string {
 	return fmt.Sprintf("test-%s-%s-%s", stageName, dateStr, suffix)
 }
 
-func mergeSubengineResult(result interface{}, env *forge.TestEnvironment, accumulatedMetadata map[string]string) {
+func mergeSubengineResult(engineURI string, result interface{}, env *forge.TestEnvironment, accumulatedMetadata map[string]string) {
+	env.Subengines = append(env.Subengines, engineURI)
+
 	resultMap, ok := result.(map[string]interface{})
 	if !ok {
 		return
@@ -248,8 +250,8 @@ func (c *testenvCommands) orchestrateCreate(config forge.Spec, setupAlias string
 	accumulatedMetadata := make(map[string]string)
 	envTracker := testenvutil.NewEnvSourceTracker()
 
-	unwind := func(succeeded int, cause error) error {
-		return errors.Join(cause, c.deleteSubenginesInReverse(subengines[:succeeded], env))
+	unwind := func(cause error) error {
+		return errors.Join(cause, c.deleteRecordedSubengines(env))
 	}
 
 	for subengineIndex, subengine := range subengines {
@@ -266,7 +268,7 @@ func (c *testenvCommands) orchestrateCreate(config forge.Spec, setupAlias string
 				accumulatedEnv := envTracker.ToMap()
 
 				if err := allocator.Open(); err != nil {
-					return unwind(subengineIndex, fmt.Errorf("failed to open port allocator: %w", err))
+					return unwind(fmt.Errorf("failed to open port allocator: %w", err))
 				}
 
 				wrappedAllocate := func(args ...any) (string, error) {
@@ -313,13 +315,13 @@ func (c *testenvCommands) orchestrateCreate(config forge.Spec, setupAlias string
 
 				if closeErr := allocator.Close(); closeErr != nil {
 					if err != nil {
-						return unwind(subengineIndex, fmt.Errorf("failed to expand templates for %s: %w (also failed to close port allocator: %v)", subengine.Engine, err, closeErr))
+						return unwind(fmt.Errorf("failed to expand templates for %s: %w (also failed to close port allocator: %v)", subengine.Engine, err, closeErr))
 					}
-					return unwind(subengineIndex, fmt.Errorf("failed to close port allocator: %w", closeErr))
+					return unwind(fmt.Errorf("failed to close port allocator: %w", closeErr))
 				}
 
 				if err != nil {
-					return unwind(subengineIndex, fmt.Errorf("failed to expand templates for %s: %w", subengine.Engine, err))
+					return unwind(fmt.Errorf("failed to expand templates for %s: %w", subengine.Engine, err))
 				}
 			}
 			if len(portEnvVars) > 0 {
@@ -332,11 +334,11 @@ func (c *testenvCommands) orchestrateCreate(config forge.Spec, setupAlias string
 			var err error
 			envPropagation, err = extractEnvPropagation(envPropSpec)
 			if err != nil {
-				return unwind(subengineIndex, fmt.Errorf("failed to parse envPropagation for %s: %w", subengine.Engine, err))
+				return unwind(fmt.Errorf("failed to parse envPropagation for %s: %w", subengine.Engine, err))
 			}
 
 			if err := envPropagation.Validate(); err != nil {
-				return unwind(subengineIndex, fmt.Errorf("invalid envPropagation for %s: %w", subengine.Engine, err))
+				return unwind(fmt.Errorf("invalid envPropagation for %s: %w", subengine.Engine, err))
 			}
 		}
 
@@ -359,10 +361,10 @@ func (c *testenvCommands) orchestrateCreate(config forge.Spec, setupAlias string
 
 		result, err := c.callEngine(subengine.Engine, "create", params)
 		if err != nil {
-			return unwind(subengineIndex, fmt.Errorf("failed to create with %s: %w", subengine.Engine, err))
+			return unwind(fmt.Errorf("failed to create with %s: %w", subengine.Engine, err))
 		}
 
-		mergeSubengineResult(result, env, accumulatedMetadata)
+		mergeSubengineResult(subengine.Engine, result, env, accumulatedMetadata)
 
 		if resultMap, ok := result.(map[string]interface{}); ok {
 			if envMap, ok := resultMap["env"].(map[string]interface{}); ok {

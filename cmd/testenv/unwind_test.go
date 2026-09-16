@@ -150,7 +150,7 @@ func TestAFailedUnwindReportsEverySubengineByNameAndKeepsTheRecord(t *testing.T)
 	t.Chdir(workDir)
 
 	artifactStorePath := filepath.Join(workDir, "artifact-store.yaml")
-	writeForgeSpec(t, workDir, artifactStorePath, "alias://setup")
+	writeForgeSpec(t, workDir, artifactStorePath, "alias://setup", "forge://one", "forge://two")
 
 	registry, commands := installFakeEngineRegistry(t, map[engineCall]error{
 		{engine: "forge://two", tool: "create"}: errors.New("two refused to create"),
@@ -208,7 +208,7 @@ func TestAFailedCreateLeavesTheEnvironmentAndItsTmpDirForALaterDelete(t *testing
 			t.Chdir(workDir)
 
 			artifactStorePath := filepath.Join(workDir, "artifact-store.yaml")
-			writeForgeSpec(t, workDir, artifactStorePath, tt.testenv)
+			writeForgeSpec(t, workDir, artifactStorePath, tt.testenv, "forge://one", "forge://two")
 
 			_, commands := installFakeEngineRegistry(t, tt.failures)
 
@@ -232,12 +232,91 @@ func TestAFailedCreateLeavesTheEnvironmentAndItsTmpDirForALaterDelete(t *testing
 	}
 }
 
+func TestAnUnwindDeleteThatFailsLeavesExactlyThatSubengineOnTheRecordForTheNextDelete(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	artifactStorePath := filepath.Join(workDir, "artifact-store.yaml")
+	writeForgeSpec(t, workDir, artifactStorePath, "alias://setup", "forge://one", "forge://two", "forge://three")
+
+	unwindRegistry, unwindCommands := installFakeEngineRegistry(t, map[engineCall]error{
+		{engine: "forge://three", tool: "create"}: errors.New("three refused to create"),
+		{engine: "forge://one", tool: "delete"}:   errors.New("one refused to delete"),
+	})
+
+	if _, err := unwindCommands.cmdCreate("integration"); err == nil {
+		t.Fatal("expected cmdCreate to return an error")
+	}
+
+	assertCallsEqual(t, unwindRegistry.calls, []engineCall{
+		{engine: "forge://one", tool: "create"},
+		{engine: "forge://two", tool: "create"},
+		{engine: "forge://three", tool: "create"},
+		{engine: "forge://two", tool: "delete"},
+		{engine: "forge://one", tool: "delete"},
+	})
+
+	env := singleRecordedEnvironment(t, artifactStorePath)
+	assertSubenginesEqual(t, env.Subengines, []string{"forge://one"})
+
+	retryRegistry, retryCommands := installFakeEngineRegistry(t, nil)
+
+	if err := retryCommands.cmdDelete(env.ID); err != nil {
+		t.Fatalf("expected the retry to delete what the record still lists, got %v", err)
+	}
+
+	assertCallsEqual(t, retryRegistry.calls, []engineCall{
+		{engine: "forge://one", tool: "delete"},
+	})
+}
+
+func TestADeleteThatFailsTwiceKeepsItsSubengineOnTheRecord(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	artifactStorePath := filepath.Join(workDir, "artifact-store.yaml")
+	writeForgeSpec(t, workDir, artifactStorePath, "alias://setup", "forge://one", "forge://two")
+
+	_, unwindCommands := installFakeEngineRegistry(t, map[engineCall]error{
+		{engine: "forge://two", tool: "create"}: errors.New("two refused to create"),
+		{engine: "forge://one", tool: "delete"}: errors.New("one refused to delete"),
+	})
+
+	if _, err := unwindCommands.cmdCreate("integration"); err == nil {
+		t.Fatal("expected cmdCreate to return an error")
+	}
+
+	_, retryCommands := installFakeEngineRegistry(t, map[engineCall]error{
+		{engine: "forge://one", tool: "delete"}: errors.New("one refused to delete again"),
+	})
+
+	if err := retryCommands.cmdDelete(singleRecordedEnvironment(t, artifactStorePath).ID); err == nil {
+		t.Fatal("expected cmdDelete to return an error")
+	}
+
+	assertSubenginesEqual(t, singleRecordedEnvironment(t, artifactStorePath).Subengines, []string{"forge://one"})
+}
+
+func assertSubenginesEqual(t *testing.T, got []string, want []string) {
+	t.Helper()
+
+	if len(got) != len(want) {
+		t.Fatalf("expected the record to list %v, got %v", want, got)
+	}
+
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("expected the record to list %v, got %v", want, got)
+		}
+	}
+}
+
 func TestTheEnvironmentIsInTheArtifactStoreBeforeTheFirstSubengineRuns(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
 
 	artifactStorePath := filepath.Join(workDir, "artifact-store.yaml")
-	writeForgeSpec(t, workDir, artifactStorePath, "alias://setup")
+	writeForgeSpec(t, workDir, artifactStorePath, "alias://setup", "forge://one", "forge://two")
 
 	recordedBeforeFirstSubengine := false
 	commands := &testenvCommands{
@@ -263,8 +342,13 @@ func TestTheEnvironmentIsInTheArtifactStoreBeforeTheFirstSubengineRuns(t *testin
 	}
 }
 
-func writeForgeSpec(t *testing.T, dir string, artifactStorePath string, testenv string) {
+func writeForgeSpec(t *testing.T, dir string, artifactStorePath string, testenv string, engines ...string) {
 	t.Helper()
+
+	subengines := ""
+	for _, engine := range engines {
+		subengines += "      - engine: " + engine + "\n"
+	}
 
 	forgeYAML := `name: test-project
 artifactStorePath: ` + artifactStorePath + `
@@ -272,9 +356,7 @@ engines:
   - alias: setup
     type: testenv
     testenv:
-      - engine: forge://one
-      - engine: forge://two
-test:
+` + subengines + `test:
   - name: integration
     runner: "forge://go-test"
     testenv: "` + testenv + `"

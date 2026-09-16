@@ -15,6 +15,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -73,16 +74,16 @@ func (c *testenvCommands) cmdDelete(testID string) error {
 			} else {
 				fmt.Fprintf(os.Stderr, "  ✓ %s teardown complete\n", testSpec.Testenv)
 			}
-		} else {
-			setupAlias := strings.TrimPrefix(testSpec.Testenv, "alias://")
-
-			if err := c.orchestrateDelete(config, setupAlias, env); err != nil {
-				cleanupErr = fmt.Errorf("failed to orchestrate cleanup: %w", err)
-			}
+		} else if err := c.deleteRecordedSubengines(env); err != nil {
+			cleanupErr = fmt.Errorf("failed to orchestrate cleanup: %w", err)
 		}
 	}
 
 	if cleanupErr != nil {
+		if err := recordEnvironment(config, env); err != nil {
+			return errors.Join(cleanupErr, err)
+		}
+
 		return cleanupErr
 	}
 
@@ -100,53 +101,42 @@ func (c *testenvCommands) cmdDelete(testID string) error {
 	return nil
 }
 
-func (c *testenvCommands) orchestrateDelete(config forge.Spec, setupAlias string, env *forge.TestEnvironment) error {
-	var engineConfig *forge.EngineConfig
-	for i := range config.Engines {
-		if config.Engines[i].Alias == setupAlias {
-			engineConfig = &config.Engines[i]
-			break
-		}
-	}
-
-	if engineConfig == nil {
-		return fmt.Errorf("engine alias not found: %s", setupAlias)
-	}
-
-	if engineConfig.Type != "testenv" {
-		return fmt.Errorf("engine %s is not a testenv type (got: %s)", setupAlias, engineConfig.Type)
-	}
-
-	subengines := engineConfig.Testenv
-	if len(subengines) == 0 {
-		return fmt.Errorf("no testenv-subengines configured for %s", setupAlias)
-	}
-
-	return c.deleteSubenginesInReverse(subengines, env)
-}
-
-func (c *testenvCommands) deleteSubenginesInReverse(subengines []forge.TestenvEngineSpec, env *forge.TestEnvironment) error {
+func (c *testenvCommands) deleteRecordedSubengines(env *forge.TestEnvironment) error {
 	var cleanupErrors []error
-	for i := len(subengines) - 1; i >= 0; i-- {
-		subengine := subengines[i]
-		fmt.Fprintf(os.Stderr, "Tearing down %s...\n", subengine.Engine)
+	remaining := make([]string, 0, len(env.Subengines))
+
+	for i := len(env.Subengines) - 1; i >= 0; i-- {
+		engineURI := env.Subengines[i]
+		fmt.Fprintf(os.Stderr, "Tearing down %s...\n", engineURI)
 
 		params := map[string]any{
 			"testID":   env.ID,
 			"metadata": env.Metadata,
 		}
 
-		if _, err := c.callEngine(subengine.Engine, "delete", params); err != nil {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to delete with %s: %w", subengine.Engine, err))
+		if _, err := c.callEngine(engineURI, "delete", params); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to delete with %s: %w", engineURI, err))
+			remaining = append(remaining, engineURI)
 			continue
 		}
 
-		fmt.Fprintf(os.Stderr, "  ✓ %s teardown complete\n", subengine.Engine)
+		fmt.Fprintf(os.Stderr, "  ✓ %s teardown complete\n", engineURI)
 	}
+
+	env.Subengines = reverse(remaining)
 
 	if len(cleanupErrors) > 0 {
 		return fmt.Errorf("cleanup errors (resources may be leaked): %v", cleanupErrors)
 	}
 
 	return nil
+}
+
+func reverse(engineURIs []string) []string {
+	out := make([]string, 0, len(engineURIs))
+	for i := len(engineURIs) - 1; i >= 0; i-- {
+		out = append(out, engineURIs[i])
+	}
+
+	return out
 }
