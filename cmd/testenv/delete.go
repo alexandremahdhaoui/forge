@@ -55,8 +55,35 @@ func cmdDelete(testID string) error {
 		}
 	}
 
-	if err := runTestenvTeardown(config, testSpec, env); err != nil {
-		return err
+	var cleanupErr error
+	if testSpec != nil && testSpec.Testenv != "" {
+		if strings.HasPrefix(testSpec.Testenv, "forge://") {
+			fmt.Fprintf(os.Stderr, "Tearing down %s...\n", testSpec.Testenv)
+
+			params := map[string]any{}
+			if testSpec.Testenv == "forge://test-report" {
+				params["reportID"] = testID
+			} else {
+				params["testID"] = testID
+				params["metadata"] = env.Metadata
+			}
+
+			if _, err := callEngine(testSpec.Testenv, "delete", params); err != nil {
+				cleanupErr = fmt.Errorf("failed to delete with %s: %w", testSpec.Testenv, err)
+			} else {
+				fmt.Fprintf(os.Stderr, "  ✓ %s teardown complete\n", testSpec.Testenv)
+			}
+		} else {
+			setupAlias := strings.TrimPrefix(testSpec.Testenv, "alias://")
+
+			if err := orchestrateDelete(config, setupAlias, env); err != nil {
+				cleanupErr = fmt.Errorf("failed to orchestrate cleanup: %w", err)
+			}
+		}
+	}
+
+	if cleanupErr != nil {
+		return cleanupErr
 	}
 
 	for _, resource := range env.ManagedResources {
@@ -70,37 +97,6 @@ func cmdDelete(testID string) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "Deleted test environment: %s\n", testID)
-	return nil
-}
-
-func runTestenvTeardown(config forge.Spec, testSpec *forge.TestSpec, env *forge.TestEnvironment) error {
-	if testSpec == nil || testSpec.Testenv == "" {
-		return nil
-	}
-
-	if !strings.HasPrefix(testSpec.Testenv, "forge://") {
-		if err := orchestrateDelete(config, strings.TrimPrefix(testSpec.Testenv, "alias://"), env); err != nil {
-			return fmt.Errorf("failed to orchestrate cleanup: %w", err)
-		}
-		return nil
-	}
-
-	fmt.Fprintf(os.Stderr, "Tearing down %s...\n", testSpec.Testenv)
-
-	params := map[string]any{}
-	if testSpec.Testenv == "forge://test-report" {
-		params["reportID"] = env.ID
-	} else {
-		params["testID"] = env.ID
-		params["metadata"] = env.Metadata
-	}
-
-	if _, err := callEngine(testSpec.Testenv, "delete", params); err != nil {
-		return fmt.Errorf("failed to delete with %s: %w", testSpec.Testenv, err)
-	}
-
-	fmt.Fprintf(os.Stderr, "  ✓ %s teardown complete\n", testSpec.Testenv)
-
 	return nil
 }
 
