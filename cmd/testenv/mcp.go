@@ -25,17 +25,14 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// CreateInput represents the input for the create tool.
 type CreateInput struct {
 	Stage string `json:"stage"`
 }
 
-// DeleteInput represents the input for the delete tool.
 type DeleteInput struct {
 	TestID string `json:"testID"`
 }
 
-// runMCPServer starts the MCP server.
 func runMCPServer() error {
 	server := mcpserver.New("testenv", Version)
 	commands := newTestenvCommands()

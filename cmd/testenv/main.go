@@ -26,17 +26,14 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
 
-// Version information (set via ldflags during build)
 var (
 	Version        = "dev"
 	CommitSHA      = "unknown"
 	BuildTimestamp = "unknown"
 )
 
-// versionInfo holds testenv's version information
 var versionInfo *engineversion.Info
 
-// docsConfig is the configuration for the docs subcommand.
 var docsConfig = &enginedocs.Config{
 	EngineName:   "testenv",
 	LocalDir:     "cmd/testenv/docs",
@@ -51,18 +48,14 @@ func init() {
 	versionInfo.BuildTimestamp = BuildTimestamp
 }
 
-// getVersion returns the actual testenv version, using build info if available
 func getVersion() string {
 	v, _, _ := versionInfo.Get()
 	return v
 }
 
 func main() {
-	// The orchestrator resolves its members' engines the way forge does:
-	// through the registry of the repo it runs in and the factory above.
 	installEngineRegistry()
 
-	// Check if running in direct CLI mode (testenv <command>)
 	if len(os.Args) >= 2 && os.Args[1] != "--mcp" && os.Args[1] != "version" && os.Args[1] != "--version" && os.Args[1] != "-v" && os.Args[1] != "help" && os.Args[1] != "--help" && os.Args[1] != "-h" {
 		command := os.Args[1]
 		commands := newTestenvCommands()
@@ -96,7 +89,6 @@ func main() {
 		return
 	}
 
-	// Otherwise, use standard cli.Bootstrap for MCP mode and version handling
 	enginecli.Bootstrap(enginecli.Config{
 		Name:           "testenv",
 		Version:        Version,
@@ -130,10 +122,6 @@ Note:
   testenv only handles create/delete operations.`)
 }
 
-// installEngineRegistry loads the registry from the working directory's
-// forge.yaml, when there is one, and the factory above it. Failures are
-// not fatal here: a name then falls through to forge's own module, and
-// the resolution that needed the entry reports it.
 func installEngineRegistry() {
 	wd, err := os.Getwd()
 	if err != nil {
