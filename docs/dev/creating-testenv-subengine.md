@@ -23,7 +23,7 @@ A subengine:
 | Tool | Required | Description |
 |------|----------|-------------|
 | `create` | Yes | Create resource, return files/metadata |
-| `delete` | Yes | Clean up resource. Must succeed when the resource is not there |
+| `delete` | Yes | Clean up resource (best-effort) |
 | `config-validate` | Yes | Validate configuration |
 
 **create input/output:**
@@ -45,12 +45,6 @@ type CreateOutput struct {
 ## How does it integrate with testenv?
 
 The orchestrator calls subengines in order during create, **reverse order** during delete.
-
-### delete must be idempotent
-
-**Your delete must succeed on a resource that is not there.** Return no error when the resource is already gone or was never created.
-
-A failed create unwinds the subengines that already succeeded, then keeps the environment on the record. The record still lists every managed resource those unwound subengines contributed. A later `forge test delete-env` therefore calls delete again on resources the unwind already removed, and on resources a subengine never got to create. A delete that errors on a missing resource turns that cleanup into a failure and leaves the record behind.
 
 **Naming convention:** Prefix files/metadata keys with engine name (e.g., `testenv-postgres.credentials`).
 
