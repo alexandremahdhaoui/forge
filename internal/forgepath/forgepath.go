@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 
+	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
 
@@ -45,7 +46,7 @@ var gitDescribeSuffix = regexp.MustCompile(`-[0-9]+-g[0-9a-f]+$`)
 func IsReleaseTag(forgeVersion string) bool {
 	version := trimDirty(forgeVersion)
 
-	return semver.IsValid(version) && !gitDescribeSuffix.MatchString(version)
+	return semver.IsValid(version) && !module.IsPseudoVersion(version) && !gitDescribeSuffix.MatchString(version)
 }
 
 func trimDirty(version string) string {
@@ -198,9 +199,6 @@ func IsForgeRepo(dir string) bool {
 func BuildGoRunCommand(packageName, forgeVersion string) ([]string, error) {
 	if packageName == "" {
 		return nil, fmt.Errorf("package name cannot be empty")
-	}
-	if forgeVersion == "" {
-		return nil, fmt.Errorf("forge version cannot be empty")
 	}
 
 	if RunLocal() {
@@ -393,7 +391,7 @@ func forgeCheckoutNamedBy(dir, source string) (string, error) {
 // an engine run from source keeps the caller's working directory. The
 // module root is the nearest go.mod above pkgDir.
 func BuildEngineFromSource(pkgDir, name string) (string, error) {
-	moduleRoot, ok := moduleRootOf(pkgDir)
+	moduleRoot, ok := ModuleRootOf(pkgDir)
 	if !ok {
 		return "", fmt.Errorf("building engine %s from %s: no go.mod above it", name, pkgDir)
 	}
@@ -421,10 +419,6 @@ func SourceDirLDFlag(moduleRoot string) string {
 }
 
 func ModuleRootOf(dir string) (string, bool) {
-	return moduleRootOf(dir)
-}
-
-func moduleRootOf(dir string) (string, bool) {
 	for {
 		if info, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil && !info.IsDir() {
 			return dir, true

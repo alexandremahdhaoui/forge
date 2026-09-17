@@ -18,6 +18,7 @@ package forgepath
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -170,14 +171,52 @@ func TestDevIsNotATag(t *testing.T) {
 
 func TestOnlyASemverTagWithoutADescribeSuffixIsAReleaseTag(t *testing.T) {
 	for version, want := range map[string]bool{
-		"dev":                  false,
-		"v0.50.10-16-gda6c582": false,
-		"v0.50.0":              true,
-		"v1.0.0-rc1":           true,
-		"v0.50.0+dirty":        true,
+		"dev":                                    false,
+		"v0.50.10-16-gda6c582":                   false,
+		"v0.50.11-0.20260917090238-38080aa3993a": false,
+		"v0.50.0":                                true,
+		"v1.0.0-rc1":                             true,
+		"v0.50.0+dirty":                          true,
 	} {
 		require.Equal(t, want, IsReleaseTag(version), version)
 	}
+}
+
+func TestAnEmptyForgeVersionOutsideAWorkspaceIsRefusedByName(t *testing.T) {
+	chdirIntoWorkspaceListing(t, "example.com/caller", "example.com/other")
+	stampSourceDir(t, "")
+
+	_, _, err := EngineCommand("go-build", "")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "forge version cannot be empty")
+}
+
+func TestAnEngineBuiltFromSourceCarriesTheStampedSourceDirItsDetectorIsBuiltFrom(t *testing.T) {
+	chdirIntoWorkspaceListing(t, "example.com/caller", "example.com/other")
+	forgeDir := fakeForgeCheckout(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(forgeDir, "internal", "forgepath"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(forgeDir, "internal", "forgepath", "forgepath.go"),
+		[]byte("package forgepath\n\nvar SourceDir string\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(forgeDir, "cmd", "go-build", "main.go"),
+		[]byte("package main\n\nimport (\n\t\"fmt\"\n\n\t\""+forgeModule+"/internal/forgepath\"\n)\n\nfunc main() { fmt.Print(forgepath.SourceDir) }\n"), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Join(forgeDir, "cmd", "go-dependency-detector"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(forgeDir, "cmd", "go-dependency-detector", "main.go"),
+		[]byte("package main\n\nfunc main() {}\n"), 0o600))
+
+	engine, err := BuildEngineFromSource(filepath.Join(forgeDir, "cmd", "go-build"), "go-build")
+	require.NoError(t, err)
+
+	stamped, err := exec.Command(engine).Output()
+	require.NoError(t, err)
+	require.Equal(t, forgeDir, string(stamped))
+
+	stampSourceDir(t, string(stamped))
+
+	detector, args, err := EngineCommand("go-dependency-detector", "dev")
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(forgeDir, "build", "local-engines", "go-dependency-detector"), detector)
+	require.Nil(t, args)
+	require.FileExists(t, detector)
 }
 
 func TestABuiltinRunsUnversionedFromTheWorkspaceCheckoutWhenGoWorkCarriesForge(t *testing.T) {
