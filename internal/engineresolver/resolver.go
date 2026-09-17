@@ -45,6 +45,8 @@ const GoSchemeError = "the go:// scheme is removed; use forge:// " +
 // Supports forge:// and alias:// protocols:
 //   - forge://go-build -> forge's own engine at the running forge version,
 //     executed via `go run github.com/alexandremahdhaoui/forge/cmd/go-build@{forgeVersion}`
+//     when that version is a release tag, else built from the forge checkout
+//     the binary was stamped with, or FORGE_RUN_LOCAL_BASEDIR, and run as a binary
 //   - forge://github.com/x/repo/cmd/tool -> a factory member, materialized and
 //     executed via `forge-factory run github.com/x/repo/cmd/tool -- --mcp`;
 //     the version comes from the member's register unless an @rev is given

@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/alexandremahdhaoui/forge/internal/forgepath"
 	"github.com/stretchr/testify/require"
 )
 
@@ -67,6 +68,31 @@ func TestABuiltinOutsideAWorkspaceCarryingForgeKeepsThePinnedVersion(t *testing.
 
 	require.Equal(t, "go", inv.Command)
 	require.Equal(t, []string{"run", forgeModulePath + "/cmd/go-build@v1.2.3"}, inv.Args)
+}
+
+func TestABuiltinWithADescribeVersionOutsideAWorkspaceRunsAsABinaryBuiltFromTheStampedDir(t *testing.T) {
+	chdirIntoWorkspaceWith(t, "example.com/caller")
+
+	forgeDir := t.TempDir()
+	forgeDir, err := filepath.EvalSymlinks(forgeDir)
+	require.NoError(t, err)
+	for _, command := range []string{"forge", "go-build"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(forgeDir, "cmd", command), 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(forgeDir, "cmd", command, "main.go"),
+			[]byte("package main\n\nfunc main() {}\n"), 0o600))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(forgeDir, "go.mod"),
+		[]byte("module "+forgeModulePath+"\n\ngo 1.26\n"), 0o600))
+
+	previous := forgepath.SourceDir
+	forgepath.SourceDir = forgeDir
+	t.Cleanup(func() { forgepath.SourceDir = previous })
+
+	inv, err := resolveBuiltin("forge://go-build", "go-build", "v0.50.10-16-gda6c582")
+	require.NoError(t, err)
+
+	require.Equal(t, Invocation{Command: filepath.Join(forgeDir, "build", "local-engines", "go-build")}, inv)
+	require.FileExists(t, inv.Command)
 }
 
 func TestParseEngineURIAndResolveForgeURIAgreeOnABuiltin(t *testing.T) {
