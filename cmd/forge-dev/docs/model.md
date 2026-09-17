@@ -99,17 +99,18 @@ Three rules run on every answer, before the build calls it a success.
 1. Every returned path stays inside the engine directory and is named
    `zz_generated`. A path that is not fails with the path and the
    generator URI, and the whole answer is refused before anything is
-   written. A module root is the one exception, because a language names
-   it: `lib.rs`, `main.rs`, `mod.rs`, `__init__.py` and `index.ts` are
-   accepted when line one carries the generated header. One that misses
-   the header fails with the path and says the header is missing.
+   written. A generated root is the one exception, because a language or
+   Helm names it: `lib.rs`, `main.rs`, `mod.rs`, `__init__.py`,
+   `index.ts`, `Chart.yaml` and `values.yaml` are accepted when line one
+   carries the generated header. One that misses the header fails with
+   the path and says the header is missing.
 2. The returned list lands in `zz_generated.runnable.yaml` under `files`.
    On the next run a file the previous list held and the new answer does
    not is removed, and the removal is logged. A recorded entry that
    escapes the engine directory is skipped and logged instead of removed.
-   So is one that is neither named `zz_generated` nor a module root. A
-   recorded module root is removed only when the file on disk still
-   carries the generated header, or when it is already gone. A module
+   So is one that is neither named `zz_generated` nor a generated root. A
+   recorded generated root is removed only when the file on disk still
+   carries the generated header, or when it is already gone. A generated
    root without the header is hand written, so it is skipped and logged.
 3. An answer with `manifest: true` must hold `zz_generated_cell.yaml`. An
    answer without it fails naming the generator.
