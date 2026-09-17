@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alexandremahdhaoui/forge/internal/forgepath"
 	"github.com/alexandremahdhaoui/forge/pkg/engineframework"
 	"github.com/alexandremahdhaoui/forge/pkg/engineversion"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
@@ -138,7 +139,7 @@ func Build(ctx context.Context, input mcptypes.BuildInput, spec *Spec) ([]forge.
 			"-o", outputPath,
 		}
 
-		args = append(args, "-ldflags", buildLDFlags(cross))
+		args = append(args, "-ldflags", buildLDFlags(cross, input.Src))
 
 		// Add custom args if provided
 		args = append(args, customArgs...)
@@ -385,8 +386,10 @@ func hasMainFunc(file *ast.File) bool {
 // about which build it is; a -X against a symbol a command does not carry
 // is ignored by the linker, so one line serves every command. A cross build
 // is stripped, because it is built to travel rather than to be debugged.
-// GO_BUILD_LDFLAGS, when set, is appended and therefore wins.
-func buildLDFlags(cross bool) string {
+// The module root above src is stamped as forgepath.SourceDir, so a forge
+// whose version is not a release tag runs its engines from the checkout it
+// was built from. GO_BUILD_LDFLAGS, when set, is appended and therefore wins.
+func buildLDFlags(cross bool, src string) string {
 	flags := []string{}
 
 	if cross {
@@ -395,6 +398,10 @@ func buildLDFlags(cross bool) string {
 
 	if label := gitLabel(); label != "" {
 		flags = append(flags, "-X", "main.Version="+label, "-X", "main.version="+label)
+	}
+
+	if moduleRoot, ok := sourceModuleRoot(src); ok {
+		flags = append(flags, forgepath.SourceDirLDFlag(moduleRoot))
 	}
 
 	// The revision the pipeline proved, handed to every compute target: a
@@ -410,6 +417,15 @@ func buildLDFlags(cross bool) string {
 	}
 
 	return strings.Join(flags, " ")
+}
+
+func sourceModuleRoot(src string) (string, bool) {
+	abs, err := filepath.Abs(src)
+	if err != nil {
+		return "", false
+	}
+
+	return forgepath.ModuleRootOf(abs)
 }
 
 // gitLabel is the human name of this build. The pipeline's version wins when

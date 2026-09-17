@@ -281,12 +281,14 @@ func sweepStaleGeneratedFiles(srcDir string, previous []string) error {
 	return removeStaleGeneratedFiles(srcDir, previous, kept)
 }
 
-var languageModuleRoots = map[string]bool{
+var generatedRootNames = map[string]bool{
 	"lib.rs":      true,
 	"main.rs":     true,
 	"mod.rs":      true,
 	"__init__.py": true,
 	"index.ts":    true,
+	"Chart.yaml":  true,
+	"values.yaml": true,
 }
 
 func checkGeneratedPaths(generatorURI string, placed []GeneratedFile) error {
@@ -296,7 +298,7 @@ func checkGeneratedPaths(generatorURI string, placed []GeneratedFile) error {
 			continue
 		}
 
-		if !languageModuleRoots[base] {
+		if !generatedRootNames[base] {
 			return fmt.Errorf(
 				"checking the answer of generator %s: %s is not named zz_generated",
 				generatorURI, file.Path)
@@ -304,7 +306,7 @@ func checkGeneratedPaths(generatorURI string, placed []GeneratedFile) error {
 
 		if !HasGeneratedHeader(file.Content) {
 			return fmt.Errorf(
-				"checking the answer of generator %s: the module root %s is missing the generated header on line one",
+				"checking the answer of generator %s: the generated root %s is missing the generated header on line one",
 				generatorURI, file.Path)
 		}
 	}
@@ -340,7 +342,7 @@ func removeStaleGeneratedFiles(srcDir string, previous, written []string) error 
 		}
 
 		if !removableGeneratedPath(srcDir, path) {
-			log.Printf("forge-dev: skipped the recorded entry %s, it is not removable, it must be named zz_generated or be a module root carrying the generated header, and stay inside the engine directory", path)
+			log.Printf("forge-dev: skipped the recorded entry %s, it is not removable, it must be named zz_generated or be a generated root carrying the generated header, and stay inside the engine directory", path)
 
 			continue
 		}
@@ -366,7 +368,7 @@ func removableGeneratedPath(srcDir, path string) bool {
 		return true
 	}
 
-	if !languageModuleRoots[base] {
+	if !generatedRootNames[base] {
 		return false
 	}
 

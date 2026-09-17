@@ -21,18 +21,39 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
+
+	"golang.org/x/mod/module"
+	"golang.org/x/mod/semver"
 )
 
 const (
 	forgeModule = "github.com/alexandremahdhaoui/forge"
 
 	// The two inputs run-local mode reads, and the only two. LocalCheckout
-	// is their one reader.
+	// reads both; sourceCheckout reads the base dir when the version is not
+	// a release tag.
 	runLocalEnabledEnv = "FORGE_RUN_LOCAL_ENABLED"
 	runLocalBaseDirEnv = "FORGE_RUN_LOCAL_BASEDIR"
 )
+
+var SourceDir string
+
+var gitDescribeSuffix = regexp.MustCompile(`-[0-9]+-g[0-9a-f]+$`)
+
+func IsReleaseTag(forgeVersion string) bool {
+	version := trimDirty(forgeVersion)
+
+	return semver.IsValid(version) && !module.IsPseudoVersion(version) && !gitDescribeSuffix.MatchString(version)
+}
+
+func trimDirty(version string) string {
+	version = strings.TrimSuffix(version, "-dirty")
+
+	return strings.TrimSuffix(version, "+dirty")
+}
 
 // RunLocal reports whether engines run from a forge checkout rather than
 // from a released module. It is the one place the switch is read.
@@ -44,7 +65,7 @@ func RunLocal() bool {
 // mode: the directory FORGE_RUN_LOCAL_BASEDIR names, or the checkout
 // FindForgeRepo finds when it names none. It is an error to ask outside
 // run-local mode, so a caller checks RunLocal first. This is the one owner
-// of the ladder; nothing else reads the two variables.
+// of the ladder.
 func LocalCheckout() (string, error) {
 	if !RunLocal() {
 		return "", fmt.Errorf("engines run from released modules; set %s=true to run them from a checkout", runLocalEnabledEnv)
@@ -162,6 +183,10 @@ func IsForgeRepo(dir string) bool {
 //   - Otherwise:
 //     → Use `go run github.com/alexandremahdhaoui/forge/cmd/{packageName}@{forgeVersion}`
 //
+// The @version form only resolves when forgeVersion is a release tag, so
+// EngineCommand asks IsReleaseTag first and builds from source otherwise;
+// this function trims a dirty marker and shapes whatever it is handed.
+//
 // Using @version syntax ensures go run uses forge's own dependencies from its go.mod/go.sum,
 // not the consuming project's dependencies. This prevents dependency conflicts when forge
 // is used as a library in other projects.
@@ -174,9 +199,6 @@ func IsForgeRepo(dir string) bool {
 func BuildGoRunCommand(packageName, forgeVersion string) ([]string, error) {
 	if packageName == "" {
 		return nil, fmt.Errorf("package name cannot be empty")
-	}
-	if forgeVersion == "" {
-		return nil, fmt.Errorf("forge version cannot be empty")
 	}
 
 	if RunLocal() {
@@ -200,16 +222,7 @@ func BuildGoRunCommand(packageName, forgeVersion string) ([]string, error) {
 		return []string{"-C", baseDir, "run", fmt.Sprintf("./cmd/%s", packageName)}, nil
 	}
 
-	if forgeVersion == "dev" {
-		return nil, fmt.Errorf(
-			"forge version is dev and no go.work above %s carries %s, so there is no version to run %s at; run from a workspace whose go.work lists forge, install a released forge, or set FORGE_RUN_LOCAL_ENABLED=true with FORGE_RUN_LOCAL_BASEDIR",
-			cwdOrDot(), forgeModule, packageName)
-	}
-
-	moduleVersion := forgeVersion
-	moduleVersion = strings.TrimSuffix(moduleVersion, "-dirty")
-	moduleVersion = strings.TrimSuffix(moduleVersion, "+dirty")
-	return []string{"run", fmt.Sprintf("%s/cmd/%s@%s", forgeModule, packageName, moduleVersion)}, nil
+	return []string{"run", fmt.Sprintf("%s/cmd/%s@%s", forgeModule, packageName, trimDirty(forgeVersion))}, nil
 }
 
 // IsForgeModulePath reports whether a full module path points inside the
@@ -282,6 +295,19 @@ func EngineCommand(packageName, forgeVersion string) (string, []string, error) {
 		return "go", []string{"run", forgeModule + "/cmd/" + packageName}, nil
 	}
 
+	if forgeVersion == "" {
+		return "", nil, fmt.Errorf("forge version cannot be empty")
+	}
+
+	if !IsReleaseTag(forgeVersion) {
+		baseDir, err := sourceCheckout(packageName, forgeVersion)
+		if err != nil {
+			return "", nil, err
+		}
+
+		return buildEngineIn(baseDir, packageName)
+	}
+
 	args, err := BuildGoRunCommand(packageName, forgeVersion)
 	if err != nil {
 		return "", nil, err
@@ -326,6 +352,10 @@ func buildLocalEngine(packageName string) (string, []string, error) {
 		return "", nil, err
 	}
 
+	return buildEngineIn(baseDir, packageName)
+}
+
+func buildEngineIn(baseDir, packageName string) (string, []string, error) {
 	bin, err := BuildEngineFromSource(filepath.Join(baseDir, "cmd", packageName), packageName)
 	if err != nil {
 		return "", nil, err
@@ -334,12 +364,34 @@ func buildLocalEngine(packageName string) (string, []string, error) {
 	return bin, nil, nil
 }
 
+func sourceCheckout(packageName, forgeVersion string) (string, error) {
+	if SourceDir != "" {
+		return forgeCheckoutNamedBy(SourceDir, "the stamped source directory")
+	}
+
+	if dir := os.Getenv(runLocalBaseDirEnv); dir != "" {
+		return forgeCheckoutNamedBy(dir, runLocalBaseDirEnv)
+	}
+
+	return "", fmt.Errorf(
+		"forge version %s is not a release tag, so there is no module version to run %s at; this binary carries no stamped source directory and %s is unset; build forge through go-build from a checkout, or set %s to a forge checkout",
+		forgeVersion, packageName, runLocalBaseDirEnv, runLocalBaseDirEnv)
+}
+
+func forgeCheckoutNamedBy(dir, source string) (string, error) {
+	if !IsForgeRepo(dir) {
+		return "", fmt.Errorf("%s names %s, which is not a forge checkout", source, dir)
+	}
+
+	return dir, nil
+}
+
 // BuildEngineFromSource compiles the main package at pkgDir into the
 // enclosing module's build/local-engines/<name> and answers the binary, so
 // an engine run from source keeps the caller's working directory. The
 // module root is the nearest go.mod above pkgDir.
 func BuildEngineFromSource(pkgDir, name string) (string, error) {
-	moduleRoot, ok := moduleRootOf(pkgDir)
+	moduleRoot, ok := ModuleRootOf(pkgDir)
 	if !ok {
 		return "", fmt.Errorf("building engine %s from %s: no go.mod above it", name, pkgDir)
 	}
@@ -351,7 +403,7 @@ func BuildEngineFromSource(pkgDir, name string) (string, error) {
 
 	bin := filepath.Join(moduleRoot, "build", "local-engines", name)
 
-	build := exec.Command("go", "build", "-o", bin, "./"+filepath.ToSlash(rel))
+	build := exec.Command("go", "build", "-ldflags", SourceDirLDFlag(moduleRoot), "-o", bin, "./"+filepath.ToSlash(rel))
 	build.Dir = moduleRoot
 	build.Env = append(os.Environ(), "GOWORK=off")
 
@@ -362,7 +414,11 @@ func BuildEngineFromSource(pkgDir, name string) (string, error) {
 	return bin, nil
 }
 
-func moduleRootOf(dir string) (string, bool) {
+func SourceDirLDFlag(moduleRoot string) string {
+	return "-X " + forgeModule + "/internal/forgepath.SourceDir=" + moduleRoot
+}
+
+func ModuleRootOf(dir string) (string, bool) {
 	for {
 		if info, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil && !info.IsDir() {
 			return dir, true
