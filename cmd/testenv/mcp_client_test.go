@@ -108,13 +108,15 @@ func TestAFullForgeModulePathIsOneOfForgesOwnEngines(t *testing.T) {
 	require.Equal(t, []string{"run", "github.com/alexandremahdhaoui/forge/cmd/testenv-stub@v1.2.3"}, engine.args)
 }
 
-func TestADevTestenvOutsideAForgeWorkspaceRefusesToRunABuiltinAndNamesTheFix(t *testing.T) {
+func TestADevTestenvOutsideAForgeWorkspaceWithNoSourceDirRefusesToRunABuiltinAndNamesBothSources(t *testing.T) {
 	chdirIntoWorkspaceMember(t, "example.com/member")
 	pinTestenvVersion(t, "dev")
 
 	_, err := resolveEngineURI("forge://testenv-kind")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "go.work")
+	require.Contains(t, err.Error(), "dev is not a release tag")
+	require.Contains(t, err.Error(), "no stamped source directory")
+	require.Contains(t, err.Error(), "FORGE_RUN_LOCAL_BASEDIR is unset")
 }
 
 func TestForgesOwnEngineRunsFromTheCallersDirectoryWhenTheWorkspaceCarriesForge(t *testing.T) {
