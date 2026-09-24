@@ -32,9 +32,6 @@ import (
 const (
 	forgeModule = "github.com/alexandremahdhaoui/forge"
 
-	// The two inputs run-local mode reads, and the only two. LocalCheckout
-	// reads both; sourceCheckout reads the base dir when the version is not
-	// a release tag.
 	runLocalEnabledEnv = "FORGE_RUN_LOCAL_ENABLED"
 	runLocalBaseDirEnv = "FORGE_RUN_LOCAL_BASEDIR"
 )
@@ -61,11 +58,6 @@ func RunLocal() bool {
 	return os.Getenv(runLocalEnabledEnv) == "true"
 }
 
-// LocalCheckout answers the forge checkout engines run from in run-local
-// mode: the directory FORGE_RUN_LOCAL_BASEDIR names, or the checkout
-// FindForgeRepo finds when it names none. It is an error to ask outside
-// run-local mode, so a caller checks RunLocal first. This is the one owner
-// of the ladder.
 func LocalCheckout() (string, error) {
 	if !RunLocal() {
 		return "", fmt.Errorf("engines run from released modules; set %s=true to run them from a checkout", runLocalEnabledEnv)
@@ -182,10 +174,6 @@ func IsForgeRepo(dir string) bool {
 //     → Use `go run {basedir}/cmd/{packageName}` (absolute path preserves caller's CWD)
 //   - Otherwise:
 //     → Use `go run github.com/alexandremahdhaoui/forge/cmd/{packageName}@{forgeVersion}`
-//
-// The @version form only resolves when forgeVersion is a release tag, so
-// EngineCommand asks IsReleaseTag first and builds from source otherwise;
-// this function trims a dirty marker and shapes whatever it is handed.
 //
 // Using @version syntax ensures go run uses forge's own dependencies from its go.mod/go.sum,
 // not the consuming project's dependencies. This prevents dependency conflicts when forge

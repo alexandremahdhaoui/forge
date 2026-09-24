@@ -24,7 +24,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBuildLDFlagsStampsTheSourceDirWithTheModuleRootOfThePackage(t *testing.T) {
+const sourceDirSymbol = "github.com/alexandremahdhaoui/forge/internal/forgepath.SourceDir"
+
+func packageInAModule(t *testing.T) (string, string) {
+	t.Helper()
+
 	moduleRoot, err := filepath.EvalSymlinks(t.TempDir())
 	require.NoError(t, err)
 	pkgDir := filepath.Join(moduleRoot, "cmd", "tool")
@@ -32,8 +36,26 @@ func TestBuildLDFlagsStampsTheSourceDirWithTheModuleRootOfThePackage(t *testing.
 	require.NoError(t, os.WriteFile(filepath.Join(moduleRoot, "go.mod"),
 		[]byte("module example.com/tool\n\ngo 1.26\n"), 0o600))
 
+	return moduleRoot, pkgDir
+}
+
+func TestABuildWhoseVersionIsNotAReleaseTagStampsTheSourceDirWithTheModuleRootOfThePackage(t *testing.T) {
+	for _, version := range []string{"v0.50.10-16-gda6c582", "v0.50.11-0.20260917090238-38080aa3993a"} {
+		t.Setenv("FORGE_CI_VERSION", version)
+		moduleRoot, pkgDir := packageInAModule(t)
+
+		flags := buildLDFlags(false, pkgDir)
+
+		require.Contains(t, flags, "-X "+sourceDirSymbol+"="+moduleRoot, version)
+	}
+}
+
+func TestABuildWhoseVersionIsAReleaseTagCarriesNoSourceDirSoItStaysByteReproducible(t *testing.T) {
+	t.Setenv("FORGE_CI_VERSION", "v0.50.0")
+	_, pkgDir := packageInAModule(t)
+
 	flags := buildLDFlags(false, pkgDir)
 
-	require.Contains(t, flags,
-		"-X github.com/alexandremahdhaoui/forge/internal/forgepath.SourceDir="+moduleRoot)
+	require.Contains(t, flags, "main.Version=v0.50.0")
+	require.NotContains(t, flags, sourceDirSymbol)
 }

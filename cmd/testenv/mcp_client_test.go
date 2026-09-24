@@ -45,6 +45,7 @@ func chdirIntoWorkspaceMember(t *testing.T, modulePath string) {
 
 	t.Setenv("GOWORK", "")
 	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "")
+	t.Setenv("FORGE_RUN_LOCAL_BASEDIR", "")
 }
 
 func TestAWorkspaceMemberRunsUnversionedFromTheCallersDirectoryWithoutTheLocalFlag(t *testing.T) {

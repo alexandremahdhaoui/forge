@@ -386,9 +386,6 @@ func hasMainFunc(file *ast.File) bool {
 // about which build it is; a -X against a symbol a command does not carry
 // is ignored by the linker, so one line serves every command. A cross build
 // is stripped, because it is built to travel rather than to be debugged.
-// The module root above src is stamped as forgepath.SourceDir, so a forge
-// whose version is not a release tag runs its engines from the checkout it
-// was built from. GO_BUILD_LDFLAGS, when set, is appended and therefore wins.
 func buildLDFlags(cross bool, src string) string {
 	flags := []string{}
 
@@ -396,11 +393,12 @@ func buildLDFlags(cross bool, src string) string {
 		flags = append(flags, "-s", "-w")
 	}
 
-	if label := gitLabel(); label != "" {
+	label := gitLabel()
+	if label != "" {
 		flags = append(flags, "-X", "main.Version="+label, "-X", "main.version="+label)
 	}
 
-	if moduleRoot, ok := sourceModuleRoot(src); ok {
+	if moduleRoot, ok := sourceRootOfAnUntaggedBuild(label, src); ok {
 		flags = append(flags, forgepath.SourceDirLDFlag(moduleRoot))
 	}
 
@@ -419,7 +417,11 @@ func buildLDFlags(cross bool, src string) string {
 	return strings.Join(flags, " ")
 }
 
-func sourceModuleRoot(src string) (string, bool) {
+func sourceRootOfAnUntaggedBuild(label, src string) (string, bool) {
+	if forgepath.IsReleaseTag(label) {
+		return "", false
+	}
+
 	abs, err := filepath.Abs(src)
 	if err != nil {
 		return "", false

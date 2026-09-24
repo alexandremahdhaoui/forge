@@ -104,6 +104,21 @@ func TestADescribeVersionWithAStampedSourceDirBuildsTheEngineFromThatDirAndKeeps
 	require.Equal(t, caller, cwd)
 }
 
+const pseudoVersion = "v0.50.11-0.20260917090238-38080aa3993a"
+
+func TestAGoPseudoVersionWithAStampedSourceDirBuildsTheEngineFromThatDirInsteadOfRunningTheModuleAtThePseudoVersion(t *testing.T) {
+	chdirIntoWorkspaceListing(t, "example.com/caller", "example.com/other")
+	forgeDir := fakeForgeCheckout(t)
+	stampSourceDir(t, forgeDir)
+
+	command, args, err := EngineCommand("go-build", pseudoVersion)
+	require.NoError(t, err)
+
+	require.Equal(t, filepath.Join(forgeDir, "build", "local-engines", "go-build"), command)
+	require.Nil(t, args)
+	require.FileExists(t, command)
+}
+
 func TestADescribeVersionWithNoStampAndTheBaseDirVariableSetUsesTheVariable(t *testing.T) {
 	chdirIntoWorkspaceListing(t, "example.com/caller", "example.com/other")
 	forgeDir := fakeForgeCheckout(t)
