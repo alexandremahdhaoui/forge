@@ -102,8 +102,10 @@ Three rules run on every answer, before the build calls it a success.
    written. A generated root is the one exception, because a language or
    Helm names it: `lib.rs`, `main.rs`, `mod.rs`, `__init__.py`,
    `index.ts`, `Chart.yaml` and `values.yaml` are accepted when line one
-   carries the generated header. One that misses the header fails with
-   the path and says the header is missing.
+   carries the generated header. `values.schema.json` is accepted when its
+   top level `$comment` carries the generated header, because JSON has no
+   comment syntax. One that misses the header fails with the path and says
+   the header is missing.
 2. The returned list lands in `zz_generated.runnable.yaml` under `files`.
    On the next run a file the previous list held and the new answer does
    not is removed, and the removal is logged. A recorded entry that

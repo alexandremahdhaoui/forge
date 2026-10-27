@@ -26,11 +26,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// GeneratorModel is the normalized document an external generator receives.
-// It is the whole contract: identity, the kind and its layout, the raw
-// OpenAPI spec, the runtime inputs, and the checksum the emitted files
-// should carry. forge-dev core keeps parsing, validation, freshness, the
-// runnable manifest and the shared docs; the generator only answers files.
 type GeneratorModel struct {
 	Name        string                 `json:"name"`
 	Version     string                 `json:"version"`
@@ -47,21 +42,16 @@ type GeneratorModel struct {
 	SrcDir      string                 `json:"srcDir"`
 }
 
-// GeneratorOutput is what the generate tool answers: files relative to the
-// engine source directory, and whether the answer carries a cell manifest.
 type GeneratorOutput struct {
 	Files    []GeneratedFile `json:"files"`
 	Manifest bool            `json:"manifest,omitempty"`
 }
 
-// GeneratedFile is one emitted file.
 type GeneratedFile struct {
 	Path    string `json:"path"`
 	Content string `json:"content"`
 }
 
-// layoutMap flattens the layout block for the wire: the typed lists plus
-// whatever a custom kind carries.
 func layoutMap(c *Config) map[string]interface{} {
 	if c.Layout == nil {
 		return nil
@@ -99,14 +89,11 @@ func layoutMap(c *Config) map[string]interface{} {
 	return out
 }
 
-// generatorCaller is the slice of the MCP stack the external dispatch
-// needs. mcpcaller.Caller satisfies it; tests inject a stub.
 type generatorCaller interface {
 	ResolveEngine(engineURI string) (string, []string, error)
 	CallMCP(command string, args []string, toolName string, params interface{}) (interface{}, error)
 }
 
-// newGeneratorCaller is swapped by tests.
 var newGeneratorCaller = func() generatorCaller {
 	return mcpcaller.NewCaller(Version)
 }
@@ -121,11 +108,6 @@ type externalCall struct {
 	configOnly  bool
 }
 
-// generateExternal hands the normalized model to the generator and writes
-// the files it answers. Every path must stay inside the engine source
-// directory: a generator emits code, never escapes. The same call serves a
-// generator: owning the whole cell and a configGenerator: filling only the
-// config keys.
 func generateExternal(call externalCall) ([]string, error) {
 	srcDir, config, generatorURI := call.srcDir, call.config, call.generator
 
@@ -221,8 +203,6 @@ func generateExternal(call externalCall) ([]string, error) {
 	return written, nil
 }
 
-// placeAnsweredPath moves one answered path under outputDir and refuses
-// anything that leaves the engine directory, before or after the move.
 func placeAnsweredPath(generatorURI, outputDir, answered string) (string, error) {
 	clean := filepath.Clean(answered)
 	if escapesEngineDir(clean) {
@@ -245,14 +225,8 @@ func escapesEngineDir(clean string) bool {
 	return filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator))
 }
 
-// GeneratedCellManifestFile is the cell manifest a generator declares with
-// manifest: true and must then answer.
 const GeneratedCellManifestFile = "zz_generated_cell.yaml"
 
-// checkGeneratedAnswer holds the rules that need the written answer: a
-// declared manifest is present and the answer joins the recorded list. The
-// path rules run before anything is written. The stale sweep runs once,
-// after every generator of the cell has answered.
 func checkGeneratedAnswer(srcDir, generatorURI string, output GeneratorOutput, written []string) error {
 	if err := checkCellManifest(generatorURI, output, written); err != nil {
 		return err
@@ -268,10 +242,6 @@ func checkGeneratedAnswer(srcDir, generatorURI string, output GeneratorOutput, w
 	return recordGeneratedFiles(runnablePath, append(append([]string{}, recorded...), written...))
 }
 
-// sweepStaleGeneratedFiles removes what the previous run recorded and no
-// generator of this run answered. The recorded list is the union of every
-// generator's answer, so a cell with a main generator and a config
-// generator keeps both sets.
 func sweepStaleGeneratedFiles(srcDir string, previous []string) error {
 	kept, err := ReadGeneratedFiles(filepath.Join(srcDir, GeneratedRunnableFile))
 	if err != nil {
@@ -282,13 +252,14 @@ func sweepStaleGeneratedFiles(srcDir string, previous []string) error {
 }
 
 var generatedRootNames = map[string]bool{
-	"lib.rs":      true,
-	"main.rs":     true,
-	"mod.rs":      true,
-	"__init__.py": true,
-	"index.ts":    true,
-	"Chart.yaml":  true,
-	"values.yaml": true,
+	"lib.rs":             true,
+	"main.rs":            true,
+	"mod.rs":             true,
+	"__init__.py":        true,
+	"index.ts":           true,
+	"Chart.yaml":         true,
+	"values.yaml":        true,
+	"values.schema.json": true,
 }
 
 func checkGeneratedPaths(generatorURI string, placed []GeneratedFile) error {
@@ -409,8 +380,6 @@ func stripFilesBlock(text string) string {
 	return text
 }
 
-// ReadGeneratedFiles answers the paths the previous generator answer held,
-// as recorded in the runnable manifest.
 func ReadGeneratedFiles(runnablePath string) ([]string, error) {
 	raw, err := os.ReadFile(runnablePath)
 	if err != nil {
