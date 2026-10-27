@@ -277,7 +277,7 @@ func checkGeneratedPaths(generatorURI string, placed []GeneratedFile) error {
 
 		if !HasGeneratedHeader(file.Content) {
 			return fmt.Errorf(
-				"checking the answer of generator %s: the generated root %s is missing the generated header on line one",
+				"checking the answer of generator %s: the generated root %s is missing the generated header",
 				generatorURI, file.Path)
 		}
 	}

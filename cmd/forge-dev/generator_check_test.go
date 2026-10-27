@@ -129,7 +129,7 @@ func TestAGeneratedChartYamlWithoutTheGeneratedHeaderIsRefusedNamingThePath(t *t
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
-		"the generated root chart/Chart.yaml is missing the generated header on line one")
+		"the generated root chart/Chart.yaml is missing the generated header")
 	require.NoFileExists(t, filepath.Join(dir, "chart", "Chart.yaml"))
 }
 
@@ -180,7 +180,8 @@ func TestAGeneratedValuesSchemaJsonWithoutTheGeneratedHeaderInItsTopLevelComment
 	err := generateCell(t, dir, answerFiles(valuesSchemaFile("hand written")))
 
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "the generated root chart/values.schema.json is missing the generated header")
+	require.True(t, strings.HasSuffix(err.Error(), "the generated root chart/values.schema.json is missing the generated header"),
+		"the refusal must name the missing header without placing it on a line, got %v", err)
 	require.NoFileExists(t, filepath.Join(dir, "chart", "values.schema.json"))
 }
 
@@ -206,7 +207,7 @@ func TestAModuleRootWithoutTheGeneratedHeaderIsRefusedNamingThePath(t *testing.T
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
-		"the generated root src/grpc/mod.rs is missing the generated header on line one")
+		"the generated root src/grpc/mod.rs is missing the generated header")
 	require.NoFileExists(t, filepath.Join(dir, "src", "grpc", "mod.rs"))
 }
 
