@@ -206,12 +206,8 @@ func isStandardLibrary(pkgPath string) bool {
 	return !strings.Contains(firstSegment, ".")
 }
 
-func moduleCarries(modulePath, packagePath string) bool {
-	return packagePath == modulePath || strings.HasPrefix(packagePath, modulePath+"/")
-}
-
 func isLocalPackage(importPath, modulePath string, goModData *modfile.File) bool {
-	if moduleCarries(modulePath, importPath) {
+	if gosource.ModuleCarries(modulePath, importPath) {
 		return true
 	}
 
@@ -220,7 +216,7 @@ func isLocalPackage(importPath, modulePath string, goModData *modfile.File) bool
 			if strings.HasPrefix(replace.New.Path, ".") || strings.HasPrefix(replace.New.Path, "/") {
 				return true
 			}
-			if moduleCarries(modulePath, replace.New.Path) {
+			if gosource.ModuleCarries(modulePath, replace.New.Path) {
 				return true
 			}
 		}
@@ -241,7 +237,7 @@ func resolveLocalPackage(goModData *modfile.File, importPath, goModDir, modulePa
 		}
 	}
 
-	if !moduleCarries(modulePath, importPath) {
+	if !gosource.ModuleCarries(modulePath, importPath) {
 		return "", fmt.Errorf("import path %s is not under module path %s", importPath, modulePath)
 	}
 
@@ -253,7 +249,7 @@ func resolveLocalPackage(goModData *modfile.File, importPath, goModDir, modulePa
 
 func getPackageVersion(goModData *modfile.File, pkgPath string) (string, error) {
 	for _, req := range goModData.Require {
-		if moduleCarries(req.Mod.Path, pkgPath) {
+		if gosource.ModuleCarries(req.Mod.Path, pkgPath) {
 			return req.Mod.Version, nil
 		}
 	}

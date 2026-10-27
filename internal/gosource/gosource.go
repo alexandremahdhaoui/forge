@@ -12,18 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package gosource answers what a Go package is made of.
-//
-// A Go package spans every .go file in its directory, so a dependency
-// detector that reads one of them has read a fraction of the package. The
-// dependency detector used to take the first file it found and walk that
-// file's imports alone: forge-ci's binary tracked
-// reconcilecontroller/index.go and never reconcilecontroller.go, so 14 of its
-// 24 packages were invisible to the rebuild decision and an edit to any of
-// them left the build reporting "unchanged".
-//
-// Both detectors read a package through this one function so they cannot
-// answer the question differently.
 package gosource
 
 import (
@@ -33,12 +21,10 @@ import (
 	"strings"
 )
 
-// ListGoFiles returns the absolute path of every non-test .go file directly
-// in dir, sorted as the filesystem lists them. Subdirectories are other
-// packages and are not included.
-//
-// A directory with no .go files is an error: the caller asked about a package
-// and there is none, which is a broken import rather than an empty answer.
+func ModuleCarries(modulePath, packagePath string) bool {
+	return packagePath == modulePath || strings.HasPrefix(packagePath, modulePath+"/")
+}
+
 func ListGoFiles(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {

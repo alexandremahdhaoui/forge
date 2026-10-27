@@ -17,6 +17,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,40 +28,32 @@ import (
 	"github.com/alexandremahdhaoui/forge/pkg/mcptypes"
 )
 
-// ----------------------------------------------------- FIND MOCKERY CONFIG ----------------------------------------- //
-
 func TestFindMockeryConfig_EnvVar(t *testing.T) {
-	// Create a temp config file
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "custom-config.yaml")
 	if err := os.WriteFile(configPath, []byte("packages: {}"), 0o600); err != nil {
 		t.Fatalf("failed to create test config: %v", err)
 	}
 
-	// Set env var
 	t.Setenv("MOCKERY_CONFIG_PATH", configPath)
 
-	// Call findMockeryConfig with a different directory
 	result, err := findMockeryConfig(t.TempDir())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Verify env var takes precedence
 	if result != configPath {
 		t.Errorf("expected %s, got %s", configPath, result)
 	}
 }
 
 func TestFindMockeryConfig_DotMockeryYaml(t *testing.T) {
-	// Use the testdata/valid directory which has .mockery.yaml
 	testDir := filepath.Join("testdata", "valid")
 	absTestDir, err := filepath.Abs(testDir)
 	if err != nil {
 		t.Fatalf("failed to get absolute path: %v", err)
 	}
 
-	// Clear env var to ensure it doesn't interfere
 	t.Setenv("MOCKERY_CONFIG_PATH", "")
 
 	result, err := findMockeryConfig(absTestDir)
@@ -68,7 +61,6 @@ func TestFindMockeryConfig_DotMockeryYaml(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Verify the correct file is found
 	expectedPath := filepath.Join(absTestDir, ".mockery.yaml")
 	if result != expectedPath {
 		t.Errorf("expected %s, got %s", expectedPath, result)
@@ -76,10 +68,8 @@ func TestFindMockeryConfig_DotMockeryYaml(t *testing.T) {
 }
 
 func TestFindMockeryConfig_NotFound(t *testing.T) {
-	// Create empty temp directory
 	tmpDir := t.TempDir()
 
-	// Clear env var
 	t.Setenv("MOCKERY_CONFIG_PATH", "")
 
 	_, err := findMockeryConfig(tmpDir)
@@ -87,14 +77,12 @@ func TestFindMockeryConfig_NotFound(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 
-	// Verify error message mentions "no mockery config found"
 	if !strings.Contains(err.Error(), "no mockery config found") {
 		t.Errorf("expected error to contain 'no mockery config found', got: %v", err)
 	}
 }
 
 func TestFindMockeryConfig_OtherConfigNames(t *testing.T) {
-	// Test other config name variants
 	configNames := []string{".mockery.yml", "mockery.yaml", "mockery.yml"}
 
 	for _, name := range configNames {
@@ -105,7 +93,6 @@ func TestFindMockeryConfig_OtherConfigNames(t *testing.T) {
 				t.Fatalf("failed to create test config: %v", err)
 			}
 
-			// Clear env var
 			t.Setenv("MOCKERY_CONFIG_PATH", "")
 
 			result, err := findMockeryConfig(tmpDir)
@@ -120,8 +107,6 @@ func TestFindMockeryConfig_OtherConfigNames(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------- PARSE MOCKERY CONFIG ---------------------------------------- //
-
 func TestParseMockeryConfig_Valid(t *testing.T) {
 	testDir := filepath.Join("testdata", "valid")
 	configPath := filepath.Join(testDir, ".mockery.yaml")
@@ -135,7 +120,6 @@ func TestParseMockeryConfig_Valid(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Verify package paths are extracted
 	if len(config.Packages) != 1 {
 		t.Errorf("expected 1 package, got %d", len(config.Packages))
 	}
@@ -159,7 +143,6 @@ func TestParseMockeryConfig_InvalidYAML(t *testing.T) {
 		t.Fatal("expected error for invalid YAML, got nil")
 	}
 
-	// Verify error mentions parsing
 	if !strings.Contains(err.Error(), "parse") && !strings.Contains(err.Error(), "yaml") {
 		t.Errorf("expected error to mention parsing/yaml, got: %v", err)
 	}
@@ -169,7 +152,6 @@ func TestParseMockeryConfig_NoPackages(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, ".mockery.yaml")
 
-	// Write config with no packages
 	content := "with-expecter: true\n"
 	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
 		t.Fatalf("failed to create test config: %v", err)
@@ -180,13 +162,10 @@ func TestParseMockeryConfig_NoPackages(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Should return empty packages, not error
 	if len(config.Packages) != 0 {
 		t.Errorf("expected 0 packages, got %d", len(config.Packages))
 	}
 }
-
-// ----------------------------------------------------- RESOLVE PACKAGE TO FILES ------------------------------------ //
 
 func TestResolvePackageToFiles_LocalPackage(t *testing.T) {
 	testDir := filepath.Join("testdata", "valid")
@@ -201,7 +180,6 @@ func TestResolvePackageToFiles_LocalPackage(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Verify store.go is found
 	if len(files) == 0 {
 		t.Fatal("expected at least one file, got none")
 	}
@@ -225,14 +203,12 @@ func TestResolvePackageToFiles_ExternalPackage_ReturnsError(t *testing.T) {
 		t.Fatalf("failed to get absolute path: %v", err)
 	}
 
-	// External package (not under github.com/test/project)
 	pkgPath := "github.com/external/package"
 	_, err = resolvePackageToFiles(pkgPath, absTestDir)
 	if err == nil {
 		t.Fatal("expected error for external package, got nil")
 	}
 
-	// Verify error message mentions external/v1
 	if !strings.Contains(err.Error(), "external") || !strings.Contains(err.Error(), "v1") {
 		t.Errorf("expected error to mention 'external' and 'v1', got: %v", err)
 	}
@@ -245,15 +221,12 @@ func TestResolvePackageToFiles_PackageNotFound(t *testing.T) {
 		t.Fatalf("failed to get absolute path: %v", err)
 	}
 
-	// Package under module but doesn't exist
 	pkgPath := "github.com/test/project/nonexistent"
 	_, err = resolvePackageToFiles(pkgPath, absTestDir)
 	if err == nil {
 		t.Fatal("expected error for nonexistent package, got nil")
 	}
 }
-
-// ----------------------------------------------------- DETECT MOCK DEPENDENCIES ------------------------------------ //
 
 func TestDetectMockDependencies_FullFlow(t *testing.T) {
 	testDir := filepath.Join("testdata", "valid")
@@ -262,7 +235,6 @@ func TestDetectMockDependencies_FullFlow(t *testing.T) {
 		t.Fatalf("failed to get absolute path: %v", err)
 	}
 
-	// Clear env var
 	t.Setenv("MOCKERY_CONFIG_PATH", "")
 
 	input := mcptypes.DetectMockDependenciesInput{
@@ -274,12 +246,10 @@ func TestDetectMockDependencies_FullFlow(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Verify we have dependencies
 	if len(output.Dependencies) == 0 {
 		t.Fatal("expected at least one dependency, got none")
 	}
 
-	// Check for .mockery.yaml
 	foundConfig := false
 	foundGoMod := false
 	foundStoreGo := false
@@ -297,7 +267,6 @@ func TestDetectMockDependencies_FullFlow(t *testing.T) {
 		if strings.HasSuffix(dep.Path, "store.go") {
 			foundStoreGo = true
 		}
-		// Verify timestamp is set
 	}
 
 	if !foundConfig {
@@ -312,16 +281,13 @@ func TestDetectMockDependencies_FullFlow(t *testing.T) {
 }
 
 func TestDetectMockDependencies_ExternalPackage_LogsWarningButSucceeds(t *testing.T) {
-	// Create a temp directory with mockery config referencing external package
 	tmpDir := t.TempDir()
 
-	// Create go.mod
 	goModContent := "module github.com/test/project\n\ngo 1.21\n"
 	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goModContent), 0o600); err != nil {
 		t.Fatalf("failed to create go.mod: %v", err)
 	}
 
-	// Create .mockery.yaml with external package
 	mockeryContent := `packages:
   github.com/external/package:
     interfaces:
@@ -331,29 +297,54 @@ func TestDetectMockDependencies_ExternalPackage_LogsWarningButSucceeds(t *testin
 		t.Fatalf("failed to create .mockery.yaml: %v", err)
 	}
 
-	// Clear env var
 	t.Setenv("MOCKERY_CONFIG_PATH", "")
 
 	input := mcptypes.DetectMockDependenciesInput{
 		RootDir: tmpDir,
 	}
 
-	// Should succeed (not fail) even with external package
 	output, err := DetectMockDependencies(input)
 	if err != nil {
 		t.Fatalf("expected success with warning, got error: %v", err)
 	}
 
-	// Should have at least .mockery.yaml and go.mod as dependencies
 	if len(output.Dependencies) < 2 {
 		t.Errorf("expected at least 2 dependencies (config and go.mod), got %d", len(output.Dependencies))
+	}
+}
+
+func TestDetectMockDependencies_APackageOfASiblingModuleSharingTheModulePrefixIsSkippedAsExternal(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module github.com/test/project\n\ngo 1.21\n"), 0o600); err != nil {
+		t.Fatalf("failed to create go.mod: %v", err)
+	}
+
+	mockeryContent := "packages:\n  github.com/test/project-spec/pkg:\n    interfaces:\n      SomeInterface:\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, ".mockery.yaml"), []byte(mockeryContent), 0o600); err != nil {
+		t.Fatalf("failed to create .mockery.yaml: %v", err)
+	}
+
+	t.Setenv("MOCKERY_CONFIG_PATH", "")
+
+	var logged strings.Builder
+	previousOutput := log.Writer()
+	log.SetOutput(&logged)
+	t.Cleanup(func() { log.SetOutput(previousOutput) })
+
+	if _, err := DetectMockDependencies(mcptypes.DetectMockDependenciesInput{RootDir: tmpDir}); err != nil {
+		t.Fatalf("expected success with warning, got error: %v", err)
+	}
+
+	want := "package github.com/test/project-spec/pkg is external (not under module github.com/test/project)"
+	if !strings.Contains(logged.String(), want) {
+		t.Fatalf("github.com/test/project-spec/pkg was read as a directory of github.com/test/project, logged: %s", logged.String())
 	}
 }
 
 func TestDetectMockDependencies_ConfigNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Clear env var
 	t.Setenv("MOCKERY_CONFIG_PATH", "")
 
 	input := mcptypes.DetectMockDependenciesInput{
@@ -366,17 +357,13 @@ func TestDetectMockDependencies_ConfigNotFound(t *testing.T) {
 	}
 }
 
-// ----------------------------------------------------- LIST GO FILES ----------------------------------------------- //
-
 func TestListGoFiles_ExcludesTestFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create regular .go file
 	if err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("package main"), 0o600); err != nil {
 		t.Fatalf("failed to create main.go: %v", err)
 	}
 
-	// Create _test.go file
 	if err := os.WriteFile(filepath.Join(tmpDir, "main_test.go"), []byte("package main"), 0o600); err != nil {
 		t.Fatalf("failed to create main_test.go: %v", err)
 	}
@@ -386,7 +373,6 @@ func TestListGoFiles_ExcludesTestFiles(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Should only find main.go, not main_test.go
 	if len(files) != 1 {
 		t.Errorf("expected 1 file, got %d: %v", len(files), files)
 	}
