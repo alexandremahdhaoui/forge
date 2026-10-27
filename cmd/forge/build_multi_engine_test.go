@@ -17,21 +17,53 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/alexandremahdhaoui/forge/internal/forgepath"
 	"github.com/alexandremahdhaoui/forge/pkg/forge"
 )
 
-// TestResolveEngine_MultiEngineAlias tests that multi-engine builder aliases
-// return an alias:// URI (for orchestration) rather than failing with an error.
-// This is a regression test for the bug where resolveEngine() failed with
-// "cannot be resolved to a single engine" error.
-func TestResolveEngine_MultiEngineAlias(t *testing.T) {
-	// The assertions pin the production go run form, so the local dev
-	// mode a developer .envrc enables must not leak in.
-	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "")
+func isolateEngineResolution(t *testing.T, baseDir string) {
+	t.Helper()
 
+	t.Setenv("FORGE_RUN_LOCAL_ENABLED", "")
+	t.Setenv("FORGE_RUN_LOCAL_BASEDIR", baseDir)
+	t.Setenv("GOWORK", "off")
+
+	previousSourceDir := forgepath.SourceDir
+	forgepath.SourceDir = ""
+	t.Cleanup(func() { forgepath.SourceDir = previousSourceDir })
+
+	previousVersion := versionInfo.Version
+	versionInfo.Version = "v0.50.10-1-gabcdef0"
+	t.Cleanup(func() { versionInfo.Version = previousVersion })
+}
+
+func writeForgeCheckoutFixture(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	for path, content := range map[string]string{
+		"go.mod":               "module github.com/alexandremahdhaoui/forge\n\ngo 1.26.5\n",
+		"cmd/forge/main.go":    "package main\n\nfunc main() {}\n",
+		"cmd/go-build/main.go": "package main\n\nfunc main() {}\n",
+	} {
+		full := filepath.Join(dir, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatalf("creating %s: %v", filepath.Dir(full), err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatalf("writing %s: %v", full, err)
+		}
+	}
+
+	return dir
+}
+
+func TestResolveEngine_MultiEngineAlias(t *testing.T) {
 	spec := &forge.Spec{
 		Engines: []forge.EngineConfig{
 			{
@@ -53,62 +85,49 @@ func TestResolveEngine_MultiEngineAlias(t *testing.T) {
 		},
 	}
 
-	// Test multi-engine alias resolution
-	t.Run("multi-engine builder alias", func(t *testing.T) {
-		// Multi-engine aliases should return an error in resolveEngine
-		// (they should be detected and handled by the orchestrator before calling resolveEngine)
+	t.Run("a multi engine builder alias is refused as not resolvable to one engine", func(t *testing.T) {
+		isolateEngineResolution(t, "")
+
 		_, _, err := resolveEngine("alias://multi-builder", spec)
-
-		// The bug was that this would fail with "cannot be resolved to a single engine"
-		// After the fix, it should still error (since resolveEngine shouldn't be called for multi-engine)
-		// but the caller should detect multi-engine BEFORE calling resolveEngine
-		if err == nil {
-			t.Error("Multi-engine alias should error in resolveEngine (should be handled by orchestrator)")
-		} else if !strings.Contains(err.Error(), "cannot be resolved") {
-			t.Errorf("Unexpected error for multi-engine alias: %v", err)
-		} else {
-			t.Logf("Got expected error (but this shouldn't be reached in fixed code): %v", err)
+		if err == nil || !strings.Contains(err.Error(), "cannot be resolved") {
+			t.Fatalf("expected the multi engine alias to be refused as not resolvable, got %v", err)
 		}
 	})
 
-	// Test single-engine alias resolution (should work)
-	t.Run("single-engine builder alias", func(t *testing.T) {
-		command, args, err := resolveEngine("alias://single-builder", spec)
-		if err != nil {
-			t.Fatalf("Single-engine alias should resolve successfully: %v", err)
-		}
-		if command == "" {
-			t.Error("Expected command to be set")
-		}
-		if args == nil {
-			t.Error("Expected args to be set")
-		}
-		t.Logf("Single-engine alias resolved to: command=%s, args=%v", command, args)
-	})
+	for _, uri := range []string{"alias://single-builder", "forge://go-build"} {
+		t.Run(uri+" is refused by name when no source dir is stamped and FORGE_RUN_LOCAL_BASEDIR is unset", func(t *testing.T) {
+			isolateEngineResolution(t, "")
 
-	// Test direct forge:// URI (should work)
-	t.Run("direct forge:// URI", func(t *testing.T) {
-		command, args, err := resolveEngine("forge://go-build", spec)
-		if err != nil {
-			t.Fatalf("Direct forge:// URI should resolve successfully: %v", err)
-		}
-		if command == "" {
-			t.Error("Expected command to be set")
-		}
-		if args == nil {
-			t.Error("Expected args to be set")
-		}
-		t.Logf("Direct URI resolved to: command=%s, args=%v", command, args)
-	})
+			_, _, err := resolveEngine(uri, spec)
+			if err == nil {
+				t.Fatal("expected a refusal naming the missing source, got a resolved engine")
+			}
+			if !strings.Contains(err.Error(), "this binary carries no stamped source directory and FORGE_RUN_LOCAL_BASEDIR is unset") {
+				t.Fatalf("expected the refusal to name the stamped source directory and FORGE_RUN_LOCAL_BASEDIR, got %v", err)
+			}
+		})
+
+		t.Run(uri+" runs the engine built from the checkout FORGE_RUN_LOCAL_BASEDIR names", func(t *testing.T) {
+			checkout := writeForgeCheckoutFixture(t)
+			isolateEngineResolution(t, checkout)
+
+			command, args, err := resolveEngine(uri, spec)
+			if err != nil {
+				t.Fatalf("expected the engine to build from %s, got %v", checkout, err)
+			}
+
+			want := filepath.Join(checkout, "build", "local-engines", "go-build")
+			if command != want || args != nil {
+				t.Fatalf("expected command %s with no args, got command %s with args %v", want, command, args)
+			}
+			if _, err := os.Stat(want); err != nil {
+				t.Fatalf("expected the built engine at %s: %v", want, err)
+			}
+		})
+	}
 }
 
-// TestBuildLogic_MultiEngineDetection tests that the build logic correctly
-// detects multi-engine aliases BEFORE calling resolveEngine.
 func TestBuildLogic_MultiEngineDetection(t *testing.T) {
-	// This test verifies the fix: build.go should check for multi-engine
-	// aliases BEFORE calling resolveEngine(), routing them to orchestration
-	// instead of attempting to resolve them to a single engine.
-
 	spec := &forge.Spec{
 		Name: "test-project",
 		Engines: []forge.EngineConfig{
@@ -125,7 +144,6 @@ func TestBuildLogic_MultiEngineDetection(t *testing.T) {
 
 	engineURI := "alias://generate-all"
 
-	// Simulate the build.go logic flow after our fix
 	if strings.HasPrefix(engineURI, "alias://") {
 		aliasName := strings.TrimPrefix(engineURI, "alias://")
 		engineConfig := getEngineConfig(aliasName, spec)
@@ -134,15 +152,12 @@ func TestBuildLogic_MultiEngineDetection(t *testing.T) {
 			t.Fatal("Engine alias not found")
 		}
 
-		// Check if it's a multi-engine builder
 		if engineConfig.Type == forge.BuilderEngineConfigType && len(engineConfig.Builder) > 1 {
 			t.Logf("✅ Multi-engine builder detected (%d engines)", len(engineConfig.Builder))
 			t.Log("✅ Would route to orchestrator (NOT call resolveEngine)")
-			// SUCCESS: This is the fix - we detect multi-engine BEFORE calling resolveEngine
 			return
 		}
 
-		// Single-engine alias - would call resolveEngine here
 		_, _, err := resolveEngine(engineURI, spec)
 		if err != nil {
 			t.Fatalf("Single-engine alias resolution failed: %v", err)
